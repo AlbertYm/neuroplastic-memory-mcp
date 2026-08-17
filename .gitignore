@@ -67,4 +67,7 @@ soak-results/
 
 # Python install-manager cache (pymanager) — not part of this project
 /Python/
+
+# Windows PowerShell module cache — swept in from the user profile, not ours
+/Microsoft/
 .adr-backup-20260707-143722/
