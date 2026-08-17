@@ -18,8 +18,8 @@
 
 ## Links
 
-- Homepage: https://zr113146.github.io/semantic-memory-mcp/
-- Source code (GitHub): https://github.com/ZR113146/semantic-memory-mcp
-- Latest release: https://github.com/ZR113146/semantic-memory-mcp/releases/latest
-- Benchmark report: https://github.com/ZR113146/semantic-memory-mcp/blob/main/docs/BENCHMARK.md
+- Homepage: https://albertym.github.io/neuroplastic-memory-mcp/
+- Source code (GitHub): https://github.com/AlbertYm/neuroplastic-memory-mcp
+- Latest release: https://github.com/AlbertYm/neuroplastic-memory-mcp/releases/latest
+- Benchmark report: https://github.com/AlbertYm/neuroplastic-memory-mcp/blob/main/docs/BENCHMARK.md
 - Research paper: https://arxiv.org/abs/2603.27277

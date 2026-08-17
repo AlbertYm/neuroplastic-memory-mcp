@@ -10,7 +10,7 @@ const path = require('path');
 const os = require('os');
 const { execFileSync } = require('child_process');
 
-const REPO = 'ZR113146/semantic-memory-mcp';
+const REPO = 'AlbertYm/neuroplastic-memory-mcp';
 const VERSION = require('./package.json').version;
 const BIN_DIR = path.join(__dirname, 'bin');
 

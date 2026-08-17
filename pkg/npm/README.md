@@ -1,9 +1,9 @@
-# @zr113146/semantic-memory-mcp
+# @albertym/neuroplastic-memory-mcp
 
-[![npm](https://img.shields.io/npm/v/@zr113146/semantic-memory-mcp?style=flat&color=blue)](https://www.npmjs.com/package/@zr113146/semantic-memory-mcp)
-[![GitHub Release](https://img.shields.io/github/v/release/ZR113146/semantic-memory-mcp?style=flat&color=blue)](https://github.com/ZR113146/semantic-memory-mcp/releases/latest)
-[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/ZR113146/semantic-memory-mcp/blob/main/LICENSE)
-[![Platform](https://img.shields.io/badge/macOS_%7C_Linux_%7C_Windows-supported-lightgrey)](https://github.com/ZR113146/semantic-memory-mcp/releases/latest)
+[![npm](https://img.shields.io/npm/v/@albertym/neuroplastic-memory-mcp?style=flat&color=blue)](https://www.npmjs.com/package/@albertym/neuroplastic-memory-mcp)
+[![GitHub Release](https://img.shields.io/github/v/release/AlbertYm/neuroplastic-memory-mcp?style=flat&color=blue)](https://github.com/AlbertYm/neuroplastic-memory-mcp/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/AlbertYm/neuroplastic-memory-mcp/blob/main/LICENSE)
+[![Platform](https://img.shields.io/badge/macOS_%7C_Linux_%7C_Windows-supported-lightgrey)](https://github.com/AlbertYm/neuroplastic-memory-mcp/releases/latest)
 
 **The fastest and most efficient code intelligence engine for AI coding agents.** Full-indexes an average repository in milliseconds, the Linux kernel (28M LOC, 75K files) in 3 minutes. Answers structural queries in under 1ms. Ships as a single static binary — this package downloads and runs it automatically.
 
@@ -12,7 +12,7 @@ High-quality parsing through [tree-sitter](https://tree-sitter.github.io/tree-si
 ## Installation
 
 ```bash
-npm install -g @zr113146/semantic-memory-mcp
+npm install -g @albertym/neuroplastic-memory-mcp
 ```
 
 The binary for your platform is downloaded automatically at install time. Then configure your coding agents:
@@ -83,7 +83,7 @@ Benchmarked on Apple M3 Pro:
 
 ## Full Documentation
 
-See [github.com/ZR113146/semantic-memory-mcp](https://github.com/ZR113146/semantic-memory-mcp) for the full README including all MCP tools, configuration options, graph data model, and language support details.
+See [github.com/AlbertYm/neuroplastic-memory-mcp](https://github.com/AlbertYm/neuroplastic-memory-mcp) for the full README including all MCP tools, configuration options, graph data model, and language support details.
 
 ## License
 

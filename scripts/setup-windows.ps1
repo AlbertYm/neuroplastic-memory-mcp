@@ -9,7 +9,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$Repo = "ZR113146/semantic-memory-mcp"
+$Repo = "AlbertYm/neuroplastic-memory-mcp"
 $BinaryName = "semantic-memory-mcp"
 $InstallDir = Join-Path $env:LOCALAPPDATA "semantic-memory-mcp"
 

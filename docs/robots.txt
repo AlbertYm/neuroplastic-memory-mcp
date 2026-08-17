@@ -30,4 +30,4 @@ Allow: /
 User-agent: Bingbot
 Allow: /
 
-Sitemap: https://zr113146.github.io/semantic-memory-mcp/sitemap.xml
+Sitemap: https://albertym.github.io/neuroplastic-memory-mcp/sitemap.xml

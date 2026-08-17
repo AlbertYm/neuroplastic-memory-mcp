@@ -24,9 +24,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ZR113146/semantic-memory-mcp"
-Repository = "https://github.com/ZR113146/semantic-memory-mcp"
-Issues = "https://github.com/ZR113146/semantic-memory-mcp/issues"
+Homepage = "https://github.com/AlbertYm/neuroplastic-memory-mcp"
+Repository = "https://github.com/AlbertYm/neuroplastic-memory-mcp"
+Issues = "https://github.com/AlbertYm/neuroplastic-memory-mcp/issues"
 
 [project.scripts]
 semantic-memory-mcp = "semantic_memory_mcp:main"

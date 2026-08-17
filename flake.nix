@@ -33,7 +33,7 @@
 
           meta = {
             description = "MCP server that builds and queries a semantic graph of your codebase";
-            homepage = "https://github.com/ZR113146/semantic-memory-mcp";
+            homepage = "https://github.com/AlbertYm/neuroplastic-memory-mcp";
             license = nixpkgs.lib.licenses.mit;
             mainProgram = "semantic-memory-mcp";
             platforms = systems;

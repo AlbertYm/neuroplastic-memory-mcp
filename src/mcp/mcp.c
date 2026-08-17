@@ -7188,7 +7188,7 @@ static void maybe_auto_index(cbm_mcp_server_t *srv) {
 
 /* ── Background update check ──────────────────────────────────── */
 
-#define UPDATE_CHECK_URL "https://api.github.com/repos/ZR113146/semantic-memory-mcp/releases/latest"
+#define UPDATE_CHECK_URL "https://api.github.com/repos/AlbertYm/neuroplastic-memory-mcp/releases/latest"
 
 static void *update_check_thread(void *arg) {
     cbm_mcp_server_t *srv = (cbm_mcp_server_t *)arg;
@@ -7231,7 +7231,7 @@ static void *update_check_thread(void *arg) {
             snprintf(srv->update_notice, sizeof(srv->update_notice),
                      "Update available: %s -> %s -- run: semantic-memory-mcp update  |  "
                      "Enjoying semantic-memory-mcp? Please leave a star: "
-                     "https://github.com/ZR113146/semantic-memory-mcp",
+                     "https://github.com/AlbertYm/neuroplastic-memory-mcp",
                      current, tag_str);
             cbm_log_info("update.available", "current", current, "latest", tag_str);
         }

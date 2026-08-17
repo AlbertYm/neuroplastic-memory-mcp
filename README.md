@@ -1,17 +1,17 @@
 # semantic-memory-mcp
 
-[![GitHub Release](https://img.shields.io/github/v/release/ZR113146/semantic-memory-mcp?style=flat&color=blue)](https://github.com/ZR113146/semantic-memory-mcp/releases/latest)
+[![GitHub Release](https://img.shields.io/github/v/release/AlbertYm/neuroplastic-memory-mcp?style=flat&color=blue)](https://github.com/AlbertYm/neuroplastic-memory-mcp/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/ZR113146/semantic-memory-mcp/dry-run.yml?label=CI)](https://github.com/ZR113146/semantic-memory-mcp/actions/workflows/dry-run.yml)
-[![Tests](https://img.shields.io/badge/tests-5600+_passing-brightgreen)](https://github.com/ZR113146/semantic-memory-mcp)
-[![Languages](https://img.shields.io/badge/languages-158-orange)](https://github.com/ZR113146/semantic-memory-mcp)
+[![CI](https://img.shields.io/github/actions/workflow/status/AlbertYm/neuroplastic-memory-mcp/dry-run.yml?label=CI)](https://github.com/AlbertYm/neuroplastic-memory-mcp/actions/workflows/dry-run.yml)
+[![Tests](https://img.shields.io/badge/tests-5600+_passing-brightgreen)](https://github.com/AlbertYm/neuroplastic-memory-mcp)
+[![Languages](https://img.shields.io/badge/languages-158-orange)](https://github.com/AlbertYm/neuroplastic-memory-mcp)
 [![Hybrid LSP](https://img.shields.io/badge/Hybrid_LSP-11_languages-blue)](#hybrid-lsp)
-[![Agents](https://img.shields.io/badge/agents-11-purple)](https://github.com/ZR113146/semantic-memory-mcp)
-[![Pure C](https://img.shields.io/badge/pure_C-zero_dependencies-blue)](https://github.com/ZR113146/semantic-memory-mcp)
-[![Platform](https://img.shields.io/badge/macOS_%7C_Linux_%7C_Windows-supported-lightgrey)](https://github.com/ZR113146/semantic-memory-mcp/releases/latest)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/ZR113146/semantic-memory-mcp/badge)](https://scorecard.dev/viewer/?uri=github.com/ZR113146/semantic-memory-mcp)
+[![Agents](https://img.shields.io/badge/agents-11-purple)](https://github.com/AlbertYm/neuroplastic-memory-mcp)
+[![Pure C](https://img.shields.io/badge/pure_C-zero_dependencies-blue)](https://github.com/AlbertYm/neuroplastic-memory-mcp)
+[![Platform](https://img.shields.io/badge/macOS_%7C_Linux_%7C_Windows-supported-lightgrey)](https://github.com/AlbertYm/neuroplastic-memory-mcp/releases/latest)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/AlbertYm/neuroplastic-memory-mcp/badge)](https://scorecard.dev/viewer/?uri=github.com/AlbertYm/neuroplastic-memory-mcp)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
-[![VirusTotal](https://img.shields.io/badge/VirusTotal-scanned_every_release-brightgreen?logo=virustotal)](https://github.com/ZR113146/semantic-memory-mcp/releases/latest)
+[![VirusTotal](https://img.shields.io/badge/VirusTotal-scanned_every_release-brightgreen?logo=virustotal)](https://github.com/AlbertYm/neuroplastic-memory-mcp/releases/latest)
 [![arXiv](https://img.shields.io/badge/arXiv-2603.27277-b31b1b?logo=arxiv)](https://arxiv.org/abs/2603.27277)
 
 > **AlbertYm fork** — adds a **neuroplastic long-term memory layer** (bounded graph activation spreading, edge-level reinforcement, slime-mould conductance with decay and soft pruning, and concept generation) on top of [ZR113146/semantic-memory-mcp](https://github.com/ZR113146/semantic-memory-mcp), which is itself an upstream-aligned fork of [DeusData/codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) carrying a locally-developed **ADR long-term memory system** and **Chinese-optimized CJK FTS segmentation**. Memory/ADR code lives in `src/memory/` and `src/mcp/mcp_memory_handlers.c` so upstream merges remain trivial (<1 minute, zero store.c conflicts). Full layer-by-layer attribution: [`AUTHORS.md`](AUTHORS.md).
@@ -40,17 +40,17 @@ This fork maintains **near-zero diff** with upstream on core engine files (store
 
 **One-line install** (macOS / Linux):
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ZR113146/semantic-memory-mcp/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/AlbertYm/neuroplastic-memory-mcp/main/install.sh | bash
 ```
 
 With graph visualization UI:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ZR113146/semantic-memory-mcp/main/install.sh | bash -s -- --ui
+curl -fsSL https://raw.githubusercontent.com/AlbertYm/neuroplastic-memory-mcp/main/install.sh | bash -s -- --ui
 ```
 
 **Windows** (PowerShell):
 ```powershell
-Invoke-WebRequest -Uri https://raw.githubusercontent.com/ZR113146/semantic-memory-mcp/main/install.ps1 -OutFile install.ps1
+Invoke-WebRequest -Uri https://raw.githubusercontent.com/AlbertYm/neuroplastic-memory-mcp/main/install.ps1 -OutFile install.ps1
 .\install.ps1
 ```
 
@@ -287,7 +287,7 @@ semantic-memory-mcp config set auto_index_limit 50000
 ## Build from Source
 
 ```bash
-git clone https://github.com/ZR113146/semantic-memory-mcp.git
+git clone https://github.com/AlbertYm/neuroplastic-memory-mcp.git
 cd semantic-memory-mcp
 scripts/build.sh                    # standard binary
 scripts/build.sh --with-ui          # with graph visualization
