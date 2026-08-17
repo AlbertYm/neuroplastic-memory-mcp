@@ -14,7 +14,7 @@
 [![VirusTotal](https://img.shields.io/badge/VirusTotal-scanned_every_release-brightgreen?logo=virustotal)](https://github.com/ZR113146/semantic-memory-mcp/releases/latest)
 [![arXiv](https://img.shields.io/badge/arXiv-2603.27277-b31b1b?logo=arxiv)](https://arxiv.org/abs/2603.27277)
 
-> **ZR113146 fork** — upstream-aligned fork of [DeusData/codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) with a locally-developed **ADR long-term memory system** and **Chinese-optimized CJK FTS segmentation**. Memory/ADR code lives in `src/memory/` and `src/mcp/mcp_memory_handlers.c` so upstream merges remain trivial (<1 minute, zero store.c conflicts).
+> **AlbertYm fork** — adds a **neuroplastic long-term memory layer** (bounded graph activation spreading, edge-level reinforcement, slime-mould conductance with decay and soft pruning, and concept generation) on top of [ZR113146/semantic-memory-mcp](https://github.com/ZR113146/semantic-memory-mcp), which is itself an upstream-aligned fork of [DeusData/codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) carrying a locally-developed **ADR long-term memory system** and **Chinese-optimized CJK FTS segmentation**. Memory/ADR code lives in `src/memory/` and `src/mcp/mcp_memory_handlers.c` so upstream merges remain trivial (<1 minute, zero store.c conflicts). Full layer-by-layer attribution: [`AUTHORS.md`](AUTHORS.md).
 
 ## What This Is
 
