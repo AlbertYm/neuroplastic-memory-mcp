@@ -3457,9 +3457,9 @@ static bool stage14_load_canary_authorization(const char *request_path, const ch
             *out_code = "PRODUCTION_GATE_NOT_LOADED";
         return false;
     }
-    const char *no_global_union_ptr =
-        cbm_safe_getenv("CBM_MEMORY_NO_GLOBAL_UNION", no_global_union, sizeof(no_global_union),
-                        NULL);
+    const char *no_global_union_ptr = cbm_safe_getenv("CBM_MEMORY_NO_GLOBAL_UNION",
+                                                       no_global_union,
+                                                       sizeof(no_global_union), NULL);
     bool no_global_union_present = (no_global_union_ptr != NULL);
     if (!cbm_safe_getenv("CBM_MEMORY_AUTO_MAINTAIN", auto_maintain, sizeof(auto_maintain), NULL) ||
         strcmp(auto_maintain, "0") != 0 ||
