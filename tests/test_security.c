@@ -459,7 +459,7 @@ TEST(exec_no_shell_captures_exit_code) {
  *
  *  Regression guard for #697: cbm_exec_no_shell used _spawnvp, whose
  *  MinGW CRT did not quote arguments containing spaces. The taskkill
- *  filter "IMAGENAME eq codebase-memory-mcp.exe" was passed as three
+ *  filter "IMAGENAME eq semantic-memory-mcp.exe" was passed as three
  *  bare tokens, so taskkill printed
  *      ERROR: Invalid argument/option - 'eq'.
  *  on every install. cbm_build_cmdline now performs MSVC-convention
@@ -483,8 +483,8 @@ TEST(exec_no_shell_captures_exit_code) {
 TEST(cmdline_taskkill_filter_is_single_quoted_token) {
     /* The exact #697 regression: the filter value contains spaces and
      * must survive as ONE quoted argument, not three bare words. */
-    const char *argv[] = {"taskkill", "/FI", "IMAGENAME eq codebase-memory-mcp.exe", NULL};
-    ASSERT_CMDLINE(argv, L"taskkill /FI \"IMAGENAME eq codebase-memory-mcp.exe\"");
+    const char *argv[] = {"taskkill", "/FI", "IMAGENAME eq semantic-memory-mcp.exe", NULL};
+    ASSERT_CMDLINE(argv, L"taskkill /FI \"IMAGENAME eq semantic-memory-mcp.exe\"");
     PASS();
 }
 
@@ -496,8 +496,8 @@ TEST(cmdline_simple_args_are_not_quoted) {
 }
 
 TEST(cmdline_single_arg_no_trailing_space) {
-    const char *argv[] = {"codebase-memory-mcp.exe", NULL};
-    ASSERT_CMDLINE(argv, L"codebase-memory-mcp.exe");
+    const char *argv[] = {"semantic-memory-mcp.exe", NULL};
+    ASSERT_CMDLINE(argv, L"semantic-memory-mcp.exe");
     PASS();
 }
 

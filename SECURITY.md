@@ -29,7 +29,7 @@ check is ignored. The request is also bounded with `curl --max-time 5`; a
 process shutting down immediately while the check is still running may wait for
 that bounded background thread to finish.
 
-Explicit install, package-manager, and `codebase-memory-mcp update` flows are
+Explicit install, package-manager, and `semantic-memory-mcp update` flows are
 separate user-initiated network operations that download release assets and
 checksums from GitHub.
 

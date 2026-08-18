@@ -178,7 +178,7 @@ TEST(repro_issue409_install_wires_hook_augment_not_blocking_gate) {
      * install_claude_code_config in src/cli/cli.c lines 3045-3046). */
     int rc = cbm_upsert_claude_hooks(settings_path);
     ASSERT_EQ(rc, 0);
-    cbm_install_hook_gate_script(tmpdir, "/usr/local/bin/codebase-memory-mcp");
+    cbm_install_hook_gate_script(tmpdir, "/usr/local/bin/semantic-memory-mcp");
 
     /* ── Assert the gate script was OVERWRITTEN with the non-blocking shim ── */
     const char *script_data = rp409_read_file(script_path);

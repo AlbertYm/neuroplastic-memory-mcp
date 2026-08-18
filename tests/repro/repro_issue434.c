@@ -148,7 +148,7 @@ TEST(repro_issue434_persistence_honored_on_first_create) {
         const char *home = getenv("HOME");
         if (!home) home = "/tmp";
         char dbpath[600];
-        snprintf(dbpath, sizeof(dbpath), "%s/.cache/codebase-memory-mcp/%s.db",
+        snprintf(dbpath, sizeof(dbpath), "%s/.cache/semantic-memory-mcp/%s.db",
                  home, proj);
         unlink(dbpath);
         free(proj);

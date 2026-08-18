@@ -681,7 +681,7 @@ echo ""
 echo "=== Phase 6: CLI subcommands ==="
 
 DRYRUN_HOME=$(mktemp -d)
-DRYRUN_CACHE="$DRYRUN_HOME/.cache/codebase-memory-mcp"
+DRYRUN_CACHE="$DRYRUN_HOME/.cache/semantic-memory-mcp"
 mkdir -p "$DRYRUN_CACHE" \
   "$DRYRUN_HOME/.local/bin" \
   "$DRYRUN_HOME/.config" \
