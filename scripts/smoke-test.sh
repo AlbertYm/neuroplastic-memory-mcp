@@ -17,6 +17,13 @@ DRYRUN_HOME=""
 if command -v cygpath &>/dev/null; then
     TMPDIR=$(cygpath -m "$TMPDIR")
 fi
+
+# Stage 14: Set CBM_CACHE_DIR to ensure global memory store can be created
+# in CI environments where default cache dir may not exist or lack permissions
+CACHE_DIR="$TMPDIR/.cache"
+mkdir -p "$CACHE_DIR"
+export CBM_CACHE_DIR="$CACHE_DIR"
+
 trap 'rm -rf "$TMPDIR" "${DRYRUN_HOME:-}"' EXIT
 
 CLI_STDERR=$(mktemp)
