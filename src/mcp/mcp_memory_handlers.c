@@ -4411,7 +4411,14 @@ char *handle_adr_list(cbm_mcp_server_t *srv, const char *args) {
                         yyjson_arr_foreach(pitems, pi, pmax, pv) {
                             if (nitems == icap) {
                                 icap = icap ? icap * 2 : 64;
-                                items = realloc(items, (size_t)icap * sizeof(*items));
+                                /* Realloc into a temp first: on failure keep the
+                                 * existing buffer (memleak-on-realloc); break and
+                                 * process what we already collected. */
+                                void *grown = realloc(items, (size_t)icap * sizeof(*items));
+                                if (!grown) {
+                                    break;
+                                }
+                                items = grown;
                             }
                             if (items) {
                                 yyjson_val *imp = yyjson_obj_get(pv, "importance");
@@ -4437,7 +4444,14 @@ char *handle_adr_list(cbm_mcp_server_t *srv, const char *args) {
                         yyjson_arr_foreach(gitems, gi, gmax, gv) {
                             if (nitems == icap) {
                                 icap = icap ? icap * 2 : 64;
-                                items = realloc(items, (size_t)icap * sizeof(*items));
+                                /* Realloc into a temp first: on failure keep the
+                                 * existing buffer (memleak-on-realloc); break and
+                                 * process what we already collected. */
+                                void *grown = realloc(items, (size_t)icap * sizeof(*items));
+                                if (!grown) {
+                                    break;
+                                }
+                                items = grown;
                             }
                             if (items) {
                                 yyjson_val *imp = yyjson_obj_get(gv, "importance");

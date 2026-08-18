@@ -16,6 +16,10 @@ concurrency:
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    # CodeQL C/C++ manual-build+analyze routinely takes ~45m on this repo; give
+    # it a generous explicit cap so a hang is still caught (GitHub's job default
+    # of 6h is too long to fail fast), while never tripping the gate's wait.
+    timeout-minutes: 300
     # CodeQL needs security-events: write to upload results; scoped to this job so
     # the workflow's top-level token stays read-only (Scorecard TokenPermissions).
     permissions:

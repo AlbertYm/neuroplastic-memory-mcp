@@ -25,9 +25,10 @@
 enum {
     MAIN_MIN_ARGC = 1,
     MAIN_CLI_ARGC = 2,
-    MAIN_FLAG_OFF = 5, /* strlen("--ui=") */
-    MAIN_PORT_OFF = 7, /* strlen("--port=") */
+    MAIN_FLAG_OFF = 5,        /* strlen("--ui=") */
+    MAIN_PORT_OFF = 7,        /* strlen("--port=") */
     MAIN_MAX_PORT = 65536,
+    MAIN_CLI_FLAG_LEN = 2,    /* strlen("--") — CLI flag prefix */
     PARENT_WATCHDOG_STACK_SIZE = 64 * CBM_SZ_1K, /* watchdog only polls — tiny stack suffices */
 };
 #define MAIN_RAM_FRACTION 0.5
@@ -55,6 +56,16 @@ enum {
 #include <windows.h>
 #include <shellapi.h>
 #include <bcrypt.h>
+#include <io.h> /* _isatty, _fileno */
+#endif
+
+/* True when stdin is an interactive terminal (vs a pipe / redirected file).
+ * Used by the CLI arg-input dispatcher to decide whether to read JSON from
+ * stdin when no explicit args are given (smoke-test Phase 3h, B4). */
+#ifdef _WIN32
+#define CBM_CLI_STDIN_IS_TTY() _isatty(cbm_fileno(stdin))
+#else
+#define CBM_CLI_STDIN_IS_TTY() isatty(cbm_fileno(stdin))
 #endif
 
 #ifndef CBM_VERSION
@@ -1359,7 +1370,7 @@ static int watcher_index_fn(const char *project_name, const char *root_path, voi
 
 /* ── CLI mode ───────────────────────────────────────────────────── */
 
-#define CLI_USAGE "Usage: semantic-memory-mcp cli [--progress] [--json] <tool_name> [json_args]\n"
+#define CLI_USAGE "Usage: semantic-memory-mcp cli [--progress] [--json] <tool_name> [--flag value... | --args-file <path> | '<raw-json>']\n"
 
 /* Extract text content from MCP tool result envelope and print it.
  * MCP results: {"content":[{"type":"text","text":"..."}],"isError":...}
@@ -1442,6 +1453,86 @@ static bool cli_strip_flag(int *argc, char **argv, const char *flag) {
     return false;
 }
 
+/* Read the whole FILE stream (stdin or an opened file) up to EOF into a
+ * NUL-terminated heap buffer. Returns NULL on I/O failure. Caller frees. */
+static char *cli_read_stream(FILE *fp) {
+    size_t cap = CBM_SZ_4K;
+    size_t len = 0;
+    char *buf = malloc(cap + SKIP_ONE);
+    if (!buf) {
+        return NULL;
+    }
+    buf[0] = '\0';
+    for (;;) {
+        if (len == cap) {
+            cap *= SKIP_ONE + SKIP_ONE;
+            char *grown = realloc(buf, cap + SKIP_ONE);
+            if (!grown) {
+                free(buf);
+                return NULL;
+            }
+            buf = grown;
+        }
+        size_t n = fread(buf + len, SKIP_ONE, cap - len, fp);
+        len += n;
+        if (n == 0) {
+            break; /* EOF or error; caller checks ferror via empty result */
+        }
+    }
+    buf[len] = '\0';
+    return buf;
+}
+
+/* Read an entire file into a NUL-terminated heap buffer. NULL on failure. */
+static char *cli_read_file(const char *path) {
+    FILE *fp = fopen(path, "rb");
+    if (!fp) {
+        return NULL;
+    }
+    char *data = cli_read_stream(fp);
+    (void)fclose(fp);
+    return data;
+}
+
+/* Scan argv (starting at index 1 — argv[0] is the tool name) for an
+ * `--args-file <path>` or `--args-file=<path>` flag. If found, remove the flag
+ * (and its value token) from argv, decrement *argc accordingly, and return the
+ * path via *out_path (borrowed from argv, non-owning). Returns true if found. */
+static bool cli_strip_args_file(int *argc, char **argv, const char **out_path) {
+    for (int i = SKIP_ONE; i < *argc; i++) {
+        if (strcmp(argv[i], "--args-file") == 0) {
+            if (i + SKIP_ONE >= *argc) {
+                return false; /* --args-file with no value: leave for error path */
+            }
+            *out_path = argv[i + SKIP_ONE];
+            /* Shift left by 2 to drop the flag and its value. */
+            for (int j = i; j < *argc - SKIP_ONE - SKIP_ONE; j++) {
+                argv[j] = argv[j + SKIP_ONE + SKIP_ONE];
+            }
+            *argc -= SKIP_ONE + SKIP_ONE;
+            return true;
+        }
+        if (strncmp(argv[i], "--args-file=", sizeof("--args-file=") - 1) == 0) {
+            *out_path = argv[i] + sizeof("--args-file=") - SKIP_ONE;
+            for (int j = i; j < *argc - SKIP_ONE; j++) {
+                argv[j] = argv[j + SKIP_ONE];
+            }
+            (*argc)--;
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Whether an argv token (after the tool name) is raw JSON (starts with { or [)
+ * rather than a --flag. */
+static bool cli_is_raw_json(const char *s) {
+    while (*s == ' ' || *s == '\t') {
+        s++;
+    }
+    return *s == '{' || *s == '[';
+}
+
 static int run_cli(int argc, char **argv) {
     if (argc < MAIN_MIN_ARGC) {
         (void)fprintf(stderr, CLI_USAGE);
@@ -1453,42 +1544,143 @@ static int run_cli(int argc, char **argv) {
 
     if (argc < MAIN_MIN_ARGC) {
         (void)fprintf(stderr, CLI_USAGE);
-        return SKIP_ONE;
-    }
-
-    const char *tool_name = argv[0];
-    const char *args_json = argc >= MAIN_CLI_ARGC ? argv[SKIP_ONE] : "{}";
-
-    if (progress) {
-        cbm_progress_sink_init(stderr);
-    }
-
-    cbm_mcp_server_t *srv = cbm_mcp_server_new(NULL);
-    if (!srv) {
-        (void)fprintf(stderr, "error: failed to create server\n");
         if (progress) {
             cbm_progress_sink_fini();
         }
         return SKIP_ONE;
     }
 
-    char *result = cbm_mcp_handle_tool(srv, tool_name, args_json);
-    int exit_code = 0;
+    const char *tool_name = argv[0];
 
-    if (result) {
-        if (raw_json) {
-            printf("%s\n", result);
-        } else {
-            exit_code = cli_print_mcp_result(result);
-        }
-        free(result);
-    }
-
-    cbm_mcp_server_free(srv);
     if (progress) {
-        cbm_progress_sink_fini();
+        cbm_progress_sink_init(stderr);
     }
-    return exit_code;
+
+    /* ── Input-mode dispatch ───────────────────────────────────────
+     * smoke-test Phase 3h (scripts/smoke-test.sh, cases B1–B7) defines the
+     * accepted call forms:
+     *   cli <tool> --flag value ...            (B1/B2/B3) — schema-typed flags
+     *   cli <tool> --help                      (B6)      — per-tool help
+     *   cli <tool> --args-file <path>          (B5)      — JSON file
+     *   echo '<json>' | cli <tool>             (B4)      — JSON on stdin
+     *   cli <tool> '{...}'                     (B7)      — raw JSON (deprecated)
+     * With zero args and no piped stdin, it defaults to {} (an empty tool call).
+     * Legacy `--progress` / `--json` are stripped above. */
+
+    char *json_owned = NULL;  /* heap args JSON we allocate and must free */
+    const char *json = NULL;  /* effective args JSON passed to the tool */
+
+    /* B6: --help / -h anywhere after the tool name. Must be handled before
+     * flag parsing so unknown tools error cleanly (B6c). */
+    for (int i = SKIP_ONE; i < argc; i++) {
+        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            int rc = cbm_cli_print_tool_help(tool_name);
+            if (progress) {
+                cbm_progress_sink_fini();
+            }
+            if (rc != 0) {
+                (void)fprintf(stderr, "error: unknown tool '%s'\n", tool_name);
+                return SKIP_ONE;
+            }
+            return 0;
+        }
+    }
+
+    /* B5: --args-file <path> — JSON read straight from the file. The flag
+     * (and its value) are stripped from argv before any flag-form detection. */
+    const char *args_file = NULL;
+    if (cli_strip_args_file(&argc, argv, &args_file)) {
+        json = cli_read_file(args_file);
+        if (!json) {
+            if (progress) {
+                cbm_progress_sink_fini();
+            }
+            (void)fprintf(stderr, "error: cannot read --args-file '%s'\n", args_file);
+            return SKIP_ONE;
+        }
+        json_owned = (char *)json;
+        goto handled;
+    }
+
+    /* argv[1..] after stripping --progress/--json/--args-file. */
+    if (argc >= MAIN_CLI_ARGC) {
+        if (cli_is_raw_json(argv[SKIP_ONE])) {
+            /* B7: raw JSON remains accepted but is deprecated. Emit a warning
+             * on stderr — flag form is preferred. */
+            (void)fprintf(stderr,
+                          "warning: raw-JSON cli argument is deprecated; "
+                          "use 'cli %s --flag value' or --args-file instead\n",
+                          tool_name);
+            json = argv[SKIP_ONE];
+            goto handled;
+        }
+        if (strncmp(argv[SKIP_ONE], "--", MAIN_CLI_FLAG_LEN) == 0) {
+            /* B1/B2/B3/B7b: flag form. Convert using the tool's input_schema. */
+            char *err = NULL;
+            json = cbm_cli_build_args_json(tool_name, argc - SKIP_ONE, argv + SKIP_ONE, &err);
+            if (!json) {
+                if (progress) {
+                    cbm_progress_sink_fini();
+                }
+                (void)fprintf(stderr, "error: %s\n", err ? err : "invalid arguments");
+                free(err);
+                return SKIP_ONE;
+            }
+            json_owned = (char *)json;
+            goto handled;
+        }
+        /* Not JSON and not a flag — malformed. */
+        if (progress) {
+            cbm_progress_sink_fini();
+        }
+        (void)fprintf(stderr, "error: unexpected argument '%s'\n", argv[SKIP_ONE]);
+        return SKIP_ONE;
+    }
+
+    /* B4: no explicit args. If stdin is piped (not a TTY), read JSON from it;
+     * an interactive terminal (or empty pipe) degrades to an empty object. */
+    if (!CBM_CLI_STDIN_IS_TTY()) {
+        char *stdin_json = cli_read_stream(stdin);
+        if (stdin_json && stdin_json[0] != '\0') {
+            json = stdin_json;
+            json_owned = stdin_json;
+            goto handled;
+        }
+        free(stdin_json);
+    }
+    json = "{}";
+
+handled:
+    {
+        cbm_mcp_server_t *srv = cbm_mcp_server_new(NULL);
+        if (!srv) {
+            (void)fprintf(stderr, "error: failed to create server\n");
+            free(json_owned);
+            if (progress) {
+                cbm_progress_sink_fini();
+            }
+            return SKIP_ONE;
+        }
+
+        char *result = cbm_mcp_handle_tool(srv, tool_name, json);
+        int exit_code = 0;
+
+        if (result) {
+            if (raw_json) {
+                printf("%s\n", result);
+            } else {
+                exit_code = cli_print_mcp_result(result);
+            }
+            free(result);
+        }
+
+        free(json_owned);
+        cbm_mcp_server_free(srv);
+        if (progress) {
+            cbm_progress_sink_fini();
+        }
+        return exit_code;
+    }
 }
 
 /* ── Help ───────────────────────────────────────────────────────── */
