@@ -12,9 +12,25 @@ set -euo pipefail
 
 RANGE="${1:?usage: check-dco.sh <commit-range>}"
 
+# Materialise the commit list before the loop. Feeding the loop directly from
+# `< <(git rev-list "$RANGE")` makes this check fail *open*: the process
+# substitution runs in a subshell, so a rev-list failure (bad range, shallow
+# clone, base sha not fetched) is invisible to `set -e` — the loop simply reads
+# zero lines and the script reports "OK: 0 commit(s)" and exits 0. Assigning to
+# a variable puts the exit status back on the main shell where `if` can see it.
+if ! COMMITS=$(git rev-list "$RANGE" 2>&1); then
+    echo "BLOCKED: cannot enumerate commits in range '$RANGE'"
+    printf '%s\n' "$COMMITS" | sed 's/^/  /'
+    echo "  A bad range, a shallow clone, or an unfetched base commit causes this."
+    echo "=== DCO CHECK FAILED — the range could not be read, so nothing was verified ==="
+    exit 1
+fi
+
 FAIL=0
 CHECKED=0
 while IFS= read -r sha; do
+    # An empty range yields one empty line from the here-string; skip it.
+    [ -n "$sha" ] || continue
     # Skip merge commits
     nparents=$(git rev-list --no-walk --parents -n1 "$sha" | wc -w)
     if [ "$nparents" -gt 2 ]; then
@@ -33,7 +49,7 @@ while IFS= read -r sha; do
         echo "  fix: git commit --amend -s   (or: git rebase --signoff <base>)"
         FAIL=1
     fi
-done < <(git rev-list "$RANGE")
+done <<< "$COMMITS"
 
 if [ "$FAIL" -ne 0 ]; then
     echo "=== DCO CHECK FAILED — every commit must be signed off (git commit -s) ==="

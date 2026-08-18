@@ -10,6 +10,7 @@ src/foundation/compat_fs.c:cbm_popen:cbm_popen function definition
 src/foundation/compat_fs.c:fork:cbm_exec_no_shell — fork+execvp for shell-free subprocess execution
 src/foundation/compat_fs.c:execvp:cbm_exec_no_shell — direct exec without shell interpretation
 src/foundation/compat_proc.c:fork:cbm_proc_spawn — fork+execvp+pipe for the optional embedding sidecar (shell-free, argv-only)
+src/foundation/subprocess.c:fork:cbm_run_posix - fork+execv for the supervised index subprocess (shell-free, argv-only; the child only does open/dup2/execv, no heap, so a multithreaded parent cannot deadlock)
 
 # ── CLI: update command (user-initiated, interactive) ──────────────────────
 src/cli/cli.c:cbm_popen:sha256 checksum verification (update cmd)
@@ -54,5 +55,7 @@ URL:https://api.github.com/repos/AlbertYm/neuroplastic-memory-mcp/releases/lates
 URL:https://github.com/AlbertYm/neuroplastic-memory-mcp/releases/latest/download:binary download + checksums
 URL:https://github.com/AlbertYm/neuroplastic-memory-mcp/releases/latest:version check via redirect header
 URL:http://127.0.0.1:UI server binding (localhost only)
+URL:https://%s:graph-UI absolute link template - the host comes from the validated Host header, not a hardcoded destination (src/ui/http_server.c)
+URL:http://%s:graph-UI exact-origin template for CSRF origin checks - host is srv->exact_host, bound to loopback (src/ui/http_server.c)
 URL:https://www.sqlite.org/c3ref/c_checkpoint_full.html:sqlite WAL checkpoint API doc reference (comment only, not a network call)
 URL:https://github.com/AlbertYm/neuroplastic-memory-mcp:project repository self-reference in update/star notice (src/mcp/mcp.c)
