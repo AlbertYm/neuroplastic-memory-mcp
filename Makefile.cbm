@@ -44,7 +44,11 @@ GCC_ONLY_FLAGS := -Wno-format-truncation -Wno-unused-result \
 endif
 
 CBM_VERSION_FILE = VERSION
-CBM_PRODUCT_VERSION := $(strip $(file < $(CBM_VERSION_FILE)))
+# Read with a shell rather than $(file <...): that function needs GNU Make 4.2+,
+# but macOS still ships 3.81 as /usr/bin/make, where it expands to nothing and
+# trips the guard below with a misleading "VERSION is missing or empty". The
+# tr strips any CR the file may have picked up from a Windows checkout.
+CBM_PRODUCT_VERSION := $(strip $(shell tr -d '\r' < $(CBM_VERSION_FILE) 2>/dev/null))
 ifeq ($(CBM_PRODUCT_VERSION),)
 $(error VERSION is missing or empty)
 endif
@@ -763,6 +767,13 @@ CLANG_TIDY ?= $(shell [ -x "$(LLVM_BIN)/clang-tidy" ] && echo "$(LLVM_BIN)/clang
 CLANG_FORMAT ?= $(shell [ -x "$(LLVM_BIN)/clang-format" ] && echo "$(LLVM_BIN)/clang-format" || echo clang-format)
 CPPCHECK ?= cppcheck
 
+# cppcheck runs single-threaded by default, and LINT_SRCS is ~100 files / 4.5 MB
+# of C, so the sweep dominates the lint job's wall clock. -j parallelises it per
+# translation unit. Safe with the --enable set below: the only analysis cppcheck
+# silently drops under -j is unusedFunction, which needs whole-program state and
+# is not enabled here. nproc is Linux, sysctl is macOS; 4 is the fallback.
+CPPCHECK_JOBS ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+
 # macOS SDK sysroot (needed for Homebrew LLVM to find system headers)
 SYSROOT = $(shell xcrun --show-sdk-path 2>/dev/null)
 SYSROOT_FLAG = $(if $(SYSROOT),-isysroot $(SYSROOT),)
@@ -785,6 +796,7 @@ lint-cppcheck:
 	@echo "=== cppcheck ==="
 	@$(CPPCHECK) --enable=warning,style,performance,portability \
 		--std=c11 --language=c \
+		-j $(CPPCHECK_JOBS) \
 		--suppressions-list=.cppcheck \
 		--error-exitcode=1 \
 		--inline-suppr \
