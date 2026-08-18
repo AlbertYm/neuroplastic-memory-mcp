@@ -31,7 +31,7 @@ enum {
     MCP_URI_PREFIX = 7,      /* strlen("file://") */
     MCP_CONTENT_PREFIX = 15, /* strlen("Content-Length:") */
     MCP_RETURN_2 = 2,
-    MCP_TOOLS_PAGE_SIZE = 16,
+    MCP_TOOLS_PAGE_SIZE = 18,
 };
 #define MCP_MS_TO_US 1000LL
 #define MCP_S_TO_US 1000000LL
@@ -1044,6 +1044,8 @@ static const char *MCP_FIRST_PAGE_COMPAT_TOOLS[] = {
     "query_graph",
     "search_graph",
     "trace_path",
+    "get_code_snippet",
+    "search_code",
     "memory_task_begin",
 };
 static const size_t MCP_FIRST_PAGE_COMPAT_TOOL_COUNT =
