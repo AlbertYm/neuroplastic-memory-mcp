@@ -13,9 +13,9 @@
 
 /* ── Forward declarations ─────────────────────────────────────── */
 
-typedef struct cbm_store cbm_store_t; /* from store/store.h */
-struct cbm_watcher;                   /* from watcher/watcher.h */
-struct cbm_config;                    /* from cli/cli.h */
+typedef struct cbm_store cbm_store_t;         /* from store/store.h */
+struct cbm_watcher;                           /* from watcher/watcher.h */
+struct cbm_config;                            /* from cli/cli.h */
 typedef struct yyjson_mut_doc yyjson_mut_doc; /* from yyjson/yyjson.h */
 
 /* ── JSON-RPC types ───────────────────────────────────────────── */
@@ -218,8 +218,7 @@ char *handle_manager_maintenance_control(cbm_mcp_server_t *srv, const char *args
 
 /* Return NULL when a memory write may proceed, otherwise a complete sanitized
  * MCP error result. Runs before store resolution and transactions. */
-char *cbm_mcp_memory_security_guard(cbm_mcp_server_t *srv, const char *tool_name,
-                                    const char *args);
+char *cbm_mcp_memory_security_guard(cbm_mcp_server_t *srv, const char *tool_name, const char *args);
 
 /* Resolve the server-cached per-project / global memory store handles.
  * Defined in mcp.c (they touch struct cbm_mcp_server internals); consumed

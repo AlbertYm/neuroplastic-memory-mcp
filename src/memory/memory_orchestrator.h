@@ -54,15 +54,13 @@ int cbm_orchestrator_migrate(cbm_store_t *store, bool *out_replayed, char **out_
 int cbm_orchestrator_begin(cbm_store_t *store, const cbm_task_begin_input_t *input,
                            char **out_report_json);
 int cbm_orchestrator_status(cbm_store_t *store, const char *project, const char *task_id,
-                            const char *session_id, const char *turn_id,
-                            char **out_report_json);
-int cbm_orchestrator_record_evidence(cbm_store_t *store,
-                                     const cbm_task_evidence_input_t *input,
+                            const char *session_id, const char *turn_id, char **out_report_json);
+int cbm_orchestrator_record_evidence(cbm_store_t *store, const cbm_task_evidence_input_t *input,
                                      char **out_report_json);
 int cbm_orchestrator_complete(cbm_store_t *store, const cbm_task_complete_input_t *input,
                               char **out_report_json);
-int cbm_orchestrator_abandon_open(cbm_store_t *store, const char *project,
-                                  const char *session_id, const char *turn_id,
-                                  const char *idempotency_key, char **out_report_json);
+int cbm_orchestrator_abandon_open(cbm_store_t *store, const char *project, const char *session_id,
+                                  const char *turn_id, const char *idempotency_key,
+                                  char **out_report_json);
 
 #endif

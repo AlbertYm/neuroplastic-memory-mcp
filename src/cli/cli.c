@@ -81,8 +81,8 @@ enum {
 #ifndef CBM_VERSION
 #define CBM_VERSION "dev"
 #endif
-#include <errno.h>  // EEXIST
-#include <fcntl.h>  // open, O_WRONLY, O_CREAT, O_TRUNC
+#include <errno.h> // EEXIST
+#include <fcntl.h> // open, O_WRONLY, O_CREAT, O_TRUNC
 #include <limits.h>
 #include <stdint.h> // uintptr_t
 #include <stdio.h>
@@ -90,7 +90,7 @@ enum {
 #include <string.h>   // strtok_r
 #include <sys/stat.h> // mode_t, S_IXUSR
 #include <wchar.h>
-#include <zlib.h>     // MAX_WBITS
+#include <zlib.h> // MAX_WBITS
 
 /* yyjson for JSON read-modify-write */
 #include "yyjson/yyjson.h"
@@ -4628,374 +4628,511 @@ int cbm_cli_print_tool_help(const char *tool_name) {
     return CLI_OK;
 }
 
-static const char *global_migrate_arg(int argc,char **argv,const char *name) {
-    for(int i=0;i<argc;i++){
-        if(strcmp(argv[i],name)==0&&i+1<argc)return argv[i+1];
-        size_t n=strlen(name);if(strncmp(argv[i],name,n)==0&&argv[i][n]=='=')return argv[i]+n+1;
+static const char *global_migrate_arg(int argc, char **argv, const char *name) {
+    for (int i = 0; i < argc; i++) {
+        if (strcmp(argv[i], name) == 0 && i + 1 < argc)
+            return argv[i + 1];
+        size_t n = strlen(name);
+        if (strncmp(argv[i], name, n) == 0 && argv[i][n] == '=')
+            return argv[i] + n + 1;
     }
     return NULL;
 }
 
 enum {
-    GLOBAL_MIGRATE_PATH_OK=0,
-    GLOBAL_MIGRATE_PATH_REJECTED=1,
-    GLOBAL_MIGRATE_PATH_IO_ERROR=2
+    GLOBAL_MIGRATE_PATH_OK = 0,
+    GLOBAL_MIGRATE_PATH_REJECTED = 1,
+    GLOBAL_MIGRATE_PATH_IO_ERROR = 2
 };
 
 static int global_migrate_path_is_absolute(const char *path) {
-    if(!path||!path[0])return 0;
+    if (!path || !path[0])
+        return 0;
 #ifdef _WIN32
-    if(((path[0]>='A'&&path[0]<='Z')||(path[0]>='a'&&path[0]<='z'))&&
-       path[1]==':'&&(path[2]=='\\'||path[2]=='/'))return 1;
-    if((path[0]=='\\'||path[0]=='/')&&(path[1]=='\\'||path[1]=='/')){
-        if((path[2]=='?'||path[2]=='.')&&(path[3]=='\\'||path[3]=='/'))return 0;
-        const char *cursor=path+2,*server=cursor;
-        while(*cursor&&*cursor!='\\'&&*cursor!='/')cursor++;
-        if(cursor==server||!*cursor)return 0;
-        cursor++;const char *share=cursor;
-        while(*cursor&&*cursor!='\\'&&*cursor!='/')cursor++;
-        return cursor>share;
+    if (((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z')) &&
+        path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
+        return 1;
+    if ((path[0] == '\\' || path[0] == '/') && (path[1] == '\\' || path[1] == '/')) {
+        if ((path[2] == '?' || path[2] == '.') && (path[3] == '\\' || path[3] == '/'))
+            return 0;
+        const char *cursor = path + 2, *server = cursor;
+        while (*cursor && *cursor != '\\' && *cursor != '/')
+            cursor++;
+        if (cursor == server || !*cursor)
+            return 0;
+        cursor++;
+        const char *share = cursor;
+        while (*cursor && *cursor != '\\' && *cursor != '/')
+            cursor++;
+        return cursor > share;
     }
     return 0;
 #else
-    return path[0]=='/';
+    return path[0] == '/';
 #endif
 }
 
 #ifdef _WIN32
 static wchar_t *global_migrate_win_full_path(const char *path) {
-    int input_size=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,path,-1,NULL,0);
-    if(input_size<=0)return NULL;
-    wchar_t *input=calloc((size_t)input_size,sizeof(wchar_t));
-    if(!input||!MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,path,-1,input,input_size)){
-        free(input);return NULL;
+    int input_size = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, NULL, 0);
+    if (input_size <= 0)
+        return NULL;
+    wchar_t *input = calloc((size_t)input_size, sizeof(wchar_t));
+    if (!input ||
+        !MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, input, input_size)) {
+        free(input);
+        return NULL;
     }
-    DWORD needed=GetFullPathNameW(input,0,NULL,NULL);
-    if(!needed){free(input);return NULL;}
-    wchar_t *full=calloc((size_t)needed+2,sizeof(wchar_t));
-    if(!full){free(input);return NULL;}
-    DWORD written=GetFullPathNameW(input,needed+1,full,NULL);
+    DWORD needed = GetFullPathNameW(input, 0, NULL, NULL);
+    if (!needed) {
+        free(input);
+        return NULL;
+    }
+    wchar_t *full = calloc((size_t)needed + 2, sizeof(wchar_t));
+    if (!full) {
+        free(input);
+        return NULL;
+    }
+    DWORD written = GetFullPathNameW(input, needed + 1, full, NULL);
     free(input);
-    if(!written||written>needed){free(full);return NULL;}
-    for(wchar_t *cursor=full;*cursor;cursor++)if(*cursor==L'/')*cursor=L'\\';
+    if (!written || written > needed) {
+        free(full);
+        return NULL;
+    }
+    for (wchar_t *cursor = full; *cursor; cursor++)
+        if (*cursor == L'/')
+            *cursor = L'\\';
     return full;
 }
 
 static size_t global_migrate_win_root_length(const wchar_t *path) {
-    size_t length=path?wcslen(path):0;
-    if(length>=3&&((path[0]>=L'A'&&path[0]<=L'Z')||(path[0]>=L'a'&&path[0]<=L'z'))&&
-       path[1]==L':'&&path[2]==L'\\')return 3;
-    if(length>=5&&path[0]==L'\\'&&path[1]==L'\\'){
-        size_t cursor=2,server=cursor;
-        while(cursor<length&&path[cursor]!=L'\\')cursor++;
-        if(cursor==server||cursor>=length)return 0;
-        cursor++;size_t share=cursor;
-        while(cursor<length&&path[cursor]!=L'\\')cursor++;
-        if(cursor==share)return 0;
-        return cursor<length?cursor+1:cursor;
+    size_t length = path ? wcslen(path) : 0;
+    if (length >= 3 &&
+        ((path[0] >= L'A' && path[0] <= L'Z') || (path[0] >= L'a' && path[0] <= L'z')) &&
+        path[1] == L':' && path[2] == L'\\')
+        return 3;
+    if (length >= 5 && path[0] == L'\\' && path[1] == L'\\') {
+        size_t cursor = 2, server = cursor;
+        while (cursor < length && path[cursor] != L'\\')
+            cursor++;
+        if (cursor == server || cursor >= length)
+            return 0;
+        cursor++;
+        size_t share = cursor;
+        while (cursor < length && path[cursor] != L'\\')
+            cursor++;
+        if (cursor == share)
+            return 0;
+        return cursor < length ? cursor + 1 : cursor;
     }
     return 0;
 }
 
-static int global_migrate_win_reserved_component(const wchar_t *component,size_t length) {
-    size_t base_length=0;
-    while(base_length<length&&component[base_length]!=L'.')base_length++;
-    if((base_length==3&&
-        (!_wcsnicmp(component,L"CON",3)||!_wcsnicmp(component,L"PRN",3)||
-         !_wcsnicmp(component,L"AUX",3)||!_wcsnicmp(component,L"NUL",3)))||
-       (base_length==6&&!_wcsnicmp(component,L"CLOCK$",6)))return 1;
-    return base_length==4&&
-           ((!_wcsnicmp(component,L"COM",3)||!_wcsnicmp(component,L"LPT",3))&&
-            component[3]>=L'1'&&component[3]<=L'9');
+static int global_migrate_win_reserved_component(const wchar_t *component, size_t length) {
+    size_t base_length = 0;
+    while (base_length < length && component[base_length] != L'.')
+        base_length++;
+    if ((base_length == 3 &&
+         (!_wcsnicmp(component, L"CON", 3) || !_wcsnicmp(component, L"PRN", 3) ||
+          !_wcsnicmp(component, L"AUX", 3) || !_wcsnicmp(component, L"NUL", 3))) ||
+        (base_length == 6 && !_wcsnicmp(component, L"CLOCK$", 6)))
+        return 1;
+    return base_length == 4 &&
+           ((!_wcsnicmp(component, L"COM", 3) || !_wcsnicmp(component, L"LPT", 3)) &&
+            component[3] >= L'1' && component[3] <= L'9');
 }
 
-static int global_migrate_win_component_safe(const wchar_t *path,size_t root) {
-    size_t length=wcslen(path),start=root;
-    while(start<length){
-        while(start<length&&path[start]==L'\\')start++;
-        if(start>=length)break;
-        size_t end=start;
-        while(end<length&&path[end]!=L'\\')end++;
-        if(end==start||path[end-1]==L'.'||path[end-1]==L' '||
-           global_migrate_win_reserved_component(path+start,end-start))return 0;
-        for(size_t i=start;i<end;i++){
-            wchar_t value=path[i];
-            if(value<32||value==L':'||value==L'"'||value==L'<'||value==L'>'||
-               value==L'|'||value==L'?'||value==L'*')return 0;
+static int global_migrate_win_component_safe(const wchar_t *path, size_t root) {
+    size_t length = wcslen(path), start = root;
+    while (start < length) {
+        while (start < length && path[start] == L'\\')
+            start++;
+        if (start >= length)
+            break;
+        size_t end = start;
+        while (end < length && path[end] != L'\\')
+            end++;
+        if (end == start || path[end - 1] == L'.' || path[end - 1] == L' ' ||
+            global_migrate_win_reserved_component(path + start, end - start))
+            return 0;
+        for (size_t i = start; i < end; i++) {
+            wchar_t value = path[i];
+            if (value < 32 || value == L':' || value == L'"' || value == L'<' || value == L'>' ||
+                value == L'|' || value == L'?' || value == L'*')
+                return 0;
         }
-        start=end+1;
+        start = end + 1;
     }
     return 1;
 }
 
 static int global_migrate_win_directory(const wchar_t *path) {
-    DWORD attributes=GetFileAttributesW(path);
-    if(attributes==INVALID_FILE_ATTRIBUTES)return GLOBAL_MIGRATE_PATH_IO_ERROR;
-    return (attributes&FILE_ATTRIBUTE_DIRECTORY)&&
-           !(attributes&FILE_ATTRIBUTE_REPARSE_POINT)
-               ?GLOBAL_MIGRATE_PATH_OK:GLOBAL_MIGRATE_PATH_REJECTED;
+    DWORD attributes = GetFileAttributesW(path);
+    if (attributes == INVALID_FILE_ATTRIBUTES)
+        return GLOBAL_MIGRATE_PATH_IO_ERROR;
+    return (attributes & FILE_ATTRIBUTE_DIRECTORY) && !(attributes & FILE_ATTRIBUTE_REPARSE_POINT)
+               ? GLOBAL_MIGRATE_PATH_OK
+               : GLOBAL_MIGRATE_PATH_REJECTED;
 }
 
-static int global_migrate_win_parent_chain(const wchar_t *full,size_t parent_length,
+static int global_migrate_win_parent_chain(const wchar_t *full, size_t parent_length,
                                            size_t root_length) {
-    wchar_t *probe=calloc(parent_length+1,sizeof(wchar_t));
-    if(!probe)return GLOBAL_MIGRATE_PATH_IO_ERROR;
-    memcpy(probe,full,parent_length*sizeof(wchar_t));
-    int rc=GLOBAL_MIGRATE_PATH_OK;
-    for(size_t cursor=root_length;rc==GLOBAL_MIGRATE_PATH_OK&&cursor<=parent_length;cursor++){
-        if(cursor<parent_length&&probe[cursor]!=L'\\')continue;
-        wchar_t saved=probe[cursor];probe[cursor]=0;
-        rc=global_migrate_win_directory(probe);
-        probe[cursor]=saved;
+    wchar_t *probe = calloc(parent_length + 1, sizeof(wchar_t));
+    if (!probe)
+        return GLOBAL_MIGRATE_PATH_IO_ERROR;
+    memcpy(probe, full, parent_length * sizeof(wchar_t));
+    int rc = GLOBAL_MIGRATE_PATH_OK;
+    for (size_t cursor = root_length; rc == GLOBAL_MIGRATE_PATH_OK && cursor <= parent_length;
+         cursor++) {
+        if (cursor < parent_length && probe[cursor] != L'\\')
+            continue;
+        wchar_t saved = probe[cursor];
+        probe[cursor] = 0;
+        rc = global_migrate_win_directory(probe);
+        probe[cursor] = saved;
     }
-    free(probe);return rc;
+    free(probe);
+    return rc;
 }
 
 static wchar_t *global_migrate_win_final_from_handle(HANDLE handle) {
-    DWORD flags=FILE_NAME_NORMALIZED|VOLUME_NAME_DOS;
-    DWORD needed=GetFinalPathNameByHandleW(handle,NULL,0,flags);
-    if(!needed)return NULL;
-    wchar_t *final_path=calloc((size_t)needed+2,sizeof(wchar_t));
-    if(!final_path)return NULL;
-    DWORD written=GetFinalPathNameByHandleW(handle,final_path,needed+1,flags);
-    if(!written||written>needed){free(final_path);return NULL;}
-    for(wchar_t *cursor=final_path;*cursor;cursor++)if(*cursor==L'/')*cursor=L'\\';
+    DWORD flags = FILE_NAME_NORMALIZED | VOLUME_NAME_DOS;
+    DWORD needed = GetFinalPathNameByHandleW(handle, NULL, 0, flags);
+    if (!needed)
+        return NULL;
+    wchar_t *final_path = calloc((size_t)needed + 2, sizeof(wchar_t));
+    if (!final_path)
+        return NULL;
+    DWORD written = GetFinalPathNameByHandleW(handle, final_path, needed + 1, flags);
+    if (!written || written > needed) {
+        free(final_path);
+        return NULL;
+    }
+    for (wchar_t *cursor = final_path; *cursor; cursor++)
+        if (*cursor == L'/')
+            *cursor = L'\\';
     return final_path;
 }
 
-static wchar_t *global_migrate_win_canonical_path(const wchar_t *full,
-                                                  size_t parent_length,
-                                                  size_t leaf_start,
-                                                  int exists,
-                                                  int directory) {
-    wchar_t *probe_path=NULL;
-    if(exists)probe_path=_wcsdup(full);
-    else{
-        probe_path=calloc(parent_length+1,sizeof(wchar_t));
-        if(probe_path)memcpy(probe_path,full,parent_length*sizeof(wchar_t));
+static wchar_t *global_migrate_win_canonical_path(const wchar_t *full, size_t parent_length,
+                                                  size_t leaf_start, int exists, int directory) {
+    wchar_t *probe_path = NULL;
+    if (exists)
+        probe_path = _wcsdup(full);
+    else {
+        probe_path = calloc(parent_length + 1, sizeof(wchar_t));
+        if (probe_path)
+            memcpy(probe_path, full, parent_length * sizeof(wchar_t));
     }
-    if(!probe_path)return NULL;
-    DWORD open_flags=FILE_FLAG_OPEN_REPARSE_POINT;
-    if(directory||!exists)open_flags|=FILE_FLAG_BACKUP_SEMANTICS;
-    HANDLE handle=CreateFileW(probe_path,FILE_READ_ATTRIBUTES,
-        FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,NULL,OPEN_EXISTING,
-        open_flags,NULL);
+    if (!probe_path)
+        return NULL;
+    DWORD open_flags = FILE_FLAG_OPEN_REPARSE_POINT;
+    if (directory || !exists)
+        open_flags |= FILE_FLAG_BACKUP_SEMANTICS;
+    HANDLE handle = CreateFileW(probe_path, FILE_READ_ATTRIBUTES,
+                                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+                                OPEN_EXISTING, open_flags, NULL);
     free(probe_path);
-    if(handle==INVALID_HANDLE_VALUE)return NULL;
-    wchar_t *canonical=global_migrate_win_final_from_handle(handle);
-    if(!CloseHandle(handle)){free(canonical);return NULL;}
-    if(!canonical||exists)return canonical;
-    const wchar_t *leaf=full+leaf_start;
-    size_t base_length=wcslen(canonical),leaf_length=wcslen(leaf);
-    int separator=base_length>0&&canonical[base_length-1]!=L'\\';
-    wchar_t *joined=calloc(base_length+(size_t)separator+leaf_length+1,sizeof(wchar_t));
-    if(joined){
-        memcpy(joined,canonical,base_length*sizeof(wchar_t));
-        if(separator)joined[base_length++]=L'\\';
-        memcpy(joined+base_length,leaf,(leaf_length+1)*sizeof(wchar_t));
+    if (handle == INVALID_HANDLE_VALUE)
+        return NULL;
+    wchar_t *canonical = global_migrate_win_final_from_handle(handle);
+    if (!CloseHandle(handle)) {
+        free(canonical);
+        return NULL;
     }
-    free(canonical);return joined;
+    if (!canonical || exists)
+        return canonical;
+    const wchar_t *leaf = full + leaf_start;
+    size_t base_length = wcslen(canonical), leaf_length = wcslen(leaf);
+    int separator = base_length > 0 && canonical[base_length - 1] != L'\\';
+    wchar_t *joined = calloc(base_length + (size_t)separator + leaf_length + 1, sizeof(wchar_t));
+    if (joined) {
+        memcpy(joined, canonical, base_length * sizeof(wchar_t));
+        if (separator)
+            joined[base_length++] = L'\\';
+        memcpy(joined + base_length, leaf, (leaf_length + 1) * sizeof(wchar_t));
+    }
+    free(canonical);
+    return joined;
 }
 
-static int global_migrate_win_prepare_path(const char *path,int report_path,
-                                           int report_exists,wchar_t **out_full) {
-    *out_full=NULL;
-    if(!global_migrate_path_is_absolute(path))return GLOBAL_MIGRATE_PATH_REJECTED;
-    size_t input_length=strlen(path);
-    if(report_path&&input_length>0&&
-       (path[input_length-1]=='\\'||path[input_length-1]=='/'))
+static int global_migrate_win_prepare_path(const char *path, int report_path, int report_exists,
+                                           wchar_t **out_full) {
+    *out_full = NULL;
+    if (!global_migrate_path_is_absolute(path))
         return GLOBAL_MIGRATE_PATH_REJECTED;
-    wchar_t *full=global_migrate_win_full_path(path);
-    if(!full)return GLOBAL_MIGRATE_PATH_IO_ERROR;
-    size_t root=global_migrate_win_root_length(full),length=wcslen(full);
-    if(!root||!global_migrate_win_component_safe(full,root)){
-        free(full);return GLOBAL_MIGRATE_PATH_REJECTED;
+    size_t input_length = strlen(path);
+    if (report_path && input_length > 0 &&
+        (path[input_length - 1] == '\\' || path[input_length - 1] == '/'))
+        return GLOBAL_MIGRATE_PATH_REJECTED;
+    wchar_t *full = global_migrate_win_full_path(path);
+    if (!full)
+        return GLOBAL_MIGRATE_PATH_IO_ERROR;
+    size_t root = global_migrate_win_root_length(full), length = wcslen(full);
+    if (!root || !global_migrate_win_component_safe(full, root)) {
+        free(full);
+        return GLOBAL_MIGRATE_PATH_REJECTED;
     }
-    if(!report_path)while(length>root&&full[length-1]==L'\\')full[--length]=0;
-    size_t last=length;
-    while(last>root&&full[last-1]!=L'\\')last--;
-    if(report_path&&last>=length){
-        free(full);return GLOBAL_MIGRATE_PATH_REJECTED;
+    if (!report_path)
+        while (length > root && full[length - 1] == L'\\')
+            full[--length] = 0;
+    size_t last = length;
+    while (last > root && full[last - 1] != L'\\')
+        last--;
+    if (report_path && last >= length) {
+        free(full);
+        return GLOBAL_MIGRATE_PATH_REJECTED;
     }
-    size_t parent_length=last>root?last-1:root;
-    int rc=global_migrate_win_parent_chain(full,parent_length,root);
-    if(rc!=GLOBAL_MIGRATE_PATH_OK){free(full);return rc;}
-    DWORD attributes=GetFileAttributesW(full);
-    int exists=attributes!=INVALID_FILE_ATTRIBUTES;
-    if(report_path){
-        if(report_exists){
-            if(!exists){
-                free(full);return GLOBAL_MIGRATE_PATH_IO_ERROR;
+    size_t parent_length = last > root ? last - 1 : root;
+    int rc = global_migrate_win_parent_chain(full, parent_length, root);
+    if (rc != GLOBAL_MIGRATE_PATH_OK) {
+        free(full);
+        return rc;
+    }
+    DWORD attributes = GetFileAttributesW(full);
+    int exists = attributes != INVALID_FILE_ATTRIBUTES;
+    if (report_path) {
+        if (report_exists) {
+            if (!exists) {
+                free(full);
+                return GLOBAL_MIGRATE_PATH_IO_ERROR;
             }
-            if((attributes&FILE_ATTRIBUTE_DIRECTORY)||
-               (attributes&FILE_ATTRIBUTE_REPARSE_POINT)){
-                free(full);return GLOBAL_MIGRATE_PATH_REJECTED;
+            if ((attributes & FILE_ATTRIBUTE_DIRECTORY) ||
+                (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
+                free(full);
+                return GLOBAL_MIGRATE_PATH_REJECTED;
             }
-        }else if(exists){
-            free(full);return GLOBAL_MIGRATE_PATH_REJECTED;
-        }else{
-            DWORD error=GetLastError();
-            if(error!=ERROR_FILE_NOT_FOUND&&error!=ERROR_PATH_NOT_FOUND){
-                free(full);return GLOBAL_MIGRATE_PATH_IO_ERROR;
+        } else if (exists) {
+            free(full);
+            return GLOBAL_MIGRATE_PATH_REJECTED;
+        } else {
+            DWORD error = GetLastError();
+            if (error != ERROR_FILE_NOT_FOUND && error != ERROR_PATH_NOT_FOUND) {
+                free(full);
+                return GLOBAL_MIGRATE_PATH_IO_ERROR;
             }
         }
-    }else if(exists){
-        if(!(attributes&FILE_ATTRIBUTE_DIRECTORY)||
-           (attributes&FILE_ATTRIBUTE_REPARSE_POINT)){
-            free(full);return GLOBAL_MIGRATE_PATH_REJECTED;
+    } else if (exists) {
+        if (!(attributes & FILE_ATTRIBUTE_DIRECTORY) ||
+            (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
+            free(full);
+            return GLOBAL_MIGRATE_PATH_REJECTED;
         }
-    }else{
-        DWORD error=GetLastError();
-        if(error!=ERROR_FILE_NOT_FOUND&&error!=ERROR_PATH_NOT_FOUND){
-            free(full);return GLOBAL_MIGRATE_PATH_IO_ERROR;
+    } else {
+        DWORD error = GetLastError();
+        if (error != ERROR_FILE_NOT_FOUND && error != ERROR_PATH_NOT_FOUND) {
+            free(full);
+            return GLOBAL_MIGRATE_PATH_IO_ERROR;
         }
     }
-    wchar_t *canonical=global_migrate_win_canonical_path(
-        full,parent_length,last,exists,exists&&(attributes&FILE_ATTRIBUTE_DIRECTORY));
+    wchar_t *canonical = global_migrate_win_canonical_path(
+        full, parent_length, last, exists, exists && (attributes & FILE_ATTRIBUTE_DIRECTORY));
     free(full);
-    if(!canonical)return GLOBAL_MIGRATE_PATH_IO_ERROR;
-    if(!_wcsnicmp(canonical,L"\\\\?\\UNC\\",8)||
-       (canonical[0]==L'\\'&&canonical[1]==L'\\'&&canonical[2]!=L'?')){
-        free(canonical);return GLOBAL_MIGRATE_PATH_REJECTED;
+    if (!canonical)
+        return GLOBAL_MIGRATE_PATH_IO_ERROR;
+    if (!_wcsnicmp(canonical, L"\\\\?\\UNC\\", 8) ||
+        (canonical[0] == L'\\' && canonical[1] == L'\\' && canonical[2] != L'?')) {
+        free(canonical);
+        return GLOBAL_MIGRATE_PATH_REJECTED;
     }
-    *out_full=canonical;return GLOBAL_MIGRATE_PATH_OK;
+    *out_full = canonical;
+    return GLOBAL_MIGRATE_PATH_OK;
 }
 
-static int global_migrate_win_within(const wchar_t *target,const wchar_t *report) {
-    size_t target_length=wcslen(target),report_length=wcslen(report);
-    if(target_length>report_length)return 0;
-    if(target_length>(size_t)INT_MAX)return -1;
-    int comparison=CompareStringOrdinal(
-        report,(int)target_length,target,(int)target_length,TRUE);
-    if(!comparison)return -1;
-    if(comparison!=CSTR_EQUAL)return 0;
-    return report_length==target_length||target[target_length-1]==L'\\'||
-           report[target_length]==L'\\';
+static int global_migrate_win_within(const wchar_t *target, const wchar_t *report) {
+    size_t target_length = wcslen(target), report_length = wcslen(report);
+    if (target_length > report_length)
+        return 0;
+    if (target_length > (size_t)INT_MAX)
+        return -1;
+    int comparison =
+        CompareStringOrdinal(report, (int)target_length, target, (int)target_length, TRUE);
+    if (!comparison)
+        return -1;
+    if (comparison != CSTR_EQUAL)
+        return 0;
+    return report_length == target_length || target[target_length - 1] == L'\\' ||
+           report[target_length] == L'\\';
 }
 #else
-static char *global_migrate_posix_normalize(const char *path,int *rejected) {
-    *rejected=0;
-    if(!global_migrate_path_is_absolute(path)){*rejected=1;return NULL;}
-    size_t length=strlen(path),out_length=1,count=0;
-    char *out=calloc(length+2,1);
-    size_t *starts=calloc(length+1,sizeof(size_t));
-    if(!out||!starts){free(out);free(starts);return NULL;}
-    out[0]='/';
-    for(size_t cursor=1;cursor<length;){
-        while(cursor<length&&path[cursor]=='/')cursor++;
-        if(cursor>=length)break;
-        size_t end=cursor;
-        while(end<length&&path[end]!='/')end++;
-        size_t component_length=end-cursor;
-        if(component_length==1&&path[cursor]=='.'){
-            cursor=end;continue;
-        }
-        if(component_length==2&&path[cursor]=='.'&&path[cursor+1]=='.'){
-            if(!count){*rejected=1;free(out);free(starts);return NULL;}
-            out_length=starts[--count];out[out_length]=0;cursor=end;continue;
-        }
-        starts[count++]=out_length;
-        if(out_length>1)out[out_length++]='/';
-        memcpy(out+out_length,path+cursor,component_length);
-        out_length+=component_length;out[out_length]=0;cursor=end;
+static char *global_migrate_posix_normalize(const char *path, int *rejected) {
+    *rejected = 0;
+    if (!global_migrate_path_is_absolute(path)) {
+        *rejected = 1;
+        return NULL;
     }
-    free(starts);return out;
+    size_t length = strlen(path), out_length = 1, count = 0;
+    char *out = calloc(length + 2, 1);
+    size_t *starts = calloc(length + 1, sizeof(size_t));
+    if (!out || !starts) {
+        free(out);
+        free(starts);
+        return NULL;
+    }
+    out[0] = '/';
+    for (size_t cursor = 1; cursor < length;) {
+        while (cursor < length && path[cursor] == '/')
+            cursor++;
+        if (cursor >= length)
+            break;
+        size_t end = cursor;
+        while (end < length && path[end] != '/')
+            end++;
+        size_t component_length = end - cursor;
+        if (component_length == 1 && path[cursor] == '.') {
+            cursor = end;
+            continue;
+        }
+        if (component_length == 2 && path[cursor] == '.' && path[cursor + 1] == '.') {
+            if (!count) {
+                *rejected = 1;
+                free(out);
+                free(starts);
+                return NULL;
+            }
+            out_length = starts[--count];
+            out[out_length] = 0;
+            cursor = end;
+            continue;
+        }
+        starts[count++] = out_length;
+        if (out_length > 1)
+            out[out_length++] = '/';
+        memcpy(out + out_length, path + cursor, component_length);
+        out_length += component_length;
+        out[out_length] = 0;
+        cursor = end;
+    }
+    free(starts);
+    return out;
 }
 
 static int global_migrate_posix_directory_chain(const char *parent) {
-    char *probe=cbm_strdup(parent);
-    if(!probe)return GLOBAL_MIGRATE_PATH_IO_ERROR;
-    int rc=GLOBAL_MIGRATE_PATH_OK;
+    char *probe = cbm_strdup(parent);
+    if (!probe)
+        return GLOBAL_MIGRATE_PATH_IO_ERROR;
+    int rc = GLOBAL_MIGRATE_PATH_OK;
     struct stat state;
-    if(lstat("/", &state)!=0)rc=GLOBAL_MIGRATE_PATH_IO_ERROR;
-    else if(!S_ISDIR(state.st_mode)||S_ISLNK(state.st_mode))rc=GLOBAL_MIGRATE_PATH_REJECTED;
-    size_t length=strlen(probe);
-    for(size_t cursor=1;rc==GLOBAL_MIGRATE_PATH_OK&&cursor<=length;cursor++){
-        if(cursor<length&&probe[cursor]!='/')continue;
-        char saved=probe[cursor];probe[cursor]=0;
-        if(lstat(probe,&state)!=0)rc=GLOBAL_MIGRATE_PATH_IO_ERROR;
-        else if(!S_ISDIR(state.st_mode)||S_ISLNK(state.st_mode))
-            rc=GLOBAL_MIGRATE_PATH_REJECTED;
-        probe[cursor]=saved;
+    if (lstat("/", &state) != 0)
+        rc = GLOBAL_MIGRATE_PATH_IO_ERROR;
+    else if (!S_ISDIR(state.st_mode) || S_ISLNK(state.st_mode))
+        rc = GLOBAL_MIGRATE_PATH_REJECTED;
+    size_t length = strlen(probe);
+    for (size_t cursor = 1; rc == GLOBAL_MIGRATE_PATH_OK && cursor <= length; cursor++) {
+        if (cursor < length && probe[cursor] != '/')
+            continue;
+        char saved = probe[cursor];
+        probe[cursor] = 0;
+        if (lstat(probe, &state) != 0)
+            rc = GLOBAL_MIGRATE_PATH_IO_ERROR;
+        else if (!S_ISDIR(state.st_mode) || S_ISLNK(state.st_mode))
+            rc = GLOBAL_MIGRATE_PATH_REJECTED;
+        probe[cursor] = saved;
     }
-    free(probe);return rc;
+    free(probe);
+    return rc;
 }
 
-static int global_migrate_posix_prepare_path(const char *path,int report_path,
-                                             int report_exists,char **out_full) {
-    *out_full=NULL;
-    size_t input_length=path?strlen(path):0;
-    if(report_path&&input_length>1&&path[input_length-1]=='/')
+static int global_migrate_posix_prepare_path(const char *path, int report_path, int report_exists,
+                                             char **out_full) {
+    *out_full = NULL;
+    size_t input_length = path ? strlen(path) : 0;
+    if (report_path && input_length > 1 && path[input_length - 1] == '/')
         return GLOBAL_MIGRATE_PATH_REJECTED;
-    int rejected=0;char *normalized=global_migrate_posix_normalize(path,&rejected);
-    if(!normalized)return rejected?GLOBAL_MIGRATE_PATH_REJECTED:GLOBAL_MIGRATE_PATH_IO_ERROR;
-    size_t length=strlen(normalized);
-    if(report_path&&length==1){free(normalized);return GLOBAL_MIGRATE_PATH_REJECTED;}
-    char *last=strrchr(normalized,'/');
-    size_t parent_length=last==normalized?1:(size_t)(last-normalized);
-    char *parent=calloc(parent_length+1,1);
-    if(!parent){free(normalized);return GLOBAL_MIGRATE_PATH_IO_ERROR;}
-    memcpy(parent,normalized,parent_length);
-    int rc=global_migrate_posix_directory_chain(parent);
+    int rejected = 0;
+    char *normalized = global_migrate_posix_normalize(path, &rejected);
+    if (!normalized)
+        return rejected ? GLOBAL_MIGRATE_PATH_REJECTED : GLOBAL_MIGRATE_PATH_IO_ERROR;
+    size_t length = strlen(normalized);
+    if (report_path && length == 1) {
+        free(normalized);
+        return GLOBAL_MIGRATE_PATH_REJECTED;
+    }
+    char *last = strrchr(normalized, '/');
+    size_t parent_length = last == normalized ? 1 : (size_t)(last - normalized);
+    char *parent = calloc(parent_length + 1, 1);
+    if (!parent) {
+        free(normalized);
+        return GLOBAL_MIGRATE_PATH_IO_ERROR;
+    }
+    memcpy(parent, normalized, parent_length);
+    int rc = global_migrate_posix_directory_chain(parent);
     struct stat state;
-    if(rc==GLOBAL_MIGRATE_PATH_OK){
-        int found=lstat(normalized,&state)==0;
-        if(report_path&&report_exists){
-            if(!found)rc=GLOBAL_MIGRATE_PATH_IO_ERROR;
-            else if(!S_ISREG(state.st_mode)||S_ISLNK(state.st_mode))
-                rc=GLOBAL_MIGRATE_PATH_REJECTED;
-        }else if(report_path&&found)rc=GLOBAL_MIGRATE_PATH_REJECTED;
-        else if(report_path&&errno!=ENOENT)rc=GLOBAL_MIGRATE_PATH_IO_ERROR;
-        else if(!report_path&&found&&(!S_ISDIR(state.st_mode)||S_ISLNK(state.st_mode)))
-            rc=GLOBAL_MIGRATE_PATH_REJECTED;
-        else if(!report_path&&!found&&errno!=ENOENT)rc=GLOBAL_MIGRATE_PATH_IO_ERROR;
+    if (rc == GLOBAL_MIGRATE_PATH_OK) {
+        int found = lstat(normalized, &state) == 0;
+        if (report_path && report_exists) {
+            if (!found)
+                rc = GLOBAL_MIGRATE_PATH_IO_ERROR;
+            else if (!S_ISREG(state.st_mode) || S_ISLNK(state.st_mode))
+                rc = GLOBAL_MIGRATE_PATH_REJECTED;
+        } else if (report_path && found)
+            rc = GLOBAL_MIGRATE_PATH_REJECTED;
+        else if (report_path && errno != ENOENT)
+            rc = GLOBAL_MIGRATE_PATH_IO_ERROR;
+        else if (!report_path && found && (!S_ISDIR(state.st_mode) || S_ISLNK(state.st_mode)))
+            rc = GLOBAL_MIGRATE_PATH_REJECTED;
+        else if (!report_path && !found && errno != ENOENT)
+            rc = GLOBAL_MIGRATE_PATH_IO_ERROR;
     }
-    char *canonical_parent=NULL,*canonical=NULL;
-    if(rc==GLOBAL_MIGRATE_PATH_OK){
-        canonical_parent=realpath(parent,NULL);
-        if(!canonical_parent)rc=GLOBAL_MIGRATE_PATH_IO_ERROR;
+    char *canonical_parent = NULL, *canonical = NULL;
+    if (rc == GLOBAL_MIGRATE_PATH_OK) {
+        canonical_parent = realpath(parent, NULL);
+        if (!canonical_parent)
+            rc = GLOBAL_MIGRATE_PATH_IO_ERROR;
     }
-    if(rc==GLOBAL_MIGRATE_PATH_OK){
-        const char *leaf=last+1;
-        size_t canonical_length=strlen(canonical_parent),leaf_length=strlen(leaf);
-        canonical=calloc(canonical_length+leaf_length+2,1);
-        if(!canonical)rc=GLOBAL_MIGRATE_PATH_IO_ERROR;
-        else snprintf(canonical,canonical_length+leaf_length+2,
-                      canonical_length==1?"%s%s":"%s/%s",canonical_parent,leaf);
+    if (rc == GLOBAL_MIGRATE_PATH_OK) {
+        const char *leaf = last + 1;
+        size_t canonical_length = strlen(canonical_parent), leaf_length = strlen(leaf);
+        canonical = calloc(canonical_length + leaf_length + 2, 1);
+        if (!canonical)
+            rc = GLOBAL_MIGRATE_PATH_IO_ERROR;
+        else
+            snprintf(canonical, canonical_length + leaf_length + 2,
+                     canonical_length == 1 ? "%s%s" : "%s/%s", canonical_parent, leaf);
     }
-    free(canonical_parent);free(parent);free(normalized);
-    if(rc!=GLOBAL_MIGRATE_PATH_OK){free(canonical);return rc;}
-    *out_full=canonical;return GLOBAL_MIGRATE_PATH_OK;
+    free(canonical_parent);
+    free(parent);
+    free(normalized);
+    if (rc != GLOBAL_MIGRATE_PATH_OK) {
+        free(canonical);
+        return rc;
+    }
+    *out_full = canonical;
+    return GLOBAL_MIGRATE_PATH_OK;
 }
 
-static int global_migrate_posix_within(const char *target,const char *report) {
-    size_t target_length=strlen(target),report_length=strlen(report);
-    return target_length<=report_length&&!memcmp(target,report,target_length)&&
-           (report_length==target_length||target_length==1||report[target_length]=='/');
+static int global_migrate_posix_within(const char *target, const char *report) {
+    size_t target_length = strlen(target), report_length = strlen(report);
+    return target_length <= report_length && !memcmp(target, report, target_length) &&
+           (report_length == target_length || target_length == 1 || report[target_length] == '/');
 }
 #endif
 
-static int global_migrate_validate_paths(const char *target,const char *report,
+static int global_migrate_validate_paths(const char *target, const char *report,
                                          int report_exists) {
 #ifdef _WIN32
-    wchar_t *target_full=NULL,*report_full=NULL;
-    int rc=global_migrate_win_prepare_path(target,0,0,&target_full);
-    if(rc==GLOBAL_MIGRATE_PATH_OK)
-        rc=global_migrate_win_prepare_path(report,1,report_exists,&report_full);
-    if(rc==GLOBAL_MIGRATE_PATH_OK){
-        int within=global_migrate_win_within(target_full,report_full);
-        if(within>0)rc=GLOBAL_MIGRATE_PATH_REJECTED;
-        else if(within<0)rc=GLOBAL_MIGRATE_PATH_IO_ERROR;
+    wchar_t *target_full = NULL, *report_full = NULL;
+    int rc = global_migrate_win_prepare_path(target, 0, 0, &target_full);
+    if (rc == GLOBAL_MIGRATE_PATH_OK)
+        rc = global_migrate_win_prepare_path(report, 1, report_exists, &report_full);
+    if (rc == GLOBAL_MIGRATE_PATH_OK) {
+        int within = global_migrate_win_within(target_full, report_full);
+        if (within > 0)
+            rc = GLOBAL_MIGRATE_PATH_REJECTED;
+        else if (within < 0)
+            rc = GLOBAL_MIGRATE_PATH_IO_ERROR;
     }
 #else
-    char *target_full=NULL,*report_full=NULL;
-    int rc=global_migrate_posix_prepare_path(target,0,0,&target_full);
-    if(rc==GLOBAL_MIGRATE_PATH_OK)
-        rc=global_migrate_posix_prepare_path(report,1,report_exists,&report_full);
-    if(rc==GLOBAL_MIGRATE_PATH_OK&&global_migrate_posix_within(target_full,report_full))
-        rc=GLOBAL_MIGRATE_PATH_REJECTED;
+    char *target_full = NULL, *report_full = NULL;
+    int rc = global_migrate_posix_prepare_path(target, 0, 0, &target_full);
+    if (rc == GLOBAL_MIGRATE_PATH_OK)
+        rc = global_migrate_posix_prepare_path(report, 1, report_exists, &report_full);
+    if (rc == GLOBAL_MIGRATE_PATH_OK && global_migrate_posix_within(target_full, report_full))
+        rc = GLOBAL_MIGRATE_PATH_REJECTED;
 #endif
-    free(target_full);free(report_full);return rc;
+    free(target_full);
+    free(report_full);
+    return rc;
 }
 
 typedef struct {
@@ -5014,128 +5151,146 @@ typedef struct {
 } global_migrate_report_reservation_t;
 
 enum {
-    GLOBAL_MIGRATE_REPORT_CREATED=0,
-    GLOBAL_MIGRATE_REPORT_CREATE_FAILED=-1,
-    GLOBAL_MIGRATE_REPORT_CREATED_RETAINED=-2
+    GLOBAL_MIGRATE_REPORT_CREATED = 0,
+    GLOBAL_MIGRATE_REPORT_CREATE_FAILED = -1,
+    GLOBAL_MIGRATE_REPORT_CREATED_RETAINED = -2
 };
 
 #ifdef _WIN32
 static int global_migrate_win_mark_delete(HANDLE handle) {
     FILE_DISPOSITION_INFO disposition;
-    disposition.DeleteFile=TRUE;
-    return SetFileInformationByHandle(
-        handle,FileDispositionInfo,&disposition,sizeof(disposition))?0:-1;
+    disposition.DeleteFile = TRUE;
+    return SetFileInformationByHandle(handle, FileDispositionInfo, &disposition,
+                                      sizeof(disposition))
+               ? 0
+               : -1;
 }
 #endif
 
 static int global_migrate_report_create(const char *path,
                                         global_migrate_report_reservation_t *reservation,
                                         int *already_exists) {
-    memset(reservation,0,sizeof(*reservation));*already_exists=0;
+    memset(reservation, 0, sizeof(*reservation));
+    *already_exists = 0;
 #ifdef _WIN32
-    wchar_t *full=global_migrate_win_full_path(path);
-    if(!full)return -1;
-    HANDLE handle=CreateFileW(full,GENERIC_READ|GENERIC_WRITE|DELETE,FILE_SHARE_READ,
-        NULL,CREATE_NEW,FILE_ATTRIBUTE_NORMAL|FILE_FLAG_OPEN_REPARSE_POINT,NULL);
+    wchar_t *full = global_migrate_win_full_path(path);
+    if (!full)
+        return -1;
+    HANDLE handle =
+        CreateFileW(full, GENERIC_READ | GENERIC_WRITE | DELETE, FILE_SHARE_READ, NULL, CREATE_NEW,
+                    FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT, NULL);
     free(full);
-    if(handle==INVALID_HANDLE_VALUE){
-        DWORD error=GetLastError();
-        *already_exists=error==ERROR_FILE_EXISTS||error==ERROR_ALREADY_EXISTS;
+    if (handle == INVALID_HANDLE_VALUE) {
+        DWORD error = GetLastError();
+        *already_exists = error == ERROR_FILE_EXISTS || error == ERROR_ALREADY_EXISTS;
         return -1;
     }
     BY_HANDLE_FILE_INFORMATION info;
-    if(!GetFileInformationByHandle(handle,&info)||
-       (info.dwFileAttributes&(FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT))){
-        int deleted=global_migrate_win_mark_delete(handle)==0;
-        int closed=CloseHandle(handle)!=0;
-        return deleted&&closed?GLOBAL_MIGRATE_REPORT_CREATE_FAILED
-                              :GLOBAL_MIGRATE_REPORT_CREATED_RETAINED;
+    if (!GetFileInformationByHandle(handle, &info) ||
+        (info.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT))) {
+        int deleted = global_migrate_win_mark_delete(handle) == 0;
+        int closed = CloseHandle(handle) != 0;
+        return deleted && closed ? GLOBAL_MIGRATE_REPORT_CREATE_FAILED
+                                 : GLOBAL_MIGRATE_REPORT_CREATED_RETAINED;
     }
-    int fd=_open_osfhandle((intptr_t)handle,_O_RDWR|_O_BINARY);
-    if(fd<0){
-        int deleted=global_migrate_win_mark_delete(handle)==0;
-        int closed=CloseHandle(handle)!=0;
-        return deleted&&closed?GLOBAL_MIGRATE_REPORT_CREATE_FAILED
-                              :GLOBAL_MIGRATE_REPORT_CREATED_RETAINED;
+    int fd = _open_osfhandle((intptr_t)handle, _O_RDWR | _O_BINARY);
+    if (fd < 0) {
+        int deleted = global_migrate_win_mark_delete(handle) == 0;
+        int closed = CloseHandle(handle) != 0;
+        return deleted && closed ? GLOBAL_MIGRATE_REPORT_CREATE_FAILED
+                                 : GLOBAL_MIGRATE_REPORT_CREATED_RETAINED;
     }
-    FILE *stream=_fdopen(fd,"w+b");
-    if(!stream){
-        HANDLE owned=(HANDLE)_get_osfhandle(fd);
-        int deleted=owned!=INVALID_HANDLE_VALUE&&global_migrate_win_mark_delete(owned)==0;
-        int closed=_close(fd)==0;
-        return deleted&&closed?GLOBAL_MIGRATE_REPORT_CREATE_FAILED
-                              :GLOBAL_MIGRATE_REPORT_CREATED_RETAINED;
+    FILE *stream = _fdopen(fd, "w+b");
+    if (!stream) {
+        HANDLE owned = (HANDLE)_get_osfhandle(fd);
+        int deleted = owned != INVALID_HANDLE_VALUE && global_migrate_win_mark_delete(owned) == 0;
+        int closed = _close(fd) == 0;
+        return deleted && closed ? GLOBAL_MIGRATE_REPORT_CREATE_FAILED
+                                 : GLOBAL_MIGRATE_REPORT_CREATED_RETAINED;
     }
-    reservation->stream=stream;
-    reservation->volume_serial=info.dwVolumeSerialNumber;
-    reservation->file_index_high=info.nFileIndexHigh;
-    reservation->file_index_low=info.nFileIndexLow;
+    reservation->stream = stream;
+    reservation->volume_serial = info.dwVolumeSerialNumber;
+    reservation->file_index_high = info.nFileIndexHigh;
+    reservation->file_index_low = info.nFileIndexLow;
     FILE_ID_INFO file_id;
-    if(GetFileInformationByHandleEx(handle,FileIdInfo,&file_id,sizeof(file_id))){
-        reservation->extended_volume_serial=file_id.VolumeSerialNumber;
-        memcpy(reservation->extended_file_id,file_id.FileId.Identifier,
+    if (GetFileInformationByHandleEx(handle, FileIdInfo, &file_id, sizeof(file_id))) {
+        reservation->extended_volume_serial = file_id.VolumeSerialNumber;
+        memcpy(reservation->extended_file_id, file_id.FileId.Identifier,
                sizeof(reservation->extended_file_id));
-        reservation->extended_file_id_valid=1;
+        reservation->extended_file_id_valid = 1;
     }
     return 0;
 #else
-    int flags=O_RDWR|O_CREAT|O_EXCL;
+    int flags = O_RDWR | O_CREAT | O_EXCL;
 #ifdef O_CLOEXEC
-    flags|=O_CLOEXEC;
+    flags |= O_CLOEXEC;
 #endif
 #ifdef O_NOFOLLOW
-    flags|=O_NOFOLLOW;
+    flags |= O_NOFOLLOW;
 #endif
-    int fd=open(path,flags,0600);
-    if(fd<0){*already_exists=errno==EEXIST;return -1;}
-    struct stat state;
-    if(fstat(fd,&state)!=0||!S_ISREG(state.st_mode)){
-        (void)close(fd);return GLOBAL_MIGRATE_REPORT_CREATED_RETAINED;
+    int fd = open(path, flags, 0600);
+    if (fd < 0) {
+        *already_exists = errno == EEXIST;
+        return -1;
     }
-    FILE *stream=fdopen(fd,"w+b");
-    if(!stream){(void)close(fd);return GLOBAL_MIGRATE_REPORT_CREATED_RETAINED;}
-    reservation->stream=stream;
-    reservation->device=state.st_dev;
-    reservation->inode=state.st_ino;
+    struct stat state;
+    if (fstat(fd, &state) != 0 || !S_ISREG(state.st_mode)) {
+        (void)close(fd);
+        return GLOBAL_MIGRATE_REPORT_CREATED_RETAINED;
+    }
+    FILE *stream = fdopen(fd, "w+b");
+    if (!stream) {
+        (void)close(fd);
+        return GLOBAL_MIGRATE_REPORT_CREATED_RETAINED;
+    }
+    reservation->stream = stream;
+    reservation->device = state.st_dev;
+    reservation->inode = state.st_ino;
     return GLOBAL_MIGRATE_REPORT_CREATED;
 #endif
 }
 
 static int global_migrate_report_path_matches(
-    const char *path,const global_migrate_report_reservation_t *reservation) {
-    if(!reservation||!reservation->stream)return 0;
+    const char *path, const global_migrate_report_reservation_t *reservation) {
+    if (!reservation || !reservation->stream)
+        return 0;
 #ifdef _WIN32
-    wchar_t *full=global_migrate_win_full_path(path);
-    if(!full)return 0;
-    HANDLE probe=CreateFileW(full,FILE_READ_ATTRIBUTES,
-        FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,NULL,OPEN_EXISTING,
-        FILE_ATTRIBUTE_NORMAL|FILE_FLAG_OPEN_REPARSE_POINT,NULL);
+    wchar_t *full = global_migrate_win_full_path(path);
+    if (!full)
+        return 0;
+    HANDLE probe = CreateFileW(
+        full, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT, NULL);
     free(full);
-    if(probe==INVALID_HANDLE_VALUE)return 0;
+    if (probe == INVALID_HANDLE_VALUE)
+        return 0;
     BY_HANDLE_FILE_INFORMATION info;
-    int matches=GetFileInformationByHandle(probe,&info)&&
-        !(info.dwFileAttributes&(FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT))&&
-        info.dwVolumeSerialNumber==reservation->volume_serial&&
-        info.nFileIndexHigh==reservation->file_index_high&&
-        info.nFileIndexLow==reservation->file_index_low;
-    if(matches&&reservation->extended_file_id_valid){
+    int matches =
+        GetFileInformationByHandle(probe, &info) &&
+        !(info.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) &&
+        info.dwVolumeSerialNumber == reservation->volume_serial &&
+        info.nFileIndexHigh == reservation->file_index_high &&
+        info.nFileIndexLow == reservation->file_index_low;
+    if (matches && reservation->extended_file_id_valid) {
         FILE_ID_INFO file_id;
-        matches=GetFileInformationByHandleEx(probe,FileIdInfo,&file_id,sizeof(file_id))&&
-                file_id.VolumeSerialNumber==reservation->extended_volume_serial&&
-                !memcmp(file_id.FileId.Identifier,reservation->extended_file_id,
-                        sizeof(reservation->extended_file_id));
+        matches = GetFileInformationByHandleEx(probe, FileIdInfo, &file_id, sizeof(file_id)) &&
+                  file_id.VolumeSerialNumber == reservation->extended_volume_serial &&
+                  !memcmp(file_id.FileId.Identifier, reservation->extended_file_id,
+                          sizeof(reservation->extended_file_id));
     }
-    if(!CloseHandle(probe))matches=0;
+    if (!CloseHandle(probe))
+        matches = 0;
     return matches;
 #else
     struct stat state;
-    return lstat(path,&state)==0&&S_ISREG(state.st_mode)&&!S_ISLNK(state.st_mode)&&
-           state.st_dev==reservation->device&&state.st_ino==reservation->inode;
+    return lstat(path, &state) == 0 && S_ISREG(state.st_mode) && !S_ISLNK(state.st_mode) &&
+           state.st_dev == reservation->device && state.st_ino == reservation->inode;
 #endif
 }
 
 static int global_migrate_report_sync(global_migrate_report_reservation_t *reservation) {
-    if(!reservation||!reservation->stream)return -1;
+    if (!reservation || !reservation->stream)
+        return -1;
 #ifdef _WIN32
     return _commit(cbm_fileno(reservation->stream));
 #else
@@ -5144,19 +5299,22 @@ static int global_migrate_report_sync(global_migrate_report_reservation_t *reser
 }
 
 static int global_migrate_report_close(global_migrate_report_reservation_t *reservation) {
-    if(!reservation||!reservation->stream)return -1;
-    FILE *stream=reservation->stream;reservation->stream=NULL;
+    if (!reservation || !reservation->stream)
+        return -1;
+    FILE *stream = reservation->stream;
+    reservation->stream = NULL;
     return fclose(stream);
 }
 
 static int global_migrate_report_discard(global_migrate_report_reservation_t *reservation) {
-    if(!reservation||!reservation->stream)return -1;
+    if (!reservation || !reservation->stream)
+        return -1;
 #ifdef _WIN32
-    HANDLE handle=(HANDLE)_get_osfhandle(cbm_fileno(reservation->stream));
-    int delete_marked=handle!=INVALID_HANDLE_VALUE
-        ?global_migrate_win_mark_delete(handle):-1;
-    int close_rc=global_migrate_report_close(reservation);
-    return delete_marked==0&&close_rc==0?0:-1;
+    HANDLE handle = (HANDLE)_get_osfhandle(cbm_fileno(reservation->stream));
+    int delete_marked =
+        handle != INVALID_HANDLE_VALUE ? global_migrate_win_mark_delete(handle) : -1;
+    int close_rc = global_migrate_report_close(reservation);
+    return delete_marked == 0 && close_rc == 0 ? 0 : -1;
 #else
     /*
      * POSIX has no portable unlink-by-open-handle operation. Retain an empty
@@ -5168,90 +5326,108 @@ static int global_migrate_report_discard(global_migrate_report_reservation_t *re
 #endif
 }
 
-int cbm_cmd_global_migrate(int argc,char **argv) {
-    cbm_global_migration_input_t input={
-        .source_memory_path=global_migrate_arg(argc,argv,"--source-memory"),
-        .source_graph_path=global_migrate_arg(argc,argv,"--source-graph"),
-        .source_config_path=global_migrate_arg(argc,argv,"--source-config"),
-        .target_root=global_migrate_arg(argc,argv,"--target-root"),
-        .project_path=global_migrate_arg(argc,argv,"--project-path"),
-        .idempotency_key=global_migrate_arg(argc,argv,"--idempotency-key"),
-        .mode=global_migrate_arg(argc,argv,"--mode")};
-    const char *report_path=global_migrate_arg(argc,argv,"--report");
-    if(!input.source_memory_path||!input.source_graph_path||!input.source_config_path||!input.target_root||!input.project_path||
-       !input.idempotency_key||!input.mode||!report_path){
-        fprintf(stderr,"global-migrate: all frozen contract arguments are required\n");return 2;
-    }
-    if(cbm_file_exists(report_path)){fprintf(stderr,"global-migrate: report path already exists\n");return 2;}
-    int path_check=global_migrate_validate_paths(input.target_root,report_path,0);
-    if(path_check==GLOBAL_MIGRATE_PATH_REJECTED){
-        fprintf(stderr,"global-migrate: report must be outside target-root and paths must be absolute, canonical, and link-free\n");
+int cbm_cmd_global_migrate(int argc, char **argv) {
+    cbm_global_migration_input_t input = {
+        .source_memory_path = global_migrate_arg(argc, argv, "--source-memory"),
+        .source_graph_path = global_migrate_arg(argc, argv, "--source-graph"),
+        .source_config_path = global_migrate_arg(argc, argv, "--source-config"),
+        .target_root = global_migrate_arg(argc, argv, "--target-root"),
+        .project_path = global_migrate_arg(argc, argv, "--project-path"),
+        .idempotency_key = global_migrate_arg(argc, argv, "--idempotency-key"),
+        .mode = global_migrate_arg(argc, argv, "--mode")};
+    const char *report_path = global_migrate_arg(argc, argv, "--report");
+    if (!input.source_memory_path || !input.source_graph_path || !input.source_config_path ||
+        !input.target_root || !input.project_path || !input.idempotency_key || !input.mode ||
+        !report_path) {
+        fprintf(stderr, "global-migrate: all frozen contract arguments are required\n");
         return 2;
     }
-    if(path_check!=GLOBAL_MIGRATE_PATH_OK){
-        fprintf(stderr,"global-migrate: migration paths could not be validated\n");return 1;
+    if (cbm_file_exists(report_path)) {
+        fprintf(stderr, "global-migrate: report path already exists\n");
+        return 2;
     }
-    errno=0;
+    int path_check = global_migrate_validate_paths(input.target_root, report_path, 0);
+    if (path_check == GLOBAL_MIGRATE_PATH_REJECTED) {
+        fprintf(stderr, "global-migrate: report must be outside target-root and paths must be "
+                        "absolute, canonical, and link-free\n");
+        return 2;
+    }
+    if (path_check != GLOBAL_MIGRATE_PATH_OK) {
+        fprintf(stderr, "global-migrate: migration paths could not be validated\n");
+        return 1;
+    }
+    errno = 0;
     global_migrate_report_reservation_t reservation;
-    int already_exists=0;
-    int create_rc=global_migrate_report_create(
-        report_path,&reservation,&already_exists);
-    if(create_rc!=GLOBAL_MIGRATE_REPORT_CREATED){
-        if(create_rc==GLOBAL_MIGRATE_REPORT_CREATED_RETAINED){
-            fprintf(stderr,"global-migrate: report initialization failed; empty reservation retained\n");
+    int already_exists = 0;
+    int create_rc = global_migrate_report_create(report_path, &reservation, &already_exists);
+    if (create_rc != GLOBAL_MIGRATE_REPORT_CREATED) {
+        if (create_rc == GLOBAL_MIGRATE_REPORT_CREATED_RETAINED) {
+            fprintf(stderr,
+                    "global-migrate: report initialization failed; empty reservation retained\n");
             return 1;
         }
-        int open_errno=errno;
-        if(already_exists||open_errno==EEXIST||cbm_file_exists(report_path)){
-            fprintf(stderr,"global-migrate: report path already exists\n");return 2;
+        int open_errno = errno;
+        if (already_exists || open_errno == EEXIST || cbm_file_exists(report_path)) {
+            fprintf(stderr, "global-migrate: report path already exists\n");
+            return 2;
         }
-        fprintf(stderr,"global-migrate: report path is not a new writable file\n");return 1;
-    }
-    path_check=global_migrate_validate_paths(input.target_root,report_path,1);
-    int reservation_matches=global_migrate_report_path_matches(report_path,&reservation);
-    if(path_check!=GLOBAL_MIGRATE_PATH_OK||!reservation_matches){
-        fprintf(stderr,path_check==GLOBAL_MIGRATE_PATH_REJECTED
-            ?"global-migrate: reserved report path failed containment revalidation\n"
-            :"global-migrate: reserved report path could not be revalidated\n");
-        if(global_migrate_report_discard(&reservation)!=0)
-            fprintf(stderr,"global-migrate: report cleanup failed; empty report reservation retained\n");
-        return path_check==GLOBAL_MIGRATE_PATH_REJECTED?2:1;
-    }
-    char *json=NULL;int rc=cbm_global_migration_execute(&input,&json);
-    if(!json){
-        fprintf(stderr,"global-migrate: migration failed before report generation\n");
-        if(global_migrate_report_discard(&reservation)!=0){
-            fprintf(stderr,"global-migrate: report cleanup failed; empty report reservation retained\n");
-        }
+        fprintf(stderr, "global-migrate: report path is not a new writable file\n");
         return 1;
     }
-    if(!global_migrate_report_path_matches(report_path,&reservation)){
-        free(json);
-        fprintf(stderr,"global-migrate: reserved report identity changed during migration\n");
-        if(global_migrate_report_discard(&reservation)!=0)
-            fprintf(stderr,"global-migrate: changed report reservation retained without deleting the current path\n");
-        return 1;
+    path_check = global_migrate_validate_paths(input.target_root, report_path, 1);
+    int reservation_matches = global_migrate_report_path_matches(report_path, &reservation);
+    if (path_check != GLOBAL_MIGRATE_PATH_OK || !reservation_matches) {
+        fprintf(stderr,
+                path_check == GLOBAL_MIGRATE_PATH_REJECTED
+                    ? "global-migrate: reserved report path failed containment revalidation\n"
+                    : "global-migrate: reserved report path could not be revalidated\n");
+        if (global_migrate_report_discard(&reservation) != 0)
+            fprintf(stderr,
+                    "global-migrate: report cleanup failed; empty report reservation retained\n");
+        return path_check == GLOBAL_MIGRATE_PATH_REJECTED ? 2 : 1;
     }
-    size_t size=strlen(json);
-    int write_ok=fwrite(json,1,size,reservation.stream)==size;
-    int newline_ok=fputc('\n',reservation.stream)!=EOF;
-    int flush_ok=fflush(reservation.stream)==0;
-    int sync_ok=global_migrate_report_sync(&reservation)==0;
-    int final_identity_ok=global_migrate_report_path_matches(report_path,&reservation);
-    if(!write_ok||!newline_ok||!flush_ok||!sync_ok||!final_identity_ok){
-        free(json);
-        fprintf(stderr,"global-migrate: report write failed\n");
-        if(global_migrate_report_discard(&reservation)!=0){
-            fprintf(stderr,"global-migrate: report cleanup failed; incomplete report retained\n");
+    char *json = NULL;
+    int rc = cbm_global_migration_execute(&input, &json);
+    if (!json) {
+        fprintf(stderr, "global-migrate: migration failed before report generation\n");
+        if (global_migrate_report_discard(&reservation) != 0) {
+            fprintf(stderr,
+                    "global-migrate: report cleanup failed; empty report reservation retained\n");
         }
         return 1;
     }
-    int close_ok=global_migrate_report_close(&reservation)==0;
-    if(!close_ok){
+    if (!global_migrate_report_path_matches(report_path, &reservation)) {
         free(json);
-        fprintf(stderr,"global-migrate: report close failed; complete bytes may be retained but are not accepted\n");
+        fprintf(stderr, "global-migrate: reserved report identity changed during migration\n");
+        if (global_migrate_report_discard(&reservation) != 0)
+            fprintf(stderr, "global-migrate: changed report reservation retained without deleting "
+                            "the current path\n");
         return 1;
     }
-    printf("%s\n",json);free(json);
-    return rc==CBM_STORE_OK||rc==CBM_STORE_REPLAYED?0:(rc==CBM_STORE_IDEMPOTENCY_CONFLICT?3:1);
+    size_t size = strlen(json);
+    int write_ok = fwrite(json, 1, size, reservation.stream) == size;
+    int newline_ok = fputc('\n', reservation.stream) != EOF;
+    int flush_ok = fflush(reservation.stream) == 0;
+    int sync_ok = global_migrate_report_sync(&reservation) == 0;
+    int final_identity_ok = global_migrate_report_path_matches(report_path, &reservation);
+    if (!write_ok || !newline_ok || !flush_ok || !sync_ok || !final_identity_ok) {
+        free(json);
+        fprintf(stderr, "global-migrate: report write failed\n");
+        if (global_migrate_report_discard(&reservation) != 0) {
+            fprintf(stderr, "global-migrate: report cleanup failed; incomplete report retained\n");
+        }
+        return 1;
+    }
+    int close_ok = global_migrate_report_close(&reservation) == 0;
+    if (!close_ok) {
+        free(json);
+        fprintf(stderr, "global-migrate: report close failed; complete bytes may be retained but "
+                        "are not accepted\n");
+        return 1;
+    }
+    printf("%s\n", json);
+    free(json);
+    return rc == CBM_STORE_OK || rc == CBM_STORE_REPLAYED
+               ? 0
+               : (rc == CBM_STORE_IDEMPOTENCY_CONFLICT ? 3 : 1);
 }

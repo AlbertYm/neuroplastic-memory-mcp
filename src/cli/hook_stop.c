@@ -15,11 +15,13 @@
 
 static char *stop_read_stdin(void) {
     char *buffer = malloc(STOP_STDIN_CAP + 1);
-    if (!buffer) return NULL;
+    if (!buffer)
+        return NULL;
     size_t total = 0;
     while (total < STOP_STDIN_CAP) {
         size_t count = fread(buffer + total, 1, STOP_STDIN_CAP - total, stdin);
-        if (count == 0) break;
+        if (count == 0)
+            break;
         total += count;
     }
     buffer[total] = '\0';
@@ -42,13 +44,13 @@ static void stop_emit(bool allow, const char *reason, const char *message) {
     if (allow) {
         yyjson_mut_obj_add_bool(doc, root, "continue", true);
     } else {
-        const char *block_reason = reason && reason[0]
-                                       ? reason
-                                       : "Complete the memory lifecycle before stopping.";
+        const char *block_reason =
+            reason && reason[0] ? reason : "Complete the memory lifecycle before stopping.";
         yyjson_mut_obj_add_str(doc, root, "decision", "block");
         yyjson_mut_obj_add_str(doc, root, "reason", block_reason);
     }
-    if (message) yyjson_mut_obj_add_str(doc, root, "systemMessage", message);
+    if (message)
+        yyjson_mut_obj_add_str(doc, root, "systemMessage", message);
     char *json = yyjson_mut_write(doc, 0, NULL);
     yyjson_mut_doc_free(doc);
     if (json) {
@@ -75,13 +77,14 @@ int cbm_cmd_memory_stop(void) {
     cbm_global_memory_t *global = cbm_global_memory_open_default();
     char *status = NULL;
     char *project_uuid = NULL;
-    int rc = global ? cbm_global_task_status(global, NULL, session_id, turn_id,
-                                              &project_uuid, &status)
-                    : CBM_STORE_ERR;
+    int rc = global
+                 ? cbm_global_task_status(global, NULL, session_id, turn_id, &project_uuid, &status)
+                 : CBM_STORE_ERR;
     if (rc != CBM_STORE_OK || !status) {
         free(status);
         free(project_uuid);
-        if (global) cbm_global_memory_close(global);
+        if (global)
+            cbm_global_memory_close(global);
         yyjson_doc_free(doc);
         free(input);
         stop_emit(true, NULL, "memory lifecycle degraded: task unavailable");
@@ -91,7 +94,8 @@ int cbm_cmd_memory_stop(void) {
     yyjson_val *status_root = status_doc ? yyjson_doc_get_root(status_doc) : NULL;
     const char *state = stop_string(status_root, "state");
     char state_copy[64] = {0};
-    if (state) snprintf(state_copy, sizeof(state_copy), "%s", state);
+    if (state)
+        snprintf(state_copy, sizeof(state_copy), "%s", state);
     yyjson_doc_free(status_doc);
     free(status);
     bool closed = strcmp(state_copy, "completed") == 0 || strcmp(state_copy, "failed") == 0 ||
@@ -109,7 +113,8 @@ int cbm_cmd_memory_stop(void) {
         cbm_global_memory_close(global);
         yyjson_doc_free(doc);
         free(input);
-        stop_emit(false, "Complete the task evidence and feedback lifecycle before stopping.", NULL);
+        stop_emit(false, "Complete the task evidence and feedback lifecycle before stopping.",
+                  NULL);
         return 0;
     }
     char key_material[768], key_hash[65], abandon_key[96];

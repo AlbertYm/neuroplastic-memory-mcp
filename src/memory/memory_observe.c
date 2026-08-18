@@ -36,9 +36,11 @@ static bool obs_text_equal(const char *a, const char *b) {
 }
 
 static bool obs_hex_exact(const char *value, size_t length) {
-    if (!value || strlen(value) != length) return false;
+    if (!value || strlen(value) != length)
+        return false;
     for (size_t i = 0; i < length; i++) {
-        if (!isxdigit((unsigned char)value[i])) return false;
+        if (!isxdigit((unsigned char)value[i]))
+            return false;
     }
     return true;
 }
@@ -98,8 +100,8 @@ static char *obs_stable_id(const char *prefix, const char *const *parts, int cou
     XXH128_hash_t hash = XXH3_128bits_digest(state);
     XXH3_freeState(state);
     char value[96];
-    snprintf(value, sizeof(value), "%s-%016llx%016llx", prefix,
-             (unsigned long long)hash.high64, (unsigned long long)hash.low64);
+    snprintf(value, sizeof(value), "%s-%016llx%016llx", prefix, (unsigned long long)hash.high64,
+             (unsigned long long)hash.low64);
     return obs_dup(value);
 }
 
@@ -132,8 +134,7 @@ int cbm_store_memory_observe_session_begin(cbm_store_t *s,
     char generated[96];
     const char *request_id = input->request_id;
     if (!request_id || !request_id[0]) {
-        snprintf(generated, sizeof(generated), "rs-%llu",
-                 (unsigned long long)cbm_now_ns());
+        snprintf(generated, sizeof(generated), "rs-%llu", (unsigned long long)cbm_now_ns());
         request_id = generated;
     }
     if (strlen(request_id) > 255) {
@@ -156,14 +157,12 @@ int cbm_store_memory_observe_session_begin(cbm_store_t *s,
     sqlite3_bind_text(stmt, 1, request_id, -1, SQLITE_TRANSIENT);
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         const char *existing_id = (const char *)sqlite3_column_text(stmt, 0);
-        bool same = obs_text_equal((const char *)sqlite3_column_text(stmt, 1),
-                                   input->project_scope) &&
-                    obs_text_equal((const char *)sqlite3_column_text(stmt, 2),
-                                   input->memory_scope) &&
-                    obs_text_equal((const char *)sqlite3_column_text(stmt, 3),
-                                   input->algorithm_version) &&
-                    sqlite3_column_int(stmt, 4) == input->config_version &&
-                    obs_text_equal((const char *)sqlite3_column_text(stmt, 5), query_hash);
+        bool same =
+            obs_text_equal((const char *)sqlite3_column_text(stmt, 1), input->project_scope) &&
+            obs_text_equal((const char *)sqlite3_column_text(stmt, 2), input->memory_scope) &&
+            obs_text_equal((const char *)sqlite3_column_text(stmt, 3), input->algorithm_version) &&
+            sqlite3_column_int(stmt, 4) == input->config_version &&
+            obs_text_equal((const char *)sqlite3_column_text(stmt, 5), query_hash);
         if (same) {
             *out_session_id = obs_dup(existing_id);
             *out_request_id = obs_dup(request_id);
@@ -215,9 +214,8 @@ int cbm_store_memory_observe_session_complete(cbm_store_t *s, const char *sessio
     char timestamp[40];
     obs_timestamp(timestamp);
     sqlite3_stmt *stmt = NULL;
-    const char *sql =
-        "UPDATE retrieval_session SET status=?2,completed_at=?3,error_code=?4 "
-        "WHERE id=?1 AND (status='open' OR status=?2);";
+    const char *sql = "UPDATE retrieval_session SET status=?2,completed_at=?3,error_code=?4 "
+                      "WHERE id=?1 AND (status='open' OR status=?2);";
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         return CBM_STORE_ERR;
     }
@@ -247,11 +245,10 @@ static int obs_candidate_exact(sqlite3 *db, const char *candidate_id, const char
                                const cbm_retrieval_candidate_observation_t *input,
                                const char *content_hash) {
     sqlite3_stmt *stmt = NULL;
-    const char *sql =
-        "SELECT COUNT(*) FROM retrieval_candidate WHERE id=?1 AND session_id=?2 "
-        "AND source_store_kind=?3 AND source_store_id=?4 AND memory_item_id=?5 "
-        "AND content_hash=?6 AND aggregate_score=?7 AND aggregate_rank=?8 "
-        "AND decision_status=?9;";
+    const char *sql = "SELECT COUNT(*) FROM retrieval_candidate WHERE id=?1 AND session_id=?2 "
+                      "AND source_store_kind=?3 AND source_store_id=?4 AND memory_item_id=?5 "
+                      "AND content_hash=?6 AND aggregate_score=?7 AND aggregate_rank=?8 "
+                      "AND decision_status=?9;";
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         return CBM_STORE_ERR;
     }
@@ -295,8 +292,10 @@ static int obs_source_exact(sqlite3 *db, const char *provenance_id, const char *
 
 static int obs_edge_visits(sqlite3 *db, const char *session_id, const char *root_memory_id) {
     const char *walk_sql =
-        "WITH RECURSIVE walk(previous_id,current_id,edge_id,relation_type,confidence,depth,path) AS ("
-        "SELECT ?2,CASE WHEN e.src_id=?2 THEN e.dst_id ELSE e.src_id END,e.id,e.type,e.confidence,1,"
+        "WITH RECURSIVE walk(previous_id,current_id,edge_id,relation_type,confidence,depth,path) "
+        "AS ("
+        "SELECT ?2,CASE WHEN e.src_id=?2 THEN e.dst_id ELSE e.src_id "
+        "END,e.id,e.type,e.confidence,1,"
         "','||?2||','||CASE WHEN e.src_id=?2 THEN e.dst_id ELSE e.src_id END||',' "
         "FROM memory_edge e WHERE (e.src_id=?2 OR e.dst_id=?2) AND e.type IN "
         "('supports','derived_from','used_in','contradicts','supersedes') UNION ALL "
@@ -304,8 +303,10 @@ static int obs_edge_visits(sqlite3 *db, const char *session_id, const char *root
         "e.id,e.type,e.confidence,w.depth+1,w.path||"
         "CASE WHEN e.src_id=w.current_id THEN e.dst_id ELSE e.src_id END||',' "
         "FROM walk w JOIN memory_edge e ON (e.src_id=w.current_id OR e.dst_id=w.current_id) "
-        "WHERE w.depth<3 AND e.type IN ('supports','derived_from','used_in','contradicts','supersedes') "
-        "AND instr(w.path,','||CASE WHEN e.src_id=w.current_id THEN e.dst_id ELSE e.src_id END||',')=0) "
+        "WHERE w.depth<3 AND e.type IN "
+        "('supports','derived_from','used_in','contradicts','supersedes') "
+        "AND instr(w.path,','||CASE WHEN e.src_id=w.current_id THEN e.dst_id ELSE e.src_id "
+        "END||',')=0) "
         "SELECT f.id,t.id,w.edge_id,w.relation_type,w.confidence,w.depth FROM walk w "
         "JOIN retrieval_candidate f ON f.session_id=?1 AND f.memory_item_id=w.previous_id "
         "JOIN retrieval_candidate t ON t.session_id=?1 AND t.memory_item_id=w.current_id "
@@ -361,10 +362,9 @@ static int obs_edge_visits(sqlite3 *db, const char *session_id, const char *root
     return result;
 }
 
-int cbm_store_memory_observe_candidates(
-    cbm_store_t *s, const char *session_id,
-    const cbm_retrieval_candidate_observation_t *candidates, int count,
-    cbm_retrieval_observation_ref_t *out_refs) {
+int cbm_store_memory_observe_candidates(cbm_store_t *s, const char *session_id,
+                                        const cbm_retrieval_candidate_observation_t *candidates,
+                                        int count, cbm_retrieval_observation_ref_t *out_refs) {
     static const char *const store_kinds[] = {"project", "global"};
     static const char *const decisions[] = {"retrieved", "selected", "rejected", "contradicted"};
     sqlite3 *db = s ? cbm_store_get_db(s) : NULL;
@@ -400,9 +400,8 @@ int cbm_store_memory_observe_candidates(
             break;
         }
         sqlite3_bind_text(stmt, 1, input->memory_item_id, -1, SQLITE_TRANSIENT);
-        const char *content = sqlite3_step(stmt) == SQLITE_ROW
-                                  ? (const char *)sqlite3_column_text(stmt, 0)
-                                  : NULL;
+        const char *content =
+            sqlite3_step(stmt) == SQLITE_ROW ? (const char *)sqlite3_column_text(stmt, 0) : NULL;
         char *content_copy = obs_dup(content);
         sqlite3_finalize(stmt);
         if (!content_copy) {
@@ -420,8 +419,8 @@ int cbm_store_memory_observe_candidates(
         out_refs[i].provenance_id = obs_stable_id("prov", source_parts, 2);
         out_refs[i].evidence_id = obs_stable_id("evid", evidence_parts, 3);
         free(content_copy);
-        if (!out_refs[i].candidate_id || !out_refs[i].content_hash ||
-            !out_refs[i].provenance_id || !out_refs[i].evidence_id) {
+        if (!out_refs[i].candidate_id || !out_refs[i].content_hash || !out_refs[i].provenance_id ||
+            !out_refs[i].evidence_id) {
             result = CBM_STORE_ERR;
             break;
         }
@@ -447,16 +446,15 @@ int cbm_store_memory_observe_candidates(
         bool inserted = sqlite3_step(stmt) == SQLITE_DONE;
         sqlite3_finalize(stmt);
         if (!inserted || obs_candidate_exact(db, out_refs[i].candidate_id, session_id, input,
-                                              out_refs[i].content_hash) != CBM_STORE_OK) {
+                                             out_refs[i].content_hash) != CBM_STORE_OK) {
             result = CBM_STORE_IDEMPOTENCY_CONFLICT;
             break;
         }
 
-        const char *detail = input->source_detail_json
-                                 ? input->source_detail_json
-                                 : (strcmp(source_type, "graph") == 0
-                                        ? "{\"provenance\":\"indirect\"}"
-                                        : "{\"provenance\":\"direct\"}");
+        const char *detail = input->source_detail_json ? input->source_detail_json
+                                                       : (strcmp(source_type, "graph") == 0
+                                                              ? "{\"provenance\":\"indirect\"}"
+                                                              : "{\"provenance\":\"direct\"}");
         const char *source_sql =
             "INSERT OR IGNORE INTO retrieval_candidate_source(id,candidate_id,source_type,"
             "source_rank,raw_score,normalized_score,source_detail_json) "
@@ -474,9 +472,8 @@ int cbm_store_memory_observe_candidates(
         sqlite3_bind_text(stmt, 7, detail, -1, SQLITE_TRANSIENT);
         inserted = sqlite3_step(stmt) == SQLITE_DONE;
         sqlite3_finalize(stmt);
-        if (!inserted || obs_source_exact(db, out_refs[i].provenance_id,
-                                          out_refs[i].candidate_id, source_type, input,
-                                          detail) != CBM_STORE_OK) {
+        if (!inserted || obs_source_exact(db, out_refs[i].provenance_id, out_refs[i].candidate_id,
+                                          source_type, input, detail) != CBM_STORE_OK) {
             result = CBM_STORE_IDEMPOTENCY_CONFLICT;
         }
     }
@@ -489,12 +486,11 @@ int cbm_store_memory_observe_candidates(
         }
     }
     if (result == CBM_STORE_OK) {
-        result = nested_transaction
-                     ? (sqlite3_exec(db, "RELEASE cbm_observe_candidates;", NULL, NULL, NULL) ==
-                                SQLITE_OK
-                            ? CBM_STORE_OK
-                            : CBM_STORE_ERR)
-                     : cbm_store_commit(s);
+        result = nested_transaction ? (sqlite3_exec(db, "RELEASE cbm_observe_candidates;", NULL,
+                                                    NULL, NULL) == SQLITE_OK
+                                           ? CBM_STORE_OK
+                                           : CBM_STORE_ERR)
+                                    : cbm_store_commit(s);
     } else {
         if (nested_transaction) {
             sqlite3_exec(db, "ROLLBACK TO cbm_observe_candidates;", NULL, NULL, NULL);
@@ -512,8 +508,8 @@ int cbm_store_memory_observe_candidates(
 static int obs_candidate_hash(sqlite3 *db, const char *session_id, const char *candidate_id,
                               const char *content_hash) {
     sqlite3_stmt *stmt = NULL;
-    const char *sql =
-        "SELECT COUNT(*) FROM retrieval_candidate WHERE id=?1 AND session_id=?2 AND content_hash=?3;";
+    const char *sql = "SELECT COUNT(*) FROM retrieval_candidate WHERE id=?1 AND session_id=?2 AND "
+                      "content_hash=?3;";
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         return CBM_STORE_ERR;
     }
@@ -551,7 +547,8 @@ static int obs_injection_existing(sqlite3 *db, const cbm_observe_injection_input
 static int obs_usage_existing(sqlite3 *db, const cbm_observe_usage_input_t *input) {
     sqlite3_stmt *stmt = NULL;
     const char *sql =
-        "SELECT session_id,candidate_id,injection_id,outcome,evidence_type,evidence_ref,evidence_hash "
+        "SELECT "
+        "session_id,candidate_id,injection_id,outcome,evidence_type,evidence_ref,evidence_hash "
         "FROM memory_usage_attribution WHERE id=?1;";
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         return CBM_STORE_ERR;
@@ -586,7 +583,8 @@ static bool obs_id_exists(sqlite3 *db, const char *table, const char *event_id) 
 }
 
 int cbm_store_memory_observe_usage(cbm_store_t *s, const cbm_observe_usage_input_t *input) {
-    static const char *const outcomes[] = {"used", "ignored", "rejected", "contradicted", "uncertain"};
+    static const char *const outcomes[] = {"used", "ignored", "rejected", "contradicted",
+                                           "uncertain"};
     sqlite3 *db = s ? cbm_store_get_db(s) : NULL;
     if (!db || !input || !input->event_id || !input->session_id || !input->candidate_id ||
         !obs_allowed(input->outcome, outcomes, 5) || !input->evidence_type ||
@@ -624,29 +622,27 @@ int cbm_store_memory_observe_usage(cbm_store_t *s, const cbm_observe_usage_input
     return inserted ? CBM_STORE_OK : CBM_STORE_ERR;
 }
 
-int cbm_store_memory_observe_injection(cbm_store_t *s,
-                                        const cbm_observe_injection_input_t *input) {
+int cbm_store_memory_observe_injection(cbm_store_t *s, const cbm_observe_injection_input_t *input) {
     static const char *const statuses[] = {"pass", "error"};
-    static const char *const classifications[] = {"safe", "prompt_injection", "secret", "pii",
-                                                   "canary", "rule_override"};
+    static const char *const classifications[] = {"safe", "prompt_injection", "secret",
+                                                  "pii",  "canary",           "rule_override"};
     sqlite3 *db = s ? cbm_store_get_db(s) : NULL;
     if (!db || !input || !input->event_id || !input->session_id || !input->candidate_id ||
         input->injection_index < 0 || !input->target ||
-        !obs_content_hash_valid(input->content_hash) ||
-        input->token_count < 0 || !obs_allowed(input->classifier_status, statuses, 2) ||
+        !obs_content_hash_valid(input->content_hash) || input->token_count < 0 ||
+        !obs_allowed(input->classifier_status, statuses, 2) ||
         !obs_allowed(input->classification, classifications, 6)) {
         return CBM_STORE_ERR;
     }
-    if (!cbm_memory_security_injection_allowed(input->classifier_status,
-                                               input->classification)) {
+    if (!cbm_memory_security_injection_allowed(input->classifier_status, input->classification)) {
         return CBM_STORE_REJECTED;
     }
     int existing = obs_injection_existing(db, input);
     if (existing != CBM_STORE_NOT_FOUND) {
         return existing;
     }
-    if (obs_candidate_hash(db, input->session_id, input->candidate_id,
-                           input->content_hash) != CBM_STORE_OK) {
+    if (obs_candidate_hash(db, input->session_id, input->candidate_id, input->content_hash) !=
+        CBM_STORE_OK) {
         return CBM_STORE_NOT_FOUND;
     }
     if (obs_id_exists(db, "memory_usage_attribution", input->event_id)) {
@@ -684,17 +680,14 @@ typedef struct {
 } stage7_sha256_ctx_t;
 
 static const uint32_t STAGE7_SHA256_K[64] = {
-    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
-    0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
-    0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
-    0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147,
-    0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
-    0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b,
-    0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a,
-    0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
-    0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 };
 
 static uint32_t stage7_rotr(uint32_t value, uint32_t amount) {
@@ -709,10 +702,10 @@ static void stage7_sha256_transform(stage7_sha256_ctx_t *ctx, const uint8_t data
                    ((uint32_t)data[offset + 2] << 8) | data[offset + 3];
     }
     for (int i = 16; i < 64; i++) {
-        uint32_t s0 = stage7_rotr(words[i - 15], 7) ^ stage7_rotr(words[i - 15], 18) ^
-                      (words[i - 15] >> 3);
-        uint32_t s1 = stage7_rotr(words[i - 2], 17) ^ stage7_rotr(words[i - 2], 19) ^
-                      (words[i - 2] >> 10);
+        uint32_t s0 =
+            stage7_rotr(words[i - 15], 7) ^ stage7_rotr(words[i - 15], 18) ^ (words[i - 15] >> 3);
+        uint32_t s1 =
+            stage7_rotr(words[i - 2], 17) ^ stage7_rotr(words[i - 2], 19) ^ (words[i - 2] >> 10);
         words[i] = words[i - 16] + s0 + words[i - 7] + s1;
     }
     uint32_t a = ctx->state[0], b = ctx->state[1], c = ctx->state[2], d = ctx->state[3];
@@ -770,11 +763,13 @@ static void stage7_sha256_final(stage7_sha256_ctx_t *ctx, uint8_t hash[32]) {
     uint32_t i = ctx->datalen;
     ctx->data[i++] = 0x80;
     if (i > 56) {
-        while (i < 64) ctx->data[i++] = 0;
+        while (i < 64)
+            ctx->data[i++] = 0;
         stage7_sha256_transform(ctx, ctx->data);
         i = 0;
     }
-    while (i < 56) ctx->data[i++] = 0;
+    while (i < 56)
+        ctx->data[i++] = 0;
     ctx->bitlen += (uint64_t)ctx->datalen * 8;
     for (int byte = 0; byte < 8; byte++) {
         ctx->data[63 - byte] = (uint8_t)(ctx->bitlen >> (byte * 8));
@@ -807,7 +802,8 @@ int cbm_stage7_sha256_hex(const void *data, size_t size, char out_hex[65]) {
 }
 
 static bool stage7_sha256_string(const char *value) {
-    if (!value || strlen(value) != 64) return false;
+    if (!value || strlen(value) != 64)
+        return false;
     for (int i = 0; i < 64; i++) {
         if (!((value[i] >= '0' && value[i] <= '9') || (value[i] >= 'a' && value[i] <= 'f'))) {
             return false;
@@ -829,21 +825,24 @@ static bool stage7_nonempty(const char *value) {
 
 static bool stage7_trust_source_valid(const char *trust, const char *source) {
     static const char *const external[] = {"build", "test", "static_check", "runtime"};
-    if (strcmp(trust, "external_verified") == 0) return obs_allowed(source, external, 4);
-    if (strcmp(trust, "explicit_user") == 0) return strcmp(source, "user") == 0;
+    if (strcmp(trust, "external_verified") == 0)
+        return obs_allowed(source, external, 4);
+    if (strcmp(trust, "explicit_user") == 0)
+        return strcmp(source, "user") == 0;
     return strcmp(trust, "model_self_report") == 0 && strcmp(source, "model") == 0;
 }
 
 static bool stage7_input_valid(const cbm_feedback_observe_input_t *input) {
-    static const char *const task_types[] = {"build", "test", "static_check", "runtime",
-                                             "user_task", "health_check"};
-    static const char *const result_types[] = {"build", "test", "static_check", "runtime",
-                                               "user_confirmation", "health_check"};
+    static const char *const task_types[] = {"build",   "test",      "static_check",
+                                             "runtime", "user_task", "health_check"};
+    static const char *const result_types[] = {
+        "build", "test", "static_check", "runtime", "user_confirmation", "health_check"};
     static const char *const result_statuses[] = {"succeeded", "failed", "cancelled", "pending"};
     static const char *const trusts[] = {"external_verified", "explicit_user", "model_self_report"};
     static const char *const states[] = {"valid", "invalid", "expired", "withdrawn"};
     static const char *const actions[] = {"confirm", "reject", "correct", "withdraw"};
-    if (!input || strcmp(input->processing_mode ? input->processing_mode : "", "observe_only") != 0 ||
+    if (!input ||
+        strcmp(input->processing_mode ? input->processing_mode : "", "observe_only") != 0 ||
         !stage7_nonempty(input->project) || !stage7_nonempty(input->event_id) ||
         !stage7_nonempty(input->task_id) || !stage7_nonempty(input->session_id) ||
         !stage7_nonempty(input->candidate_id) || !stage7_nonempty(input->usage_id) ||
@@ -854,15 +853,14 @@ static bool stage7_input_valid(const cbm_feedback_observe_input_t *input) {
         !obs_allowed(input->result_type, result_types, 6) ||
         !obs_allowed(input->result_status, result_statuses, 4) ||
         !obs_allowed(input->evidence_trust, trusts, 3) ||
-        !obs_allowed(input->evidence_state, states, 4) ||
-        !obs_allowed(input->action, actions, 4) ||
+        !obs_allowed(input->evidence_state, states, 4) || !obs_allowed(input->action, actions, 4) ||
         !stage7_trust_source_valid(input->evidence_trust, input->evidence_source) ||
         !stage7_payload_matches(input->result_payload, input->result_hash) ||
         !stage7_payload_matches(input->evidence_payload, input->evidence_hash)) {
         return false;
     }
-    bool compensating = strcmp(input->action, "correct") == 0 ||
-                        strcmp(input->action, "withdraw") == 0;
+    bool compensating =
+        strcmp(input->action, "correct") == 0 || strcmp(input->action, "withdraw") == 0;
     if (compensating != (input->supersedes_event_id && input->supersedes_event_id[0])) {
         return false;
     }
@@ -924,7 +922,8 @@ static int stage7_replay(sqlite3 *db, const char *event_id, const char *canonica
     sqlite3_stmt *stmt = NULL;
     const char *sql =
         "SELECT canonical_payload_sha256,result_json FROM feedback_event WHERE event_id=?1;";
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     sqlite3_bind_text(stmt, 1, event_id, -1, SQLITE_TRANSIENT);
     if (sqlite3_step(stmt) != SQLITE_ROW) {
         sqlite3_finalize(stmt);
@@ -950,7 +949,8 @@ static int stage7_chain_memory_item(sqlite3 *db, const cbm_feedback_observe_inpu
         "ON c.session_id=s.id JOIN memory_usage_attribution u ON u.session_id=s.id "
         "AND u.candidate_id=c.id WHERE s.id=?1 AND s.project_scope=?2 AND s.status='completed' "
         "AND c.id=?3 AND u.id=?4 AND u.injection_id IS ?5;";
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     sqlite3_bind_text(stmt, 1, input->session_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, input->project, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 3, input->candidate_id, -1, SQLITE_TRANSIENT);
@@ -961,11 +961,14 @@ static int stage7_chain_memory_item(sqlite3 *db, const cbm_feedback_observe_inpu
         *out_memory_item_id = obs_dup((const char *)sqlite3_column_text(stmt, 0));
     }
     sqlite3_finalize(stmt);
-    if (rc != SQLITE_ROW || !*out_memory_item_id) return CBM_STORE_NOT_FOUND;
-    if (!input->edge_id) return CBM_STORE_OK;
+    if (rc != SQLITE_ROW || !*out_memory_item_id)
+        return CBM_STORE_NOT_FOUND;
+    if (!input->edge_id)
+        return CBM_STORE_OK;
     sql = "SELECT COUNT(*) FROM retrieval_edge_visit WHERE session_id=?1 AND memory_edge_id=?2 "
           "AND (from_candidate_id=?3 OR to_candidate_id=?3);";
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     sqlite3_bind_text(stmt, 1, input->session_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, input->edge_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 3, input->candidate_id, -1, SQLITE_TRANSIENT);
@@ -976,26 +979,31 @@ static int stage7_chain_memory_item(sqlite3 *db, const cbm_feedback_observe_inpu
 
 static int stage7_superseded_evidence(sqlite3 *db, const cbm_feedback_observe_input_t *input,
                                       char **out_evidence_id) {
-    if (!input->supersedes_event_id) return CBM_STORE_OK;
+    if (!input->supersedes_event_id)
+        return CBM_STORE_OK;
     sqlite3_stmt *stmt = NULL;
     const char *sql =
         "SELECT evidence_id FROM feedback_event WHERE event_id=?1 AND task_id=?2 AND session_id=?3 "
         "AND candidate_id=?4;";
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     sqlite3_bind_text(stmt, 1, input->supersedes_event_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, input->task_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 3, input->session_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 4, input->candidate_id, -1, SQLITE_TRANSIENT);
     int rc = sqlite3_step(stmt);
-    if (rc == SQLITE_ROW) *out_evidence_id = obs_dup((const char *)sqlite3_column_text(stmt, 0));
+    if (rc == SQLITE_ROW)
+        *out_evidence_id = obs_dup((const char *)sqlite3_column_text(stmt, 0));
     sqlite3_finalize(stmt);
     return rc == SQLITE_ROW && *out_evidence_id ? CBM_STORE_OK : CBM_STORE_NOT_FOUND;
 }
 
 static int stage7_exec_bound(sqlite3 *db, const char *sql, const char *const *values, int count) {
     sqlite3_stmt *stmt = NULL;
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
-    for (int i = 0; i < count; i++) obs_bind_nullable(stmt, i + 1, values[i]);
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
+    for (int i = 0; i < count; i++)
+        obs_bind_nullable(stmt, i + 1, values[i]);
     bool ok = sqlite3_step(stmt) == SQLITE_DONE;
     sqlite3_finalize(stmt);
     return ok ? CBM_STORE_OK : CBM_STORE_ERR;
@@ -1007,55 +1015,69 @@ static int stage7_insert_foundation(sqlite3 *db, const cbm_feedback_observe_inpu
     if (stage7_exec_bound(db,
                           "INSERT OR IGNORE INTO memory_task(task_id,project,task_type,created_at) "
                           "VALUES(?1,?2,?3,?4);",
-                          task_values, 4) != CBM_STORE_OK) return CBM_STORE_ERR;
+                          task_values, 4) != CBM_STORE_OK)
+        return CBM_STORE_ERR;
     sqlite3_stmt *stmt = NULL;
     if (sqlite3_prepare_v2(db,
                            "SELECT COUNT(*) FROM memory_task WHERE task_id=?1 AND project=?2 AND "
                            "task_type=?3;",
-                           -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+                           -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     sqlite3_bind_text(stmt, 1, input->task_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, input->project, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 3, input->task_type, -1, SQLITE_TRANSIENT);
     bool exact = sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_int(stmt, 0) == 1;
     sqlite3_finalize(stmt);
-    if (!exact) return CBM_STORE_IDEMPOTENCY_CONFLICT;
+    if (!exact)
+        return CBM_STORE_IDEMPOTENCY_CONFLICT;
     const char *link_values[] = {input->task_id, input->session_id, timestamp};
     if (stage7_exec_bound(db,
                           "INSERT OR IGNORE INTO memory_task_session(task_id,session_id,linked_at) "
                           "VALUES(?1,?2,?3);",
-                          link_values, 3) != CBM_STORE_OK) return CBM_STORE_ERR;
-    const char *result_values[] = {input->result_id, input->task_id, input->result_type,
-                                   input->result_status, input->result_ref, input->result_hash,
-                                   timestamp};
-    if (stage7_exec_bound(db,
-                          "INSERT OR IGNORE INTO memory_task_result(result_id,task_id,result_type,"
-                          "status,result_ref,result_hash,recorded_at) VALUES(?1,?2,?3,?4,?5,?6,?7);",
-                          result_values, 7) != CBM_STORE_OK) return CBM_STORE_ERR;
+                          link_values, 3) != CBM_STORE_OK)
+        return CBM_STORE_ERR;
+    const char *result_values[] = {
+        input->result_id,  input->task_id,     input->result_type, input->result_status,
+        input->result_ref, input->result_hash, timestamp};
+    if (stage7_exec_bound(
+            db,
+            "INSERT OR IGNORE INTO memory_task_result(result_id,task_id,result_type,"
+            "status,result_ref,result_hash,recorded_at) VALUES(?1,?2,?3,?4,?5,?6,?7);",
+            result_values, 7) != CBM_STORE_OK)
+        return CBM_STORE_ERR;
     if (sqlite3_prepare_v2(db,
                            "SELECT COUNT(*) FROM memory_task_result WHERE result_id=?1 AND "
                            "task_id=?2 AND result_type=?3 AND status=?4 AND result_ref=?5 AND "
                            "result_hash=?6;",
-                           -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
-    for (int i = 0; i < 6; i++) sqlite3_bind_text(stmt, i + 1, result_values[i], -1, SQLITE_TRANSIENT);
+                           -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
+    for (int i = 0; i < 6; i++)
+        sqlite3_bind_text(stmt, i + 1, result_values[i], -1, SQLITE_TRANSIENT);
     exact = sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_int(stmt, 0) == 1;
     sqlite3_finalize(stmt);
-    if (!exact) return CBM_STORE_IDEMPOTENCY_CONFLICT;
-    const char *evidence_values[] = {input->evidence_id, input->task_id, input->result_id,
-                                     input->evidence_trust, input->evidence_state,
-                                     input->evidence_source, input->evidence_ref,
-                                     input->evidence_hash, superseded_evidence, timestamp};
-    if (stage7_exec_bound(db,
-                          "INSERT OR IGNORE INTO memory_evidence(evidence_id,task_id,result_id,"
-                          "trust_class,evidence_state,source_type,evidence_ref,evidence_hash,"
-                          "supersedes_evidence_id,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10);",
-                          evidence_values, 10) != CBM_STORE_OK) return CBM_STORE_ERR;
+    if (!exact)
+        return CBM_STORE_IDEMPOTENCY_CONFLICT;
+    const char *evidence_values[] = {input->evidence_id,    input->task_id,
+                                     input->result_id,      input->evidence_trust,
+                                     input->evidence_state, input->evidence_source,
+                                     input->evidence_ref,   input->evidence_hash,
+                                     superseded_evidence,   timestamp};
+    if (stage7_exec_bound(
+            db,
+            "INSERT OR IGNORE INTO memory_evidence(evidence_id,task_id,result_id,"
+            "trust_class,evidence_state,source_type,evidence_ref,evidence_hash,"
+            "supersedes_evidence_id,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10);",
+            evidence_values, 10) != CBM_STORE_OK)
+        return CBM_STORE_ERR;
     if (sqlite3_prepare_v2(db,
                            "SELECT COUNT(*) FROM memory_evidence WHERE evidence_id=?1 AND "
                            "task_id=?2 AND result_id=?3 AND trust_class=?4 AND evidence_state=?5 "
                            "AND source_type=?6 AND evidence_ref=?7 AND evidence_hash=?8 AND "
                            "supersedes_evidence_id IS ?9;",
-                           -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
-    for (int i = 0; i < 9; i++) obs_bind_nullable(stmt, i + 1, evidence_values[i]);
+                           -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
+    for (int i = 0; i < 9; i++)
+        obs_bind_nullable(stmt, i + 1, evidence_values[i]);
     exact = sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_int(stmt, 0) == 1;
     sqlite3_finalize(stmt);
     return exact ? CBM_STORE_OK : CBM_STORE_IDEMPOTENCY_CONFLICT;
@@ -1069,8 +1091,7 @@ static void stage7_reward(const cbm_feedback_observe_input_t *input, double *rew
         *status = "pending_confirmation";
         return;
     }
-    if (strcmp(input->action, "withdraw") == 0 ||
-        strcmp(input->evidence_state, "withdrawn") == 0) {
+    if (strcmp(input->action, "withdraw") == 0 || strcmp(input->evidence_state, "withdrawn") == 0) {
         *status = "withdrawn";
         return;
     }
@@ -1153,18 +1174,19 @@ static char *stage7_reward_report(const cbm_feedback_observe_input_t *input,
 
 static char *stage7_prefixed_hash_id(const char *prefix, const char *value) {
     char hash[65];
-    if (cbm_stage7_sha256_hex(value, strlen(value), hash) != CBM_STORE_OK) return NULL;
+    if (cbm_stage7_sha256_hex(value, strlen(value), hash) != CBM_STORE_OK)
+        return NULL;
     size_t size = strlen(prefix) + 64 + 1;
     char *result = malloc(size);
-    if (result) snprintf(result, size, "%s%s", prefix, hash);
+    if (result)
+        snprintf(result, size, "%s%s", prefix, hash);
     return result;
 }
 
 static int stage7_audit_hash(int64_t sequence, const char *audit_id, const char *feedback_id,
-                             const char *operation, const char *before_json,
-                             const char *after_json, const char *algorithm_version,
-                             int config_version, const char *prev_hash, const char *created_at,
-                             char out_hash[65]) {
+                             const char *operation, const char *before_json, const char *after_json,
+                             const char *algorithm_version, int config_version,
+                             const char *prev_hash, const char *created_at, char out_hash[65]) {
     yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
     yyjson_mut_val *root = doc ? yyjson_mut_obj(doc) : NULL;
     if (!doc || !root) {
@@ -1184,7 +1206,8 @@ static int stage7_audit_hash(int64_t sequence, const char *audit_id, const char 
     yyjson_mut_obj_add_str(doc, root, "created_at", created_at);
     char *json = yyjson_mut_write(doc, 0, NULL);
     yyjson_mut_doc_free(doc);
-    if (!json) return CBM_STORE_ERR;
+    if (!json)
+        return CBM_STORE_ERR;
     int rc = cbm_stage7_sha256_hex(json, strlen(json), out_hash);
     free(json);
     return rc;
@@ -1202,23 +1225,25 @@ static bool stage7_should_fail(int *executed, int failure_point) {
 }
 
 void cbm_store_memory_feedback_observe_result_free(cbm_feedback_observe_result_t *result) {
-    if (!result) return;
+    if (!result)
+        return;
     free(result->event_id);
     free(result->canonical_payload_sha256);
     free(result->result_json);
     memset(result, 0, sizeof(*result));
 }
 
-int cbm_store_memory_feedback_observe(cbm_store_t *s,
-                                      const cbm_feedback_observe_input_t *input,
+int cbm_store_memory_feedback_observe(cbm_store_t *s, const cbm_feedback_observe_input_t *input,
                                       cbm_feedback_observe_result_t *out) {
     sqlite3 *db = s ? cbm_store_get_db(s) : NULL;
-    if (out) memset(out, 0, sizeof(*out));
-    if (!db || !out || !stage7_input_valid(input)) return CBM_STORE_ERR;
+    if (out)
+        memset(out, 0, sizeof(*out));
+    if (!db || !out || !stage7_input_valid(input))
+        return CBM_STORE_ERR;
     char *payload_json = stage7_canonical_payload(input);
     char canonical_hash[65];
-    if (!payload_json || cbm_stage7_sha256_hex(payload_json, strlen(payload_json), canonical_hash) !=
-                             CBM_STORE_OK) {
+    if (!payload_json ||
+        cbm_stage7_sha256_hex(payload_json, strlen(payload_json), canonical_hash) != CBM_STORE_OK) {
         free(payload_json);
         return CBM_STORE_ERR;
     }
@@ -1235,7 +1260,8 @@ int cbm_store_memory_feedback_observe(cbm_store_t *s,
     char *memory_item_id = NULL;
     char *superseded_evidence = NULL;
     int rc = stage7_chain_memory_item(db, input, &memory_item_id);
-    if (rc == CBM_STORE_OK) rc = stage7_superseded_evidence(db, input, &superseded_evidence);
+    if (rc == CBM_STORE_OK)
+        rc = stage7_superseded_evidence(db, input, &superseded_evidence);
     char timestamp[40];
     obs_timestamp(timestamp);
     if (rc == CBM_STORE_OK) {
@@ -1243,18 +1269,22 @@ int cbm_store_memory_feedback_observe(cbm_store_t *s,
     }
     int failure_point = stage7_feedback_failure_point();
     int executed = 0;
-    if (rc == CBM_STORE_OK && stage7_should_fail(&executed, failure_point)) rc = CBM_STORE_ERR;
+    if (rc == CBM_STORE_OK && stage7_should_fail(&executed, failure_point))
+        rc = CBM_STORE_ERR;
     double reward = 0.0;
     const char *attribution_status = NULL;
     stage7_reward(input, &reward, &attribution_status);
-    if (reward < -1.0) reward = -1.0;
-    if (reward > 1.0) reward = 1.0;
+    if (reward < -1.0)
+        reward = -1.0;
+    if (reward > 1.0)
+        reward = 1.0;
     double node_contribution = input->edge_id ? reward * 0.7 : reward;
     double edge_contribution = input->edge_id ? reward * 0.3 : 0.0;
-    char *result_json = stage7_reward_report(input, memory_item_id ? memory_item_id : "",
-                                              attribution_status, node_contribution,
-                                              edge_contribution, reward);
-    if (rc == CBM_STORE_OK && !result_json) rc = CBM_STORE_ERR;
+    char *result_json =
+        stage7_reward_report(input, memory_item_id ? memory_item_id : "", attribution_status,
+                             node_contribution, edge_contribution, reward);
+    if (rc == CBM_STORE_OK && !result_json)
+        rc = CBM_STORE_ERR;
     if (rc == CBM_STORE_OK) {
         sqlite3_stmt *stmt = NULL;
         const char *sql =
@@ -1266,21 +1296,35 @@ int cbm_store_memory_feedback_observe(cbm_store_t *s,
             rc = CBM_STORE_ERR;
         } else {
             const char *values[] = {
-                input->event_id, input->task_id, input->session_id, input->candidate_id,
-                input->injection_id, input->usage_id, input->result_id, input->evidence_id,
-                input->action, input->processing_mode, canonical_hash, payload_json, result_json,
-                input->supersedes_event_id, input->algorithm_version,
+                input->event_id,
+                input->task_id,
+                input->session_id,
+                input->candidate_id,
+                input->injection_id,
+                input->usage_id,
+                input->result_id,
+                input->evidence_id,
+                input->action,
+                input->processing_mode,
+                canonical_hash,
+                payload_json,
+                result_json,
+                input->supersedes_event_id,
+                input->algorithm_version,
             };
-            for (int i = 0; i < 15; i++) obs_bind_nullable(stmt, i + 1, values[i]);
+            for (int i = 0; i < 15; i++)
+                obs_bind_nullable(stmt, i + 1, values[i]);
             sqlite3_bind_int(stmt, 16, input->config_version);
             sqlite3_bind_text(stmt, 17, timestamp, -1, SQLITE_TRANSIENT);
             rc = sqlite3_step(stmt) == SQLITE_DONE ? CBM_STORE_OK : CBM_STORE_ERR;
         }
         sqlite3_finalize(stmt);
     }
-    if (rc == CBM_STORE_OK && stage7_should_fail(&executed, failure_point)) rc = CBM_STORE_ERR;
+    if (rc == CBM_STORE_OK && stage7_should_fail(&executed, failure_point))
+        rc = CBM_STORE_ERR;
     char *attribution_id = stage7_prefixed_hash_id("attr-", input->event_id);
-    if (rc == CBM_STORE_OK && !attribution_id) rc = CBM_STORE_ERR;
+    if (rc == CBM_STORE_OK && !attribution_id)
+        rc = CBM_STORE_ERR;
     if (rc == CBM_STORE_OK) {
         sqlite3_stmt *stmt = NULL;
         const char *sql =
@@ -1310,7 +1354,8 @@ int cbm_store_memory_feedback_observe(cbm_store_t *s,
         }
         sqlite3_finalize(stmt);
     }
-    if (rc == CBM_STORE_OK && stage7_should_fail(&executed, failure_point)) rc = CBM_STORE_ERR;
+    if (rc == CBM_STORE_OK && stage7_should_fail(&executed, failure_point))
+        rc = CBM_STORE_ERR;
     char *audit_id = stage7_prefixed_hash_id("audit-", input->event_id);
     int64_t sequence = 1;
     char prev_hash[65];
@@ -1331,21 +1376,22 @@ int cbm_store_memory_feedback_observe(cbm_store_t *s,
     }
     const char *operation = strcmp(input->action, "withdraw") == 0
                                 ? "withdrawal"
-                                : (strcmp(input->action, "correct") == 0
-                                       ? "compensating_correction"
-                                       : "observe_feedback");
+                                : (strcmp(input->action, "correct") == 0 ? "compensating_correction"
+                                                                         : "observe_feedback");
     char event_hash[65];
     if (rc == CBM_STORE_OK &&
-        (!audit_id || stage7_audit_hash(sequence, audit_id, input->event_id, operation, "{}",
-                                        result_json, input->algorithm_version, input->config_version,
-                                        prev_hash, timestamp, event_hash) != CBM_STORE_OK)) {
+        (!audit_id ||
+         stage7_audit_hash(sequence, audit_id, input->event_id, operation, "{}", result_json,
+                           input->algorithm_version, input->config_version, prev_hash, timestamp,
+                           event_hash) != CBM_STORE_OK)) {
         rc = CBM_STORE_ERR;
     }
     if (rc == CBM_STORE_OK) {
         sqlite3_stmt *stmt = NULL;
         const char *sql =
             "INSERT INTO plasticity_audit_event(sequence_no,event_id,feedback_event_id,operation,"
-            "before_json,after_json,algorithm_version,config_version,prev_hash,event_hash,created_at) "
+            "before_json,after_json,algorithm_version,config_version,prev_hash,event_hash,created_"
+            "at) "
             "VALUES(?1,?2,?3,?4,'{}',?5,?6,?7,?8,?9,?10);";
         if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
             rc = CBM_STORE_ERR;
@@ -1364,8 +1410,10 @@ int cbm_store_memory_feedback_observe(cbm_store_t *s,
         }
         sqlite3_finalize(stmt);
     }
-    if (rc == CBM_STORE_OK && stage7_should_fail(&executed, failure_point)) rc = CBM_STORE_ERR;
-    if (rc == CBM_STORE_OK) rc = cbm_store_commit(s);
+    if (rc == CBM_STORE_OK && stage7_should_fail(&executed, failure_point))
+        rc = CBM_STORE_ERR;
+    if (rc == CBM_STORE_OK)
+        rc = cbm_store_commit(s);
     if (rc != CBM_STORE_OK) {
         cbm_store_rollback(s);
     } else {
@@ -1388,14 +1436,17 @@ int cbm_store_memory_feedback_observe(cbm_store_t *s,
 
 int cbm_store_memory_stage7_audit_verify(cbm_store_t *s, int *out_count) {
     sqlite3 *db = s ? cbm_store_get_db(s) : NULL;
-    if (out_count) *out_count = 0;
-    if (!db) return CBM_STORE_ERR;
+    if (out_count)
+        *out_count = 0;
+    if (!db)
+        return CBM_STORE_ERR;
     sqlite3_stmt *stmt = NULL;
     const char *sql =
         "SELECT sequence_no,event_id,feedback_event_id,operation,before_json,after_json,"
         "algorithm_version,config_version,prev_hash,event_hash,created_at FROM "
         "plasticity_audit_event ORDER BY sequence_no;";
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     char expected_prev[65];
     memset(expected_prev, '0', 64);
     expected_prev[64] = '\0';
@@ -1417,7 +1468,8 @@ int cbm_store_memory_stage7_audit_verify(cbm_store_t *s, int *out_count) {
         char actual_hash[65];
         if (sequence != expected_sequence || !prev_hash || strcmp(prev_hash, expected_prev) != 0 ||
             stage7_audit_hash(sequence, audit_id, feedback_id, operation, before_json, after_json,
-                              algorithm, config, prev_hash, created_at, actual_hash) != CBM_STORE_OK ||
+                              algorithm, config, prev_hash, created_at,
+                              actual_hash) != CBM_STORE_OK ||
             !stored_hash || strcmp(stored_hash, actual_hash) != 0) {
             result = CBM_STORE_ERR;
             break;
@@ -1427,7 +1479,8 @@ int cbm_store_memory_stage7_audit_verify(cbm_store_t *s, int *out_count) {
         count++;
     }
     sqlite3_finalize(stmt);
-    if (result == CBM_STORE_OK && out_count) *out_count = count;
+    if (result == CBM_STORE_OK && out_count)
+        *out_count = count;
     return result;
 }
 
@@ -1438,16 +1491,16 @@ int cbm_store_memory_stage7_audit_verify(cbm_store_t *s, int *out_count) {
 #define STAGE8_FIXTURE_PROJECT "stage6-fixture-stage8-g8-candidate-v1"
 #define STAGE8_PRODUCTION_PROJECT "H-Codex_H-neuroplastic-main"
 #define STAGE8_CANARY_MANIFEST_SCHEMA "stage8b2-production-canary-manifest/v1"
-#define STAGE8_CANARY_MANIFEST_PATH \
-    "H:\\Codex_H\\project\\experiments\\stage8b2-production-canary\\stage8b2-canary-manifest-v1.json"
+#define STAGE8_CANARY_MANIFEST_PATH                                                               \
+    "H:\\Codex_H\\project\\experiments\\stage8b2-production-canary\\stage8b2-canary-manifest-v1." \
+    "json"
 #define STAGE8_CANARY_MEMORY_PRE_STATE \
     "9e3c5a916e96fb5754497a1acd64088b1a3613bb391cf7a4a6f8d92e9da2db5d"
 #define STAGE8_CANARY_MEMORY_DB \
     "H:\\Codex_H\\runtime-data\\codex-mcp\\H-Codex_H-neuroplastic-main-memory.db"
 #define STAGE8_COMPONENT "stage8_edge_reinforcement"
 #define STAGE8_MIGRATION_NAME "edge_contribution_event_state_audit_v1"
-#define STAGE8_MIGRATION_CHECKSUM \
-    "b3684685a4082bfcc80407c36297aa290b44c60075abe1a8c23e160e9f953fd7"
+#define STAGE8_MIGRATION_CHECKSUM "b3684685a4082bfcc80407c36297aa290b44c60075abe1a8c23e160e9f953fd7"
 #define STAGE8_BASELINE_PPM 1000000LL
 #define STAGE8_MIN_PPM 750000LL
 #define STAGE8_MAX_PPM 1250000LL
@@ -1583,7 +1636,8 @@ static const stage8_object_t STAGE8_OBJECTS[] = {
 };
 
 static void stage8_event_clear(stage8_event_t *event) {
-    if (!event) return;
+    if (!event)
+        return;
     free(event->id);
     free(event->feedback_id);
     free(event->attribution_id);
@@ -1603,7 +1657,8 @@ static void stage8_event_clear(stage8_event_t *event) {
 }
 
 static void stage8_events_free(stage8_event_t *events, int count) {
-    for (int i = 0; i < count; i++) stage8_event_clear(&events[i]);
+    for (int i = 0; i < count; i++)
+        stage8_event_clear(&events[i]);
     free(events);
 }
 
@@ -1618,7 +1673,8 @@ static void stage8_states_free(stage8_state_t *states, int count) {
 static char *stage8_hash_id(const char *prefix, const char *left, const char *right) {
     size_t size = strlen(left ? left : "") + strlen(right ? right : "") + 2;
     char *canonical = malloc(size);
-    if (!canonical) return NULL;
+    if (!canonical)
+        return NULL;
     snprintf(canonical, size, "%s\n%s", left ? left : "", right ? right : "");
     char hash[65];
     if (cbm_stage7_sha256_hex(canonical, strlen(canonical), hash) != CBM_STORE_OK) {
@@ -1628,7 +1684,8 @@ static char *stage8_hash_id(const char *prefix, const char *left, const char *ri
     free(canonical);
     size_t result_size = strlen(prefix) + 65;
     char *result = malloc(result_size);
-    if (result) snprintf(result, result_size, "%s%s", prefix, hash);
+    if (result)
+        snprintf(result, result_size, "%s%s", prefix, hash);
     return result;
 }
 
@@ -1638,8 +1695,10 @@ static char *stage8_plain_hash(const char *left, const char *right) {
 }
 
 static int64_t stage8_clamp(int64_t value, int64_t minimum, int64_t maximum) {
-    if (value < minimum) return minimum;
-    if (value > maximum) return maximum;
+    if (value < minimum)
+        return minimum;
+    if (value > maximum)
+        return maximum;
     return value;
 }
 
@@ -1668,17 +1727,18 @@ static int stage8_env_int(const char *name) {
 static bool stage8_fail_step(int *step, int fail_after) {
     (*step)++;
     int crash_after = stage8_env_int("CBM_STAGE8_REINFORCEMENT_CRASH_AFTER");
-    if (crash_after > 0 && *step == crash_after) _Exit(86);
+    if (crash_after > 0 && *step == crash_after)
+        _Exit(86);
     return fail_after > 0 && *step == fail_after;
 }
 
 static int stage8_schema_object_count(sqlite3 *db) {
     sqlite3_stmt *stmt = NULL;
-    const char *sql =
-        "SELECT COUNT(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND "
-        "(name LIKE 'stage8_%' OR name LIKE 'edge_contribution_%' OR "
-        "name='plastic_edge_state' OR name LIKE 'edge_reinforcement_%');";
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return -1;
+    const char *sql = "SELECT COUNT(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND "
+                      "(name LIKE 'stage8_%' OR name LIKE 'edge_contribution_%' OR "
+                      "name='plastic_edge_state' OR name LIKE 'edge_reinforcement_%');";
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return -1;
     int count = sqlite3_step(stmt) == SQLITE_ROW ? sqlite3_column_int(stmt, 0) : -1;
     sqlite3_finalize(stmt);
     return count;
@@ -1686,12 +1746,14 @@ static int stage8_schema_object_count(sqlite3 *db) {
 
 static bool stage8_schema_complete(sqlite3 *db) {
     int expected = (int)(sizeof(STAGE8_OBJECTS) / sizeof(STAGE8_OBJECTS[0]));
-    if (stage8_schema_object_count(db) != expected) return false;
+    if (stage8_schema_object_count(db) != expected)
+        return false;
     sqlite3_stmt *stmt = NULL;
     const char *sql =
         "SELECT COUNT(*) FROM stage8_component_ledger WHERE component=?1 AND version=1 AND "
         "name=?2 AND checksum=?3;";
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return false;
     sqlite3_bind_text(stmt, 1, STAGE8_COMPONENT, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 2, STAGE8_MIGRATION_NAME, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 3, STAGE8_MIGRATION_CHECKSUM, -1, SQLITE_STATIC);
@@ -1714,7 +1776,8 @@ static bool stage8_manifest_int(yyjson_val *root, const char *key, int expected)
 static bool stage8_query_count(sqlite3 *db, const char *sql, int expected,
                                const char *const *values, int value_count) {
     sqlite3_stmt *stmt = NULL;
-    if (!db || sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+    if (!db || sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return false;
     for (int i = 0; i < value_count; i++) {
         sqlite3_bind_text(stmt, i + 1, values[i], -1, SQLITE_TRANSIENT);
     }
@@ -1734,22 +1797,24 @@ static bool stage8_user_version_is(sqlite3 *db, int expected) {
 
 static bool stage8_production_canary_guard(sqlite3 *db,
                                            const cbm_edge_reinforcement_input_t *input) {
-    if (!db || !input || !input->project ||
-        strcmp(input->project, STAGE8_PRODUCTION_PROJECT) != 0)
+    if (!db || !input || !input->project || strcmp(input->project, STAGE8_PRODUCTION_PROJECT) != 0)
         return false;
     char enabled[8] = {0};
     cbm_safe_getenv("CBM_STAGE8_PRODUCTION_CANARY", enabled, sizeof(enabled), NULL);
-    if (strcmp(enabled, "1") != 0) return false;
+    if (strcmp(enabled, "1") != 0)
+        return false;
     yyjson_doc *manifest_doc = NULL;
     char manifest_env_path[4096] = {0};
     cbm_safe_getenv("CBM_STAGE8_PRODUCTION_CANARY_MANIFEST", manifest_env_path,
                     sizeof(manifest_env_path), NULL);
-    if (strcmp(manifest_env_path, STAGE8_CANARY_MANIFEST_PATH) != 0) return false;
+    if (strcmp(manifest_env_path, STAGE8_CANARY_MANIFEST_PATH) != 0)
+        return false;
     char manifest_hash[65] = {0};
-    cbm_safe_getenv("CBM_STAGE8_PRODUCTION_CANARY_SHA256", manifest_hash,
-                    sizeof(manifest_hash), NULL);
+    cbm_safe_getenv("CBM_STAGE8_PRODUCTION_CANARY_SHA256", manifest_hash, sizeof(manifest_hash),
+                    NULL);
     FILE *file = fopen(STAGE8_CANARY_MANIFEST_PATH, "rb");
-    if (!file) return false;
+    if (!file)
+        return false;
     if (fseek(file, 0, SEEK_END) != 0) {
         fclose(file);
         return false;
@@ -1775,41 +1840,41 @@ static bool stage8_production_canary_guard(sqlite3 *db,
     }
     manifest_doc = yyjson_read((const char *)bytes, (size_t)length, 0);
     yyjson_val *root = manifest_doc ? yyjson_doc_get_root(manifest_doc) : NULL;
-    bool fields_ok = root && yyjson_is_obj(root) &&
-                     stage8_manifest_string(root, "schema", STAGE8_CANARY_MANIFEST_SCHEMA) &&
-                     stage8_manifest_string(root, "project", STAGE8_PRODUCTION_PROJECT) &&
-                     stage8_manifest_string(root, "memory_db", STAGE8_CANARY_MEMORY_DB) &&
-                     stage8_manifest_string(root, "memory_pre_state_sha256",
-                                            STAGE8_CANARY_MEMORY_PRE_STATE) &&
-                     stage8_manifest_int(root, "memory_user_version", 6) &&
-                     stage8_manifest_string(root, "edge_id", "medge-40150413779000-5") &&
-                     stage8_manifest_string(root, "source_event_id", "evt-40150413481500-3") &&
-                     stage8_manifest_string(root, "feedback_event_id",
-                                            "stage8-gate-c-production__20260718_094916122-feedback") &&
-                     stage8_manifest_string(root, "feedback_attribution_id",
-                                            "attr-97a6a8c7fa171d11225dfbf08dcdf99b2b8b3e3274d0ba086f8388c79fbdf088") &&
-                     stage8_manifest_string(root, "task_id",
-                                            "stage8-gate-c-production__20260718_094916122-task") &&
-                     stage8_manifest_string(root, "evidence_id",
-                                            "stage8-gate-c-production__20260718_094916122-checklist-evidence") &&
-                     stage8_manifest_string(root, "session_id",
-                                            "stage8-gate-c-production__20260718_094916122-retrieve-v3") &&
-                     stage8_manifest_string(root, "candidate_id",
-                                            "cand-874943e5a86f1e888ccf543d0d26856a") &&
-                     stage8_manifest_string(root, "visit_id",
-                                            "visit-7614c2d463819813f8685661e38a3664") &&
-                     stage8_manifest_string(root, "usage_id",
-                                            "stage8-gate-c-production__20260718_094916122-c2-usage") &&
-                     stage8_manifest_string(root, "injection_id",
-                                            "stage8-gate-c-production__20260718_094916122-c2-injection") &&
-                     stage8_manifest_string(root, "canary_id", "stage8b2-production-canary-20260718-1") &&
-                     stage8_manifest_string(root, "algorithm_version", STAGE8_ALGORITHM) &&
-                     stage8_manifest_int(root, "config_version", STAGE8_CONFIG_VERSION) &&
-                     stage8_manifest_int(root, "max_edges", 1) &&
-                     stage8_manifest_string(root, "production_default_mode", "off");
+    bool fields_ok =
+        root && yyjson_is_obj(root) &&
+        stage8_manifest_string(root, "schema", STAGE8_CANARY_MANIFEST_SCHEMA) &&
+        stage8_manifest_string(root, "project", STAGE8_PRODUCTION_PROJECT) &&
+        stage8_manifest_string(root, "memory_db", STAGE8_CANARY_MEMORY_DB) &&
+        stage8_manifest_string(root, "memory_pre_state_sha256", STAGE8_CANARY_MEMORY_PRE_STATE) &&
+        stage8_manifest_int(root, "memory_user_version", 6) &&
+        stage8_manifest_string(root, "edge_id", "medge-40150413779000-5") &&
+        stage8_manifest_string(root, "source_event_id", "evt-40150413481500-3") &&
+        stage8_manifest_string(root, "feedback_event_id",
+                               "stage8-gate-c-production__20260718_094916122-feedback") &&
+        stage8_manifest_string(
+            root, "feedback_attribution_id",
+            "attr-97a6a8c7fa171d11225dfbf08dcdf99b2b8b3e3274d0ba086f8388c79fbdf088") &&
+        stage8_manifest_string(root, "task_id",
+                               "stage8-gate-c-production__20260718_094916122-task") &&
+        stage8_manifest_string(root, "evidence_id",
+                               "stage8-gate-c-production__20260718_094916122-checklist-evidence") &&
+        stage8_manifest_string(root, "session_id",
+                               "stage8-gate-c-production__20260718_094916122-retrieve-v3") &&
+        stage8_manifest_string(root, "candidate_id", "cand-874943e5a86f1e888ccf543d0d26856a") &&
+        stage8_manifest_string(root, "visit_id", "visit-7614c2d463819813f8685661e38a3664") &&
+        stage8_manifest_string(root, "usage_id",
+                               "stage8-gate-c-production__20260718_094916122-c2-usage") &&
+        stage8_manifest_string(root, "injection_id",
+                               "stage8-gate-c-production__20260718_094916122-c2-injection") &&
+        stage8_manifest_string(root, "canary_id", "stage8b2-production-canary-20260718-1") &&
+        stage8_manifest_string(root, "algorithm_version", STAGE8_ALGORITHM) &&
+        stage8_manifest_int(root, "config_version", STAGE8_CONFIG_VERSION) &&
+        stage8_manifest_int(root, "max_edges", 1) &&
+        stage8_manifest_string(root, "production_default_mode", "off");
     free(bytes);
     yyjson_doc_free(manifest_doc);
-    if (!fields_ok) return false;
+    if (!fields_ok)
+        return false;
 
     const char *edge_values[] = {"medge-40150413779000-5", "evt-40150413481500-3"};
     const char *eligible_values[] = {
@@ -1823,13 +1888,16 @@ static bool stage8_production_canary_guard(sqlite3 *db,
         "stage8-gate-c-production__20260718_094916122-c2-usage",
         "stage8-gate-c-production__20260718_094916122-c2-injection",
         "visit-7614c2d463819813f8685661e38a3664"};
-    bool exact_edge = stage8_query_count(db, "SELECT COUNT(*) FROM memory_edge;", 1, NULL, 0) &&
-                      stage8_query_count(db,
-                                         "SELECT COUNT(*) FROM memory_edge WHERE id=?1 AND origin=?2 AND type='derived_from';",
-                                         1, edge_values, 2);
+    bool exact_edge =
+        stage8_query_count(db, "SELECT COUNT(*) FROM memory_edge;", 1, NULL, 0) &&
+        stage8_query_count(
+            db,
+            "SELECT COUNT(*) FROM memory_edge WHERE id=?1 AND origin=?2 AND type='derived_from';",
+            1, edge_values, 2);
     bool eligible = stage8_query_count(
         db,
-        "SELECT COUNT(*) FROM feedback_event f JOIN feedback_attribution a ON a.feedback_event_id=f.event_id "
+        "SELECT COUNT(*) FROM feedback_event f JOIN feedback_attribution a ON "
+        "a.feedback_event_id=f.event_id "
         "JOIN memory_evidence e ON e.evidence_id=f.evidence_id JOIN memory_usage_attribution u ON "
         "u.id=f.usage_id AND u.session_id=f.session_id AND u.candidate_id=f.candidate_id "
         "JOIN retrieval_edge_visit v ON v.session_id=f.session_id AND v.memory_edge_id=a.edge_id "
@@ -1837,27 +1905,43 @@ static bool stage8_production_canary_guard(sqlite3 *db,
         "WHERE f.event_id=?1 AND a.attribution_id=?2 AND a.edge_id=?3 AND f.task_id=?4 AND "
         "f.evidence_id=?5 AND f.session_id=?6 AND f.candidate_id=?7 AND f.usage_id=?8 AND "
         "f.injection_id=?9 AND v.id=?10 AND u.outcome='used' AND v.visit_status='accepted' AND "
-        "a.attribution_status='attributed' AND e.trust_class='external_verified' AND f.action='confirm';",
+        "a.attribution_status='attributed' AND e.trust_class='external_verified' AND "
+        "f.action='confirm';",
         1, eligible_values, 10);
-    bool unique_edge_feedback = stage8_query_count(db,
-        "SELECT COUNT(*) FROM feedback_attribution WHERE edge_id IS NOT NULL;", 1, NULL, 0);
+    bool unique_edge_feedback = stage8_query_count(
+        db, "SELECT COUNT(*) FROM feedback_attribution WHERE edge_id IS NOT NULL;", 1, NULL, 0);
     bool schema_present = stage8_schema_object_count(db) > 0;
     bool state_ok = !schema_present ? !schema_present : stage8_schema_complete(db);
     bool stage8_rows_ok = true;
     if (schema_present) {
-        stage8_rows_ok = stage8_query_count(db, "SELECT COUNT(*) FROM edge_contribution_event;", 1, NULL, 0) &&
-                         stage8_query_count(db, "SELECT COUNT(*) FROM plastic_edge_state;", 1, NULL, 0) &&
-                         stage8_query_count(db, "SELECT COUNT(*) FROM edge_reinforcement_audit_event;", 1, NULL, 0) &&
-                         stage8_query_count(db, "SELECT COUNT(*) FROM edge_contribution_event WHERE edge_id=?1 AND feedback_event_id=?2 AND feedback_attribution_id=?3 AND task_id=?4 AND evidence_id=?5 AND session_id=?6 AND candidate_id=?7 AND action='confirm' AND algorithm_version=?8 AND config_version=1;", 1, (const char *const[]){edge_values[0], eligible_values[0], eligible_values[1], eligible_values[3], eligible_values[4], eligible_values[5], eligible_values[6], STAGE8_ALGORITHM}, 8);
+        stage8_rows_ok =
+            stage8_query_count(db, "SELECT COUNT(*) FROM edge_contribution_event;", 1, NULL, 0) &&
+            stage8_query_count(db, "SELECT COUNT(*) FROM plastic_edge_state;", 1, NULL, 0) &&
+            stage8_query_count(db, "SELECT COUNT(*) FROM edge_reinforcement_audit_event;", 1, NULL,
+                               0) &&
+            stage8_query_count(db,
+                               "SELECT COUNT(*) FROM edge_contribution_event WHERE edge_id=?1 AND "
+                               "feedback_event_id=?2 AND feedback_attribution_id=?3 AND task_id=?4 "
+                               "AND evidence_id=?5 AND session_id=?6 AND candidate_id=?7 AND "
+                               "action='confirm' AND algorithm_version=?8 AND config_version=1;",
+                               1,
+                               (const char *const[]){edge_values[0], eligible_values[0],
+                                                     eligible_values[1], eligible_values[3],
+                                                     eligible_values[4], eligible_values[5],
+                                                     eligible_values[6], STAGE8_ALGORITHM},
+                               8);
     }
     bool user_version = stage8_user_version_is(db, 6);
-    return exact_edge && eligible && unique_edge_feedback && state_ok && stage8_rows_ok && user_version;
+    return exact_edge && eligible && unique_edge_feedback && state_ok && stage8_rows_ok &&
+           user_version;
 }
 
 static int stage8_prepare_schema(sqlite3 *db) {
     int existing = stage8_schema_object_count(db);
-    if (existing < 0) return CBM_STORE_ERR;
-    if (existing > 0) return stage8_schema_complete(db) ? CBM_STORE_OK : CBM_STORE_ERR;
+    if (existing < 0)
+        return CBM_STORE_ERR;
+    if (existing > 0)
+        return stage8_schema_complete(db) ? CBM_STORE_OK : CBM_STORE_ERR;
     int fail_after = stage8_env_int("CBM_STAGE8_MIGRATION_FAIL_AFTER");
     int executed = 0;
     int count = (int)(sizeof(STAGE8_OBJECTS) / sizeof(STAGE8_OBJECTS[0]));
@@ -1871,13 +1955,15 @@ static int stage8_prepare_schema(sqlite3 *db) {
     const char *sql =
         "INSERT INTO stage8_component_ledger(component,version,name,checksum,applied_at) "
         "VALUES(?1,1,?2,?3,strftime('%Y-%m-%dT%H:%M:%fZ','now'));";
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     sqlite3_bind_text(stmt, 1, STAGE8_COMPONENT, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 2, STAGE8_MIGRATION_NAME, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 3, STAGE8_MIGRATION_CHECKSUM, -1, SQLITE_STATIC);
     bool inserted = sqlite3_step(stmt) == SQLITE_DONE;
     sqlite3_finalize(stmt);
-    if (!inserted || stage8_fail_step(&executed, fail_after)) return CBM_STORE_ERR;
+    if (!inserted || stage8_fail_step(&executed, fail_after))
+        return CBM_STORE_ERR;
     return stage8_schema_complete(db) ? CBM_STORE_OK : CBM_STORE_ERR;
 }
 
@@ -1921,8 +2007,7 @@ static char *stage8_event_canonical(const stage8_event_t *event) {
     return json;
 }
 
-static int stage8_load_stage7_events(sqlite3 *db,
-                                     const cbm_edge_reinforcement_input_t *input,
+static int stage8_load_stage7_events(sqlite3 *db, const cbm_edge_reinforcement_input_t *input,
                                      stage8_event_t **out_events, int *out_count,
                                      int *out_ignored) {
     *out_events = NULL;
@@ -1949,7 +2034,8 @@ static int stage8_load_stage7_events(sqlite3 *db,
         "retrieval_edge_visit v WHERE v.session_id=f.session_id AND v.memory_edge_id=a.edge_id "
         "AND (v.from_candidate_id=f.candidate_id OR v.to_candidate_id=f.candidate_id)) "
         "ORDER BY f.event_id;";
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     int capacity = total > 0 ? total : 1;
     stage8_event_t *events = calloc((size_t)capacity, sizeof(*events));
     if (!events) {
@@ -1973,14 +2059,13 @@ static int stage8_load_stage7_events(sqlite3 *db,
         event->session_id = obs_dup((const char *)sqlite3_column_text(stmt, 6));
         event->candidate_id = obs_dup((const char *)sqlite3_column_text(stmt, 7));
         event->action = obs_dup((const char *)sqlite3_column_text(stmt, 8));
-        event->supersedes_id = supersedes_feedback
-                                   ? stage8_hash_id("contrib-", supersedes_feedback, edge)
-                                   : NULL;
+        event->supersedes_id =
+            supersedes_feedback ? stage8_hash_id("contrib-", supersedes_feedback, edge) : NULL;
         event->path_key = stage8_plain_hash(event->session_id, event->candidate_id);
-        event->raw_delta_ppm = strcmp(event->action, "withdraw") == 0
-                                   ? 0
-                                   : (int64_t)llround(sqlite3_column_double(stmt, 10) *
-                                                      STAGE8_SCALE_PPM);
+        event->raw_delta_ppm =
+            strcmp(event->action, "withdraw") == 0
+                ? 0
+                : (int64_t)llround(sqlite3_column_double(stmt, 10) * STAGE8_SCALE_PPM);
         event->algorithm_version = obs_dup(input->algorithm_version);
         event->config_version = input->config_version;
         event->created_at = obs_dup((const char *)sqlite3_column_text(stmt, 11));
@@ -2021,12 +2106,14 @@ static int stage8_load_ledger(sqlite3 *db, stage8_event_t **out_events, int *out
     *out_events = NULL;
     *out_count = 0;
     sqlite3_stmt *count_stmt = NULL;
-    if (sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM edge_contribution_event;", -1,
-                           &count_stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+    if (sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM edge_contribution_event;", -1, &count_stmt,
+                           NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     int capacity = sqlite3_step(count_stmt) == SQLITE_ROW ? sqlite3_column_int(count_stmt, 0) : 0;
     sqlite3_finalize(count_stmt);
     stage8_event_t *events = calloc((size_t)(capacity > 0 ? capacity : 1), sizeof(*events));
-    if (!events) return CBM_STORE_ERR;
+    if (!events)
+        return CBM_STORE_ERR;
     sqlite3_stmt *stmt = NULL;
     const char *sql =
         "SELECT contribution_event_id,feedback_event_id,feedback_attribution_id,edge_id,task_id,"
@@ -2069,7 +2156,8 @@ static int stage8_load_ledger(sqlite3 *db, stage8_event_t **out_events, int *out
 
 static int stage8_find_event(stage8_event_t *events, int count, const char *id) {
     for (int i = 0; i < count; i++) {
-        if (events[i].id && id && strcmp(events[i].id, id) == 0) return i;
+        if (events[i].id && id && strcmp(events[i].id, id) == 0)
+            return i;
     }
     return -1;
 }
@@ -2079,19 +2167,25 @@ static int64_t stage8_prior_sum(stage8_event_t *events, int upto, const stage8_e
     int64_t sum = 0;
     for (int i = 0; i < upto; i++) {
         stage8_event_t *prior = &events[i];
-        if (prior->superseded) continue;
+        if (prior->superseded)
+            continue;
         bool same = false;
-        if (group == 0) same = strcmp(prior->evidence_id, current->evidence_id) == 0;
+        if (group == 0)
+            same = strcmp(prior->evidence_id, current->evidence_id) == 0;
         if (group == 1)
             same = strcmp(prior->evidence_source, current->evidence_source) == 0 &&
                    strcmp(prior->task_id, current->task_id) == 0;
-        if (group == 2) same = strcmp(prior->path_key, current->path_key) == 0;
+        if (group == 2)
+            same = strcmp(prior->path_key, current->path_key) == 0;
         if (group == 3)
             same = strcmp(prior->edge_id, current->edge_id) == 0 &&
                    strcmp(prior->task_id, current->task_id) == 0;
-        if (group == 4) same = strcmp(prior->task_id, current->task_id) == 0;
-        if (group == 5) same = strcmp(prior->edge_id, current->edge_id) == 0;
-        if (same) sum += prior->effective_delta_ppm;
+        if (group == 4)
+            same = strcmp(prior->task_id, current->task_id) == 0;
+        if (group == 5)
+            same = strcmp(prior->edge_id, current->edge_id) == 0;
+        if (same)
+            sum += prior->effective_delta_ppm;
     }
     return sum;
 }
@@ -2114,7 +2208,8 @@ static int stage8_state_hash(stage8_state_t *state) {
     yyjson_mut_obj_add_int(doc, root, "success_count", state->success_count);
     char *json = yyjson_mut_write(doc, 0, NULL);
     yyjson_mut_doc_free(doc);
-    if (!json) return CBM_STORE_ERR;
+    if (!json)
+        return CBM_STORE_ERR;
     int rc = cbm_stage7_sha256_hex(json, strlen(json), state->state_hash);
     free(json);
     return rc;
@@ -2141,7 +2236,8 @@ static int stage8_states_digest(stage8_state_t *states, int count, char out_hash
     }
     char *json = yyjson_mut_write(doc, 0, NULL);
     yyjson_mut_doc_free(doc);
-    if (!json) return CBM_STORE_ERR;
+    if (!json)
+        return CBM_STORE_ERR;
     int rc = cbm_stage7_sha256_hex(json, strlen(json), out_hash);
     free(json);
     return rc;
@@ -2157,7 +2253,8 @@ static int stage8_aggregate(stage8_event_t *events, int count, stage8_state_t **
         events[i].effective_delta_ppm = 0;
     }
     for (int i = 0; i < count; i++) {
-        if (!events[i].supersedes_id) continue;
+        if (!events[i].supersedes_id)
+            continue;
         int parent = stage8_find_event(events, count, events[i].supersedes_id);
         if (parent < 0 || strcmp(events[parent].edge_id, events[i].edge_id) != 0 ||
             events[parent].superseded) {
@@ -2166,43 +2263,53 @@ static int stage8_aggregate(stage8_event_t *events, int count, stage8_state_t **
         events[parent].superseded = true;
     }
     for (int i = 0; i < count; i++) {
-        if (events[i].superseded) continue;
-        int64_t delta = stage8_clamp(events[i].raw_delta_ppm, -STAGE8_EVENT_CAP,
-                                     STAGE8_EVENT_CAP);
-        if (delta != events[i].raw_delta_ppm) hits->event++;
+        if (events[i].superseded)
+            continue;
+        int64_t delta = stage8_clamp(events[i].raw_delta_ppm, -STAGE8_EVENT_CAP, STAGE8_EVENT_CAP);
+        if (delta != events[i].raw_delta_ppm)
+            hits->event++;
         int64_t limited = stage8_cap_increment(stage8_prior_sum(events, i, &events[i], 0), delta,
                                                STAGE8_EVIDENCE_CAP);
-        if (limited != delta) hits->evidence++;
+        if (limited != delta)
+            hits->evidence++;
         delta = limited;
         limited = stage8_cap_increment(stage8_prior_sum(events, i, &events[i], 1), delta,
                                        STAGE8_SOURCE_TASK_CAP);
-        if (limited != delta) hits->source_task++;
+        if (limited != delta)
+            hits->source_task++;
         delta = limited;
         limited = stage8_cap_increment(stage8_prior_sum(events, i, &events[i], 2), delta,
                                        STAGE8_PATH_CAP);
-        if (limited != delta) hits->path++;
+        if (limited != delta)
+            hits->path++;
         delta = limited;
         limited = stage8_cap_increment(stage8_prior_sum(events, i, &events[i], 3), delta,
                                        STAGE8_EDGE_TASK_CAP);
-        if (limited != delta) hits->edge_task++;
+        if (limited != delta)
+            hits->edge_task++;
         delta = limited;
         limited = stage8_cap_increment(stage8_prior_sum(events, i, &events[i], 4), delta,
                                        STAGE8_TASK_CAP);
-        if (limited != delta) hits->task++;
+        if (limited != delta)
+            hits->task++;
         delta = limited;
         limited = stage8_cap_increment(stage8_prior_sum(events, i, &events[i], 5), delta,
                                        STAGE8_EDGE_TOTAL_CAP);
-        if (limited != delta) hits->edge_total++;
+        if (limited != delta)
+            hits->edge_total++;
         events[i].effective_delta_ppm = limited;
     }
     stage8_state_t *states = calloc((size_t)(count > 0 ? count : 1), sizeof(*states));
-    if (!states) return CBM_STORE_ERR;
+    if (!states)
+        return CBM_STORE_ERR;
     int state_count = 0;
     for (int i = 0; i < count; i++) {
-        if (events[i].superseded) continue;
+        if (events[i].superseded)
+            continue;
         int index = -1;
         for (int j = 0; j < state_count; j++) {
-            if (strcmp(states[j].edge_id, events[i].edge_id) == 0) index = j;
+            if (strcmp(states[j].edge_id, events[i].edge_id) == 0)
+                index = j;
         }
         if (index < 0) {
             index = state_count++;
@@ -2222,8 +2329,7 @@ static int stage8_aggregate(stage8_event_t *events, int count, stage8_state_t **
     }
     qsort(states, (size_t)state_count, sizeof(*states), stage8_state_compare);
     for (int i = 0; i < state_count; i++) {
-        states[i].pheromone_ppm = stage8_clamp(STAGE8_BASELINE_PPM +
-                                                   states[i].effective_delta_ppm,
+        states[i].pheromone_ppm = stage8_clamp(STAGE8_BASELINE_PPM + states[i].effective_delta_ppm,
                                                STAGE8_MIN_PPM, STAGE8_MAX_PPM);
         if (stage8_state_hash(&states[i]) != CBM_STORE_OK) {
             stage8_states_free(states, state_count);
@@ -2244,7 +2350,8 @@ static int stage8_existing_event(sqlite3 *db, const stage8_event_t *event) {
     if (sqlite3_prepare_v2(db,
                            "SELECT canonical_payload_sha256 FROM edge_contribution_event WHERE "
                            "contribution_event_id=?1;",
-                           -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+                           -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     sqlite3_bind_text(stmt, 1, event->id, -1, SQLITE_TRANSIENT);
     int step = sqlite3_step(stmt);
     int result = CBM_STORE_NOT_FOUND;
@@ -2259,12 +2366,14 @@ static int stage8_existing_event(sqlite3 *db, const stage8_event_t *event) {
 }
 
 static bool stage8_parent_exists(sqlite3 *db, const char *id) {
-    if (!id) return true;
+    if (!id)
+        return true;
     sqlite3_stmt *stmt = NULL;
     if (sqlite3_prepare_v2(db,
                            "SELECT 1 FROM edge_contribution_event WHERE "
                            "contribution_event_id=?1;",
-                           -1, &stmt, NULL) != SQLITE_OK) return false;
+                           -1, &stmt, NULL) != SQLITE_OK)
+        return false;
     sqlite3_bind_text(stmt, 1, id, -1, SQLITE_TRANSIENT);
     bool exists = sqlite3_step(stmt) == SQLITE_ROW;
     sqlite3_finalize(stmt);
@@ -2279,12 +2388,23 @@ static int stage8_insert_event(sqlite3 *db, const stage8_event_t *event) {
         "candidate_id,path_key,action,supersedes_contribution_event_id,"
         "canonical_payload_sha256,raw_delta_ppm,algorithm_version,config_version,created_at) "
         "VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17);";
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
-    const char *values[] = {event->id, event->feedback_id, event->attribution_id, event->edge_id,
-                            event->task_id, event->evidence_id, event->evidence_source,
-                            event->session_id, event->candidate_id, event->path_key, event->action,
-                            event->supersedes_id, event->canonical_hash};
-    for (int i = 0; i < 13; i++) obs_bind_nullable(stmt, i + 1, values[i]);
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
+    const char *values[] = {event->id,
+                            event->feedback_id,
+                            event->attribution_id,
+                            event->edge_id,
+                            event->task_id,
+                            event->evidence_id,
+                            event->evidence_source,
+                            event->session_id,
+                            event->candidate_id,
+                            event->path_key,
+                            event->action,
+                            event->supersedes_id,
+                            event->canonical_hash};
+    for (int i = 0; i < 13; i++)
+        obs_bind_nullable(stmt, i + 1, values[i]);
     sqlite3_bind_int64(stmt, 14, event->raw_delta_ppm);
     sqlite3_bind_text(stmt, 15, event->algorithm_version, -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(stmt, 16, event->config_version);
@@ -2294,16 +2414,18 @@ static int stage8_insert_event(sqlite3 *db, const stage8_event_t *event) {
     return rc;
 }
 
-static int stage8_materialize(sqlite3 *db, stage8_event_t *events, int count,
-                              int *recorded, int *replayed, int *fail_step, int fail_after) {
+static int stage8_materialize(sqlite3 *db, stage8_event_t *events, int count, int *recorded,
+                              int *replayed, int *fail_step, int fail_after) {
     bool *done = calloc((size_t)(count > 0 ? count : 1), sizeof(*done));
-    if (!done) return CBM_STORE_ERR;
+    if (!done)
+        return CBM_STORE_ERR;
     int remaining = count;
     int rc = CBM_STORE_OK;
     while (remaining > 0 && rc == CBM_STORE_OK) {
         bool progressed = false;
         for (int i = 0; i < count; i++) {
-            if (done[i]) continue;
+            if (done[i])
+                continue;
             int existing = stage8_existing_event(db, &events[i]);
             if (existing == CBM_STORE_REPLAYED) {
                 (*replayed)++;
@@ -2316,7 +2438,8 @@ static int stage8_materialize(sqlite3 *db, stage8_event_t *events, int count,
                 rc = existing;
                 break;
             }
-            if (!stage8_parent_exists(db, events[i].supersedes_id)) continue;
+            if (!stage8_parent_exists(db, events[i].supersedes_id))
+                continue;
             if (stage8_insert_event(db, &events[i]) != CBM_STORE_OK ||
                 stage8_fail_step(fail_step, fail_after)) {
                 rc = CBM_STORE_ERR;
@@ -2328,7 +2451,8 @@ static int stage8_materialize(sqlite3 *db, stage8_event_t *events, int count,
             remaining--;
             progressed = true;
         }
-        if (!progressed && rc == CBM_STORE_OK) rc = CBM_STORE_ERR;
+        if (!progressed && rc == CBM_STORE_OK)
+            rc = CBM_STORE_ERR;
     }
     free(done);
     return rc;
@@ -2340,7 +2464,8 @@ static int stage8_current_state_digest(sqlite3 *db, char out_hash[65]) {
                            "SELECT edge_id,pheromone_ppm,success_count,failure_count,"
                            "last_contribution_event_id,state_sha256 FROM plastic_edge_state "
                            "ORDER BY edge_id;",
-                           -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+                           -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
     yyjson_mut_val *array = doc ? yyjson_mut_arr(doc) : NULL;
     if (!doc || !array) {
@@ -2362,24 +2487,27 @@ static int stage8_current_state_digest(sqlite3 *db, char out_hash[65]) {
     sqlite3_finalize(stmt);
     char *json = yyjson_mut_write(doc, 0, NULL);
     yyjson_mut_doc_free(doc);
-    if (!json) return CBM_STORE_ERR;
+    if (!json)
+        return CBM_STORE_ERR;
     int rc = cbm_stage7_sha256_hex(json, strlen(json), out_hash);
     free(json);
     return rc;
 }
 
 static int stage8_replace_states(sqlite3 *db, stage8_state_t *states, int count,
-                                 const cbm_edge_reinforcement_input_t *input,
-                                 const char *timestamp, int *fail_step, int fail_after) {
+                                 const cbm_edge_reinforcement_input_t *input, const char *timestamp,
+                                 int *fail_step, int fail_after) {
     if (sqlite3_exec(db, "DELETE FROM plastic_edge_state;", NULL, NULL, NULL) != SQLITE_OK ||
-        stage8_fail_step(fail_step, fail_after)) return CBM_STORE_ERR;
+        stage8_fail_step(fail_step, fail_after))
+        return CBM_STORE_ERR;
     const char *sql =
         "INSERT INTO plastic_edge_state(edge_id,pheromone_ppm,success_count,failure_count,"
         "effective_event_count,last_contribution_event_id,algorithm_version,config_version,"
         "state_sha256,rebuilt_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10);";
     for (int i = 0; i < count; i++) {
         sqlite3_stmt *stmt = NULL;
-        if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+        if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+            return CBM_STORE_ERR;
         sqlite3_bind_text(stmt, 1, states[i].edge_id, -1, SQLITE_TRANSIENT);
         sqlite3_bind_int64(stmt, 2, states[i].pheromone_ppm);
         sqlite3_bind_int(stmt, 3, states[i].success_count);
@@ -2392,16 +2520,16 @@ static int stage8_replace_states(sqlite3 *db, stage8_state_t *states, int count,
         sqlite3_bind_text(stmt, 10, timestamp, -1, SQLITE_TRANSIENT);
         int rc = sqlite3_step(stmt) == SQLITE_DONE ? CBM_STORE_OK : CBM_STORE_ERR;
         sqlite3_finalize(stmt);
-        if (rc != CBM_STORE_OK || stage8_fail_step(fail_step, fail_after)) return CBM_STORE_ERR;
+        if (rc != CBM_STORE_OK || stage8_fail_step(fail_step, fail_after))
+            return CBM_STORE_ERR;
     }
     return CBM_STORE_OK;
 }
 
 static int stage8_audit_hash(int64_t sequence, const char *audit_id, const char *contribution_id,
-                             const char *operation, const char *before_hash,
-                             const char *after_hash, const char *rebuild_hash,
-                             const char *algorithm, int config, const char *prev_hash,
-                             const char *created_at, char out_hash[65]) {
+                             const char *operation, const char *before_hash, const char *after_hash,
+                             const char *rebuild_hash, const char *algorithm, int config,
+                             const char *prev_hash, const char *created_at, char out_hash[65]) {
     yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
     yyjson_mut_val *root = doc ? yyjson_mut_obj(doc) : NULL;
     if (!doc || !root) {
@@ -2422,7 +2550,8 @@ static int stage8_audit_hash(int64_t sequence, const char *audit_id, const char 
     yyjson_mut_obj_add_str(doc, root, "created_at", created_at);
     char *json = yyjson_mut_write(doc, 0, NULL);
     yyjson_mut_doc_free(doc);
-    if (!json) return CBM_STORE_ERR;
+    if (!json)
+        return CBM_STORE_ERR;
     int rc = cbm_stage7_sha256_hex(json, strlen(json), out_hash);
     free(json);
     return rc;
@@ -2430,8 +2559,8 @@ static int stage8_audit_hash(int64_t sequence, const char *audit_id, const char 
 
 static int stage8_append_audits(sqlite3 *db, stage8_event_t *events, int count,
                                 const cbm_edge_reinforcement_input_t *input,
-                                const char *before_hash, const char *after_hash,
-                                int *fail_step, int fail_after) {
+                                const char *before_hash, const char *after_hash, int *fail_step,
+                                int fail_after) {
     int64_t sequence = 1;
     char prev_hash[65];
     memset(prev_hash, '0', 64);
@@ -2440,7 +2569,8 @@ static int stage8_append_audits(sqlite3 *db, stage8_event_t *events, int count,
     if (sqlite3_prepare_v2(db,
                            "SELECT sequence_no,event_hash FROM edge_reinforcement_audit_event "
                            "ORDER BY sequence_no DESC LIMIT 1;",
-                           -1, &head, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+                           -1, &head, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     if (sqlite3_step(head) == SQLITE_ROW) {
         sequence = sqlite3_column_int64(head, 0) + 1;
         snprintf(prev_hash, sizeof(prev_hash), "%s", sqlite3_column_text(head, 1));
@@ -2452,17 +2582,17 @@ static int stage8_append_audits(sqlite3 *db, stage8_event_t *events, int count,
         "algorithm_version,config_version,prev_hash,event_hash,created_at) "
         "VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12);";
     for (int i = 0; i < count; i++) {
-        if (!events[i].newly_recorded) continue;
+        if (!events[i].newly_recorded)
+            continue;
         char *audit_id = stage8_hash_id("reinforce-audit-", events[i].id, "v1");
         const char *operation = strcmp(events[i].action, "withdraw") == 0
                                     ? "withdraw"
                                     : (events[i].supersedes_id ? "compensate" : "apply");
         char event_hash[65];
-        if (!audit_id || stage8_audit_hash(sequence, audit_id, events[i].id, operation,
-                                            before_hash, after_hash, after_hash,
-                                            input->algorithm_version, input->config_version,
-                                            prev_hash, events[i].created_at,
-                                            event_hash) != CBM_STORE_OK) {
+        if (!audit_id ||
+            stage8_audit_hash(sequence, audit_id, events[i].id, operation, before_hash, after_hash,
+                              after_hash, input->algorithm_version, input->config_version,
+                              prev_hash, events[i].created_at, event_hash) != CBM_STORE_OK) {
             free(audit_id);
             return CBM_STORE_ERR;
         }
@@ -2486,17 +2616,18 @@ static int stage8_append_audits(sqlite3 *db, stage8_event_t *events, int count,
         int rc = sqlite3_step(stmt) == SQLITE_DONE ? CBM_STORE_OK : CBM_STORE_ERR;
         sqlite3_finalize(stmt);
         free(audit_id);
-        if (rc != CBM_STORE_OK || stage8_fail_step(fail_step, fail_after)) return CBM_STORE_ERR;
+        if (rc != CBM_STORE_OK || stage8_fail_step(fail_step, fail_after))
+            return CBM_STORE_ERR;
         snprintf(prev_hash, sizeof(prev_hash), "%s", event_hash);
         sequence++;
     }
     return CBM_STORE_OK;
 }
 
-static char *stage8_report(const cbm_edge_reinforcement_input_t *input,
-                           stage8_state_t *states, int state_count, int eligible, int ignored,
-                           int recorded, int replayed, const stage8_cap_hits_t *hits,
-                           const char *digest, bool wrote, bool production_write) {
+static char *stage8_report(const cbm_edge_reinforcement_input_t *input, stage8_state_t *states,
+                           int state_count, int eligible, int ignored, int recorded, int replayed,
+                           const stage8_cap_hits_t *hits, const char *digest, bool wrote,
+                           bool production_write) {
     yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
     yyjson_mut_val *root = doc ? yyjson_mut_obj(doc) : NULL;
     if (!doc || !root) {
@@ -2543,7 +2674,8 @@ static char *stage8_report(const cbm_edge_reinforcement_input_t *input,
 }
 
 void cbm_store_memory_reinforcement_result_free(cbm_edge_reinforcement_result_t *result) {
-    if (!result) return;
+    if (!result)
+        return;
     free(result->report_json);
     memset(result, 0, sizeof(*result));
 }
@@ -2552,9 +2684,10 @@ int cbm_store_memory_reinforcement_replay(cbm_store_t *s,
                                           const cbm_edge_reinforcement_input_t *input,
                                           cbm_edge_reinforcement_result_t *out) {
     sqlite3 *db = s ? cbm_store_get_db(s) : NULL;
-    if (out) memset(out, 0, sizeof(*out));
-    if (!db || !input || !out || !input->project || !input->mode ||
-        !input->algorithm_version || strcmp(input->algorithm_version, STAGE8_ALGORITHM) != 0 ||
+    if (out)
+        memset(out, 0, sizeof(*out));
+    if (!db || !input || !out || !input->project || !input->mode || !input->algorithm_version ||
+        strcmp(input->algorithm_version, STAGE8_ALGORITHM) != 0 ||
         input->config_version != STAGE8_CONFIG_VERSION ||
         (strcmp(input->mode, "off") != 0 && strcmp(input->mode, "shadow") != 0 &&
          strcmp(input->mode, "active") != 0)) {
@@ -2564,19 +2697,20 @@ int cbm_store_memory_reinforcement_replay(cbm_store_t *s,
         stage8_cap_hits_t hits = {0};
         char empty_hash[65];
         cbm_stage7_sha256_hex("[]", 2, empty_hash);
-        out->report_json = stage8_report(input, NULL, 0, 0, 0, 0, 0, &hits, empty_hash, false,
-                                         false);
+        out->report_json =
+            stage8_report(input, NULL, 0, 0, 0, 0, 0, &hits, empty_hash, false, false);
         return out->report_json ? CBM_STORE_OK : CBM_STORE_ERR;
     }
-    if (strcmp(input->mode, "active") == 0 &&
-        !stage8_fixture_active_guard(input) && !stage8_production_canary_guard(db, input)) {
+    if (strcmp(input->mode, "active") == 0 && !stage8_fixture_active_guard(input) &&
+        !stage8_production_canary_guard(db, input)) {
         return CBM_STORE_REJECTED;
     }
     stage8_event_t *derived = NULL;
     int derived_count = 0;
     int ignored = 0;
     int rc = stage8_load_stage7_events(db, input, &derived, &derived_count, &ignored);
-    if (rc != CBM_STORE_OK) return rc;
+    if (rc != CBM_STORE_OK)
+        return rc;
     stage8_state_t *states = NULL;
     int state_count = 0;
     stage8_cap_hits_t hits = {0};
@@ -2587,7 +2721,8 @@ int cbm_store_memory_reinforcement_replay(cbm_store_t *s,
     if (strcmp(input->mode, "shadow") == 0) {
         rc = stage8_aggregate(derived, derived_count, &states, &state_count, &hits, digest);
     } else {
-        if (cbm_store_begin(s) != CBM_STORE_OK) rc = CBM_STORE_ERR;
+        if (cbm_store_begin(s) != CBM_STORE_OK)
+            rc = CBM_STORE_ERR;
         int fail_after = stage8_env_int("CBM_STAGE8_REINFORCEMENT_FAIL_AFTER");
         int fail_step = 0;
         if (rc == CBM_STORE_OK) {
@@ -2625,7 +2760,8 @@ int cbm_store_memory_reinforcement_replay(cbm_store_t *s,
         if (rc == CBM_STORE_OK && recorded > 0 && stage8_fail_step(&fail_step, fail_after)) {
             rc = CBM_STORE_ERR;
         }
-        if (rc == CBM_STORE_OK) rc = cbm_store_commit(s);
+        if (rc == CBM_STORE_OK)
+            rc = cbm_store_commit(s);
         if (rc != CBM_STORE_OK) {
             cbm_store_rollback(s);
             recorded = 0;
@@ -2638,10 +2774,11 @@ int cbm_store_memory_reinforcement_replay(cbm_store_t *s,
     if (rc == CBM_STORE_OK) {
         out->recorded_count = recorded;
         out->replayed_count = replayed;
-        out->report_json = stage8_report(input, states, state_count, derived_count, ignored,
-                                         recorded, replayed, &hits, digest, wrote,
-                                         wrote && strcmp(input->project, STAGE8_PRODUCTION_PROJECT) == 0);
-        if (!out->report_json) rc = CBM_STORE_ERR;
+        out->report_json = stage8_report(
+            input, states, state_count, derived_count, ignored, recorded, replayed, &hits, digest,
+            wrote, wrote && strcmp(input->project, STAGE8_PRODUCTION_PROJECT) == 0);
+        if (!out->report_json)
+            rc = CBM_STORE_ERR;
     }
     stage8_states_free(states, state_count);
     stage8_events_free(derived, derived_count);
@@ -2650,14 +2787,17 @@ int cbm_store_memory_reinforcement_replay(cbm_store_t *s,
 
 int cbm_store_memory_stage8_audit_verify(cbm_store_t *s, int *out_count) {
     sqlite3 *db = s ? cbm_store_get_db(s) : NULL;
-    if (out_count) *out_count = 0;
-    if (!db || !stage8_schema_complete(db)) return CBM_STORE_ERR;
+    if (out_count)
+        *out_count = 0;
+    if (!db || !stage8_schema_complete(db))
+        return CBM_STORE_ERR;
     sqlite3_stmt *stmt = NULL;
     const char *sql =
         "SELECT sequence_no,audit_event_id,contribution_event_id,operation,before_state_sha256,"
         "after_state_sha256,rebuild_sha256,algorithm_version,config_version,prev_hash,event_hash,"
         "created_at FROM edge_reinforcement_audit_event ORDER BY sequence_no;";
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     char expected_prev[65];
     memset(expected_prev, '0', 64);
     expected_prev[64] = '\0';
@@ -2681,7 +2821,8 @@ int cbm_store_memory_stage8_audit_verify(cbm_store_t *s, int *out_count) {
         if (sequence != expected_sequence || strcmp(prev_hash, expected_prev) != 0 ||
             stage8_audit_hash(sequence, audit_id, contribution_id, operation, before_hash,
                               after_hash, rebuild_hash, algorithm, config, prev_hash, created_at,
-                              actual_hash) != CBM_STORE_OK || strcmp(stored_hash, actual_hash) != 0) {
+                              actual_hash) != CBM_STORE_OK ||
+            strcmp(stored_hash, actual_hash) != 0) {
             rc = CBM_STORE_ERR;
             break;
         }
@@ -2690,6 +2831,7 @@ int cbm_store_memory_stage8_audit_verify(cbm_store_t *s, int *out_count) {
         count++;
     }
     sqlite3_finalize(stmt);
-    if (rc == CBM_STORE_OK && out_count) *out_count = count;
+    if (rc == CBM_STORE_OK && out_count)
+        *out_count = count;
     return rc;
 }

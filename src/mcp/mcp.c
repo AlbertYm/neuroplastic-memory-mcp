@@ -284,8 +284,8 @@ char *cbm_mcp_text_result(const char *text, bool is_error) {
     yyjson_mut_obj_add_val(doc, root, "content", content);
 
     if (!is_error && text) {
-        yyjson_doc *structured_doc = yyjson_read(text, strlen(text),
-                                                 YYJSON_READ_ALLOW_INVALID_UNICODE);
+        yyjson_doc *structured_doc =
+            yyjson_read(text, strlen(text), YYJSON_READ_ALLOW_INVALID_UNICODE);
         if (structured_doc) {
             yyjson_val *structured_root = yyjson_doc_get_root(structured_doc);
             if (yyjson_is_obj(structured_root)) {
@@ -530,8 +530,7 @@ static const tool_def_t TOOLS[] = {
      "\"string\"}},\"required\":[\"traces\",\"project\"]}"},
 
     /* ── Local-fork ADR tools (handlers in mcp_memory_handlers.c) ── */
-    {"adr_list",
-     "ADR list",
+    {"adr_list", "ADR list",
      "List architectural decision records (ADRs) for a project. "
      "Structured table of contents for all decision-class memories "
      "with filters: project (required), kind, status, entity_key.",
@@ -543,8 +542,7 @@ static const tool_def_t TOOLS[] = {
      "\"limit\":{\"type\":\"integer\",\"default\":50}},"
      "\"required\":[\"project\"]}"},
 
-    {"adr_chain",
-     "ADR chain",
+    {"adr_chain", "ADR chain",
      "Walk the supersedes chain of an ADR, showing the full version "
      "timeline. Returns items in version order with generation ordinal.",
      "{\"type\":\"object\",\"properties\":{"
@@ -779,7 +777,7 @@ static const tool_def_t TOOLS[] = {
      "\"policy_version\":{\"type\":\"integer\",\"const\":1},"
      "\"config_version\":{\"type\":\"integer\",\"const\":1},"
      "\"manifest_path\":{\"type\":\"string\"},\"manifest_sha256\":{\"type\":\"string\"}},"
-     "\"required\":[\"project\",\"mode\",\"run_id\",\"as_of_ms\",\"edge_ids\"," 
+     "\"required\":[\"project\",\"mode\",\"run_id\",\"as_of_ms\",\"edge_ids\","
      "\"algorithm_version\",\"policy_sha256\",\"policy_version\",\"config_version\"]}"},
 
     {"memory_concept_generate", "Evaluate or generate proposed concept candidates",
@@ -854,7 +852,7 @@ static const tool_def_t TOOLS[] = {
      "Soft-delete or restore a memory item. Stage 9 hard-delete guards reject hard and purge "
      "for memory items, edges, events, and evidence.",
      "{\"type\":\"object\",\"properties\":{\"project\":{\"type\":\"string\"},"
-     "\"id\":{\"type\":\"string\"},\"mode\":{\"type\":\"string\"," 
+     "\"id\":{\"type\":\"string\"},\"mode\":{\"type\":\"string\","
      "\"enum\":[\"soft\",\"restore\"]},"
      "\"user\":{\"type\":\"string\"}},"
      "\"required\":[\"project\",\"id\"]}"},
@@ -886,7 +884,7 @@ static const tool_def_t TOOLS[] = {
      "need the detailed guidance for a specific tool before using it.",
      "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"description\":"
      "\"Exact tool name, e.g. query_graph, search_graph, trace_path\"}},"
-      "\"required\":[\"name\"]}"},
+     "\"required\":[\"name\"]}"},
 
     {"memory_security_check", "Classify untrusted memory content without writing",
      "Run the local deterministic Stage 11 security scanner as a read-only dry run. Returns "
@@ -898,46 +896,56 @@ static const tool_def_t TOOLS[] = {
      "\"required\":[\"project\",\"store\",\"content\"]}"},
 
     {"memory_task_begin", "Begin or replay a Codex task lifecycle",
-     "Create an append-only task lifecycle from prompt metadata and an optional completed retrieval "
+     "Create an append-only task lifecycle from prompt metadata and an optional completed "
+     "retrieval "
      "session in the shared global lifecycle store. Project is provenance, not a physical store "
      "boundary. Raw prompt content is never accepted or stored. Exact replay is zero-write and a "
      "different payload under the same idempotency key fails closed.",
-     "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{" 
+     "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{"
      "\"project\":{\"type\":\"string\"},\"session_id\":{\"type\":\"string\"},"
-     "\"turn_id\":{\"type\":\"string\"},\"prompt_sha256\":{\"type\":\"string\",\"pattern\":\"^[0-9a-f]{64}$\"},"
-     "\"prompt_length\":{\"type\":\"integer\",\"minimum\":0},\"scope\":{\"type\":\"string\",\"const\":\"project\"},"
+     "\"turn_id\":{\"type\":\"string\"},\"prompt_sha256\":{\"type\":\"string\",\"pattern\":\"^[0-"
+     "9a-f]{64}$\"},"
+     "\"prompt_length\":{\"type\":\"integer\",\"minimum\":0},\"scope\":{\"type\":\"string\","
+     "\"const\":\"project\"},"
      "\"retrieval_session_id\":{\"type\":\"string\"},\"idempotency_key\":{\"type\":\"string\"},"
-     "\"workspace\":{\"type\":\"string\",\"description\":\"Optional cwd or rootUri used to resolve and catalog the project UUID.\"}},"
-     "\"required\":[\"project\",\"session_id\",\"turn_id\",\"prompt_sha256\",\"prompt_length\",\"scope\",\"idempotency_key\"]}"},
+     "\"workspace\":{\"type\":\"string\",\"description\":\"Optional cwd or rootUri used to resolve "
+     "and catalog the project UUID.\"}},"
+     "\"required\":[\"project\",\"session_id\",\"turn_id\",\"prompt_sha256\",\"prompt_length\","
+     "\"scope\",\"idempotency_key\"]}"},
 
     {"memory_task_status", "Read one Codex task lifecycle and bounded evidence",
      "Read the latest append-only lifecycle state and up to sixteen hash-only evidence rows. "
      "Address by task_id or by session_id plus turn_id. This tool never writes.",
-     "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{" 
+     "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{"
      "\"project\":{\"type\":\"string\"},\"task_id\":{\"type\":\"string\"},"
      "\"session_id\":{\"type\":\"string\"},\"turn_id\":{\"type\":\"string\"},"
-     "\"legacy_fallback\":{\"type\":\"boolean\",\"description\":\"Explicitly inspect a migration-period project store only when the task is absent globally.\"}},"
+     "\"legacy_fallback\":{\"type\":\"boolean\",\"description\":\"Explicitly inspect a "
+     "migration-period project store only when the task is absent globally.\"}},"
      "\"required\":[\"project\"]}"},
 
     {"memory_task_complete", "Complete or replay a Codex task lifecycle",
      "Append a completed, failed, or cancelled outcome. Feedback attribution is accepted only for "
-     "memory items recalled by this task and used/rejected/contradicted attribution requires linked "
+     "memory items recalled by this task and used/rejected/contradicted attribution requires "
+     "linked "
      "task evidence. Plasticity remains observe-only.",
-     "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{" 
+     "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{"
      "\"project\":{\"type\":\"string\"},\"task_id\":{\"type\":\"string\"},"
      "\"outcome\":{\"type\":\"string\",\"enum\":[\"completed\",\"failed\",\"cancelled\"]},"
-     "\"idempotency_key\":{\"type\":\"string\"},\"attributions\":{\"type\":\"array\",\"maxItems\":16,"
-     "\"items\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{" 
-     "\"memory_item_id\":{\"type\":\"string\"},\"state\":{\"type\":\"string\",\"enum\":[\"injected\",\"used\",\"rejected\",\"contradicted\"]},"
+     "\"idempotency_key\":{\"type\":\"string\"},\"attributions\":{\"type\":\"array\",\"maxItems\":"
+     "16,"
+     "\"items\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{"
+     "\"memory_item_id\":{\"type\":\"string\"},\"state\":{\"type\":\"string\",\"enum\":["
+     "\"injected\",\"used\",\"rejected\",\"contradicted\"]},"
      "\"evidence_id\":{\"type\":\"string\"},\"feedback_event_id\":{\"type\":\"string\"}},"
      "\"required\":[\"memory_item_id\",\"state\"]}},"
-     "\"legacy_fallback\":{\"type\":\"boolean\",\"description\":\"Explicitly complete a migration-period project task only when absent globally.\"}},"
+     "\"legacy_fallback\":{\"type\":\"boolean\",\"description\":\"Explicitly complete a "
+     "migration-period project task only when absent globally.\"}},"
      "\"required\":[\"project\",\"task_id\",\"outcome\",\"idempotency_key\",\"attributions\"]}"},
 
     {"memory_task_migrate", "Apply the guarded additive Stage 12 task schema",
      "Apply or replay the checksum-locked additive task lifecycle schema. The tool is disabled "
      "unless the fixed production canary or an isolated Stage 12 fixture guard matches exactly.",
-     "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{" 
+     "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{"
      "\"project\":{\"type\":\"string\"},\"manifest_path\":{\"type\":\"string\"},"
      "\"manifest_sha256\":{\"type\":\"string\",\"pattern\":\"^[0-9a-f]{64}$\"},"
      "\"idempotency_key\":{\"type\":\"string\"}},"
@@ -945,17 +953,26 @@ static const tool_def_t TOOLS[] = {
 
     {"manager_global_overview", "Read global memory overview", "Read-only All Projects summary.",
      "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{}}"},
-    {"manager_global_memory", "List global memories", "Read-only paginated global memory list with provenance.",
-     "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"cursor\":{\"type\":\"integer\",\"minimum\":0},\"limit\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":200}}}"},
-    {"manager_global_topology", "List cross-project topology", "Read-only cross-project edge list with provenance.",
-     "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"cursor\":{\"type\":\"integer\",\"minimum\":0},\"limit\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":200}}}"},
+    {"manager_global_memory", "List global memories",
+     "Read-only paginated global memory list with provenance.",
+     "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"cursor\":{\"type\":"
+     "\"integer\",\"minimum\":0},\"limit\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":200}}}"},
+    {"manager_global_topology", "List cross-project topology",
+     "Read-only cross-project edge list with provenance.",
+     "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"cursor\":{\"type\":"
+     "\"integer\",\"minimum\":0},\"limit\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":200}}}"},
     {"manager_evolution", "List evolution events", "Read-only evidence-graded evolution timeline.",
-     "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"cursor\":{\"type\":\"integer\",\"minimum\":0},\"limit\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":200}}}"},
-    {"manager_task_chain", "Inspect one task chain", "Read-only task to evidence and attribution chain.",
-     "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"task_id\":{\"type\":\"string\"}},\"required\":[\"task_id\"]}"},
-    {"manager_drift_preview", "Read drift preview", "Read-only managed drift summary; third-party config bodies are excluded.",
+     "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"cursor\":{\"type\":"
+     "\"integer\",\"minimum\":0},\"limit\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":200}}}"},
+    {"manager_task_chain", "Inspect one task chain",
+     "Read-only task to evidence and attribution chain.",
+     "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"task_id\":{\"type\":"
+     "\"string\"}},\"required\":[\"task_id\"]}"},
+    {"manager_drift_preview", "Read drift preview",
+     "Read-only managed drift summary; third-party config bodies are excluded.",
      "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{}}"},
-    {"manager_maintenance_preview", "Read maintenance preview", "Read-only lease and eligibility preview.",
+    {"manager_maintenance_preview", "Read maintenance preview",
+     "Read-only lease and eligibility preview.",
      "{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{}}"},
     {"manager_maintenance_control", "Control guarded maintenance",
      "Preserves isolated mock compatibility. Production preview is read-only and needs only "
@@ -1415,10 +1432,10 @@ bool cbm_mcp_get_bool_arg(const char *args_json, const char *key) {
  * ══════════════════════════════════════════════════════════════════ */
 
 struct cbm_mcp_server {
-    cbm_store_t *store;             /* currently open project store (or NULL) */
-    bool owns_store;                /* true if we opened the store */
-    char *current_project;          /* which project store is open for (heap) */
-    time_t store_last_used;         /* last time resolve_store was called for a named project */
+    cbm_store_t *store;     /* currently open project store (or NULL) */
+    bool owns_store;        /* true if we opened the store */
+    char *current_project;  /* which project store is open for (heap) */
+    time_t store_last_used; /* last time resolve_store was called for a named project */
 
     /* Long-term memory store — a SEPARATE <project>-memory.db file, opened on
      * demand alongside the graph store. Kept apart so index_repository (which
@@ -1592,25 +1609,31 @@ static const char *cache_dir(char *buf, size_t bufsz) {
 }
 
 static bool stage14_catalog_project_uuid(const char *project, char uuid[CBM_PROJECT_UUID_SIZE]) {
-    if (!project || !project[0] || !uuid) return false;
+    if (!project || !project[0] || !uuid)
+        return false;
     uuid[0] = '\0';
     char global_path[CBM_SZ_1K];
-    if (cbm_memory_db_path(CBM_GLOBAL_MEMORY_PROJECT, global_path, sizeof(global_path)) != CBM_STORE_OK ||
-        !cbm_file_exists(global_path)) return false;
+    if (cbm_memory_db_path(CBM_GLOBAL_MEMORY_PROJECT, global_path, sizeof(global_path)) !=
+            CBM_STORE_OK ||
+        !cbm_file_exists(global_path))
+        return false;
     sqlite3 *db = NULL;
     if (sqlite3_open_v2(global_path, &db, SQLITE_OPEN_READONLY, NULL) != SQLITE_OK) {
-        if (db) sqlite3_close(db);
+        if (db)
+            sqlite3_close(db);
         return false;
     }
     sqlite3_stmt *stmt = NULL;
     const char *sql =
         "SELECT project_uuid FROM global_legacy_alias WHERE legacy_kind='project' AND legacy_id=?1 "
-        "UNION ALL SELECT project_uuid FROM global_project_catalog WHERE project_uuid=?1 OR canonical_path=?1 LIMIT 1;";
+        "UNION ALL SELECT project_uuid FROM global_project_catalog WHERE project_uuid=?1 OR "
+        "canonical_path=?1 LIMIT 1;";
     bool found = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK;
     if (found) {
         sqlite3_bind_text(stmt, 1, project, -1, SQLITE_TRANSIENT);
         found = sqlite3_step(stmt) == SQLITE_ROW;
-        if (found) snprintf(uuid, CBM_PROJECT_UUID_SIZE, "%s", sqlite3_column_text(stmt, 0));
+        if (found)
+            snprintf(uuid, CBM_PROJECT_UUID_SIZE, "%s", sqlite3_column_text(stmt, 0));
     }
     sqlite3_finalize(stmt);
     sqlite3_close(db);
@@ -1651,36 +1674,47 @@ static bool stage14_bind_graph_project(cbm_mcp_server_t *srv, const char *worksp
                                        size_t shard_path_size) {
     cbm_project_resolution_t resolution = {0};
     if (!srv || !workspace || !legacy_project ||
-        cbm_project_resolve(workspace, legacy_project, NULL, &resolution) != 0) return false;
+        cbm_project_resolve(workspace, legacy_project, NULL, &resolution) != 0)
+        return false;
     cbm_store_t *global = resolve_global_memory_store(srv, true);
-    if (!global) return false;
+    if (!global)
+        return false;
     char ensure_key[160];
     snprintf(ensure_key, sizeof(ensure_key), "graph-project-%s", resolution.project_uuid);
     char *report = NULL;
     int ensure_rc = cbm_global_store_ensure_project(global, &resolution, ensure_key, &report);
     free(report);
-    if (ensure_rc != CBM_STORE_OK && ensure_rc != CBM_STORE_REPLAYED) return false;
+    if (ensure_rc != CBM_STORE_OK && ensure_rc != CBM_STORE_REPLAYED)
+        return false;
 
     sqlite3 *db = cbm_store_get_db(global);
     sqlite3_stmt *stmt = NULL;
     char uuid[CBM_PROJECT_UUID_SIZE] = {0};
-    const char *find_sql = resolution.source_fingerprint[0]
-        ? "SELECT project_uuid FROM global_project_catalog WHERE path_hash=?1 OR source_fingerprint=?2 ORDER BY path_hash=?1 DESC LIMIT 1;"
-        : "SELECT project_uuid FROM global_project_catalog WHERE path_hash=?1 LIMIT 1;";
-    if (sqlite3_prepare_v2(db, find_sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+    const char *find_sql =
+        resolution.source_fingerprint[0]
+            ? "SELECT project_uuid FROM global_project_catalog WHERE path_hash=?1 OR "
+              "source_fingerprint=?2 ORDER BY path_hash=?1 DESC LIMIT 1;"
+            : "SELECT project_uuid FROM global_project_catalog WHERE path_hash=?1 LIMIT 1;";
+    if (sqlite3_prepare_v2(db, find_sql, -1, &stmt, NULL) != SQLITE_OK)
+        return false;
     sqlite3_bind_text(stmt, 1, resolution.path_hash, -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 2, resolution.source_fingerprint[0] ? resolution.source_fingerprint : NULL,
-                      -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2,
+                      resolution.source_fingerprint[0] ? resolution.source_fingerprint : NULL, -1,
+                      SQLITE_TRANSIENT);
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         snprintf(uuid, sizeof(uuid), "%s", sqlite3_column_text(stmt, 0));
     }
     sqlite3_finalize(stmt);
-    if (!uuid[0]) return false;
+    if (!uuid[0])
+        return false;
 
     char alias_seed[CBM_SZ_1K], alias_hash[65], now[40];
-    snprintf(alias_seed, sizeof(alias_seed), "stage14-graph-alias/v1\n%s\n%s", legacy_project, uuid);
-    if (cbm_stage7_sha256_hex(alias_seed, strlen(alias_seed), alias_hash) != CBM_STORE_OK) return false;
-    time_t wall = time(NULL);struct tm tmv;
+    snprintf(alias_seed, sizeof(alias_seed), "stage14-graph-alias/v1\n%s\n%s", legacy_project,
+             uuid);
+    if (cbm_stage7_sha256_hex(alias_seed, strlen(alias_seed), alias_hash) != CBM_STORE_OK)
+        return false;
+    time_t wall = time(NULL);
+    struct tm tmv;
 #ifdef _WIN32
     gmtime_s(&tmv, &wall);
 #else
@@ -1688,9 +1722,12 @@ static bool stage14_bind_graph_project(cbm_mcp_server_t *srv, const char *worksp
 #endif
     strftime(now, sizeof(now), "%Y-%m-%dT%H:%M:%SZ", &tmv);
     const char *alias_sql =
-        "INSERT INTO global_legacy_alias(legacy_kind,legacy_id,global_id,project_uuid,payload_sha256,created_at) "
+        "INSERT INTO "
+        "global_legacy_alias(legacy_kind,legacy_id,global_id,project_uuid,payload_sha256,created_"
+        "at) "
         "VALUES('project',?1,?2,?2,?3,?4) ON CONFLICT(legacy_kind,legacy_id) DO NOTHING;";
-    if (sqlite3_prepare_v2(db, alias_sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+    if (sqlite3_prepare_v2(db, alias_sql, -1, &stmt, NULL) != SQLITE_OK)
+        return false;
     sqlite3_bind_text(stmt, 1, legacy_project, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, uuid, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 3, alias_hash, -1, SQLITE_TRANSIENT);
@@ -1698,32 +1735,41 @@ static bool stage14_bind_graph_project(cbm_mcp_server_t *srv, const char *worksp
     bool ok = sqlite3_step(stmt) == SQLITE_DONE;
     sqlite3_finalize(stmt);
     if (!ok || sqlite3_prepare_v2(db,
-        "SELECT project_uuid,payload_sha256 FROM global_legacy_alias WHERE legacy_kind='project' AND legacy_id=?1;",
-        -1, &stmt, NULL) != SQLITE_OK) return false;
+                                  "SELECT project_uuid,payload_sha256 FROM global_legacy_alias "
+                                  "WHERE legacy_kind='project' AND legacy_id=?1;",
+                                  -1, &stmt, NULL) != SQLITE_OK)
+        return false;
     sqlite3_bind_text(stmt, 1, legacy_project, -1, SQLITE_TRANSIENT);
     ok = sqlite3_step(stmt) == SQLITE_ROW &&
          strcmp((const char *)sqlite3_column_text(stmt, 0), uuid) == 0 &&
          strcmp((const char *)sqlite3_column_text(stmt, 1), alias_hash) == 0;
     sqlite3_finalize(stmt);
-    if (!ok) return false;
+    if (!ok)
+        return false;
 
     char shard_dir[CBM_SZ_1K];
-    char cache[CBM_SZ_1K];cache_dir(cache, sizeof(cache));
+    char cache[CBM_SZ_1K];
+    cache_dir(cache, sizeof(cache));
     snprintf(shard_dir, sizeof(shard_dir), "%s/projects/%s", cache, uuid);
-    if (!cbm_mkdir_p(shard_dir, 0700)) return false;
+    if (!cbm_mkdir_p(shard_dir, 0700))
+        return false;
     stage14_graph_shard_path(uuid, shard_path, shard_path_size);
     return true;
 }
 
 static void stage14_set_project_index_state(cbm_mcp_server_t *srv, const char *legacy_project,
                                             const char *state) {
-    if (!srv || !legacy_project || !state) return;
+    if (!srv || !legacy_project || !state)
+        return;
     cbm_store_t *global = resolve_global_memory_store(srv, true);
     sqlite3 *db = global ? cbm_store_get_db(global) : NULL;
     sqlite3_stmt *stmt = NULL;
-    if (db && sqlite3_prepare_v2(db,
-        "UPDATE global_project_catalog SET index_state=?1,last_seen_at=datetime('now') WHERE project_uuid=(SELECT project_uuid FROM global_legacy_alias WHERE legacy_kind='project' AND legacy_id=?2);",
-        -1, &stmt, NULL) == SQLITE_OK) {
+    if (db && sqlite3_prepare_v2(
+                  db,
+                  "UPDATE global_project_catalog SET index_state=?1,last_seen_at=datetime('now') "
+                  "WHERE project_uuid=(SELECT project_uuid FROM global_legacy_alias WHERE "
+                  "legacy_kind='project' AND legacy_id=?2);",
+                  -1, &stmt, NULL) == SQLITE_OK) {
         sqlite3_bind_text(stmt, 1, state, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 2, legacy_project, -1, SQLITE_TRANSIENT);
         (void)sqlite3_step(stmt);
@@ -2214,7 +2260,8 @@ static void merge_stage14_graph_shard(yyjson_mut_doc *doc, yyjson_mut_val *arr,
                                       const char *full_path) {
     char internal[CBM_SZ_256];
     cbm_store_t *store = NULL;
-    if (!db_internal_project_name(full_path, internal, sizeof(internal), &store) || !store) return;
+    if (!db_internal_project_name(full_path, internal, sizeof(internal), &store) || !store)
+        return;
     yyjson_mut_val *p = find_or_add_project(doc, arr, internal);
     yyjson_mut_val *sz = yyjson_mut_obj_get(p, "size_bytes");
     int64_t prior = (sz && yyjson_mut_is_int(sz)) ? yyjson_mut_get_sint(sz) : 0;
@@ -2288,10 +2335,12 @@ static char *handle_list_projects(cbm_mcp_server_t *srv, const char *args) {
     cbm_dir_t *shards = cbm_opendir(shards_root);
     if (shards) {
         while ((entry = cbm_readdir(shards)) != NULL) {
-            if (strcmp(entry->name, ".") == 0 || strcmp(entry->name, "..") == 0) continue;
+            if (strcmp(entry->name, ".") == 0 || strcmp(entry->name, "..") == 0)
+                continue;
             char graph_path[CBM_SZ_2K];
             snprintf(graph_path, sizeof(graph_path), "%s/%s/graph.db", shards_root, entry->name);
-            if (cbm_file_exists(graph_path)) merge_stage14_graph_shard(doc, arr, graph_path);
+            if (cbm_file_exists(graph_path))
+                merge_stage14_graph_shard(doc, arr, graph_path);
         }
         cbm_closedir(shards);
     }
@@ -4150,8 +4199,10 @@ static char *handle_cross_repo_mode(const char *repo_path, const char *args) {
 static void try_artifact_bootstrap(const char *project_name, const char *repo_path,
                                    const char *resolved_db_path) {
     char db_buf[CBM_SZ_1K];
-    if (resolved_db_path && resolved_db_path[0]) snprintf(db_buf, sizeof(db_buf), "%s", resolved_db_path);
-    else project_db_path(project_name, db_buf, sizeof(db_buf));
+    if (resolved_db_path && resolved_db_path[0])
+        snprintf(db_buf, sizeof(db_buf), "%s", resolved_db_path);
+    else
+        project_db_path(project_name, db_buf, sizeof(db_buf));
     if (cbm_file_size(db_buf) < 0 && cbm_artifact_exists(repo_path)) {
         cbm_log_info("index.artifact_bootstrap", "project", project_name);
         cbm_artifact_import(repo_path, db_buf);
@@ -4779,8 +4830,8 @@ static char *handle_index_repository(cbm_mcp_server_t *srv, const char *args) {
                                                             : cbm_project_name_from_path(repo_path);
     char shard_path[CBM_SZ_1K] = {0};
     if (!graph_project || !cbm_validate_project_name(graph_project) ||
-        !stage14_bind_graph_project(srv, repo_path, graph_project,
-                                                       shard_path, sizeof(shard_path))) {
+        !stage14_bind_graph_project(srv, repo_path, graph_project, shard_path,
+                                    sizeof(shard_path))) {
         free(graph_project);
         free(name_override);
         free(repo_path);
@@ -6705,8 +6756,10 @@ cbm_store_t *resolve_memory_store(cbm_mcp_server_t *srv, const char *project, bo
 
 static bool stage11_test_project_allowlisted(const char *project) {
     char allowlist[CBM_SZ_1K] = {0};
-    if (!project || !cbm_safe_getenv("CBM_STAGE11_TEST_PROJECT_ALLOWLIST", allowlist,
-                                     sizeof(allowlist), NULL) || !allowlist[0]) {
+    if (!project ||
+        !cbm_safe_getenv("CBM_STAGE11_TEST_PROJECT_ALLOWLIST", allowlist, sizeof(allowlist),
+                         NULL) ||
+        !allowlist[0]) {
         return false;
     }
 
@@ -6714,19 +6767,22 @@ static bool stage11_test_project_allowlisted(const char *project) {
     char temp[CBM_SZ_1K] = {0};
     const char *cache_dir = cbm_resolve_cache_dir();
     const char *temp_dir = cbm_tmpdir();
-    if (!cache_dir || !temp_dir) return false;
+    if (!cache_dir || !temp_dir)
+        return false;
     snprintf(cache, sizeof(cache), "%s", cache_dir);
     snprintf(temp, sizeof(temp), "%s", temp_dir);
     cbm_normalize_path_sep(cache);
     cbm_normalize_path_sep(temp);
     size_t temp_length = strlen(temp);
-    while (temp_length > 1 && temp[temp_length - 1] == '/') temp[--temp_length] = '\0';
+    while (temp_length > 1 && temp[temp_length - 1] == '/')
+        temp[--temp_length] = '\0';
 #ifdef _WIN32
     bool under_temp = _strnicmp(cache, temp, temp_length) == 0;
 #else
     bool under_temp = strncmp(cache, temp, temp_length) == 0;
 #endif
-    if (!under_temp || (cache[temp_length] != '\0' && cache[temp_length] != '/')) return false;
+    if (!under_temp || (cache[temp_length] != '\0' && cache[temp_length] != '/'))
+        return false;
 
     const char *cursor = allowlist;
     size_t project_length = strlen(project);
@@ -6736,7 +6792,8 @@ static bool stage11_test_project_allowlisted(const char *project) {
         if (token_length == project_length && strncmp(cursor, project, token_length) == 0) {
             return true;
         }
-        if (!end) break;
+        if (!end)
+            break;
         cursor = end + 1;
     }
     return false;
@@ -6747,7 +6804,8 @@ bool cbm_mcp_memory_fixture_project_authorized(const char *project) {
 }
 
 bool cbm_mcp_memory_project_authorized(cbm_mcp_server_t *srv, const char *project) {
-    if (!srv || !project || !project[0]) return false;
+    if (!srv || !project || !project[0])
+        return false;
     return cbm_memory_security_scope_allowed(project, "project-memory") ||
            cbm_mcp_memory_fixture_project_authorized(project);
 }
@@ -6817,7 +6875,6 @@ cbm_store_t *resolve_global_graph_store(cbm_mcp_server_t *srv) {
     srv->global_graph_store = cbm_store_open_path_query(graph_path);
     return srv->global_graph_store;
 }
-
 
 /* ── Tool dispatch ────────────────────────────────────────────── */
 
@@ -6992,14 +7049,22 @@ char *cbm_mcp_handle_tool(cbm_mcp_server_t *srv, const char *tool_name, const ch
     if (strcmp(tool_name, "memory_task_status") == 0) {
         return handle_memory_task_status(srv, args_json);
     }
-    if (strcmp(tool_name, "manager_global_overview") == 0) return handle_manager_global_overview(srv,args_json);
-    if (strcmp(tool_name, "manager_global_memory") == 0) return handle_manager_global_memory(srv,args_json);
-    if (strcmp(tool_name, "manager_global_topology") == 0) return handle_manager_global_topology(srv,args_json);
-    if (strcmp(tool_name, "manager_evolution") == 0) return handle_manager_evolution(srv,args_json);
-    if (strcmp(tool_name, "manager_task_chain") == 0) return handle_manager_task_chain(srv,args_json);
-    if (strcmp(tool_name, "manager_drift_preview") == 0) return handle_manager_drift_preview(srv,args_json);
-    if (strcmp(tool_name, "manager_maintenance_preview") == 0) return handle_manager_maintenance_preview(srv,args_json);
-    if (strcmp(tool_name, "manager_maintenance_control") == 0) return handle_manager_maintenance_control(srv,args_json);
+    if (strcmp(tool_name, "manager_global_overview") == 0)
+        return handle_manager_global_overview(srv, args_json);
+    if (strcmp(tool_name, "manager_global_memory") == 0)
+        return handle_manager_global_memory(srv, args_json);
+    if (strcmp(tool_name, "manager_global_topology") == 0)
+        return handle_manager_global_topology(srv, args_json);
+    if (strcmp(tool_name, "manager_evolution") == 0)
+        return handle_manager_evolution(srv, args_json);
+    if (strcmp(tool_name, "manager_task_chain") == 0)
+        return handle_manager_task_chain(srv, args_json);
+    if (strcmp(tool_name, "manager_drift_preview") == 0)
+        return handle_manager_drift_preview(srv, args_json);
+    if (strcmp(tool_name, "manager_maintenance_preview") == 0)
+        return handle_manager_maintenance_preview(srv, args_json);
+    if (strcmp(tool_name, "manager_maintenance_control") == 0)
+        return handle_manager_maintenance_control(srv, args_json);
     if (strcmp(tool_name, "memory_task_complete") == 0) {
         return handle_memory_task_complete(srv, args_json);
     }
@@ -7188,7 +7253,8 @@ static void maybe_auto_index(cbm_mcp_server_t *srv) {
 
 /* ── Background update check ──────────────────────────────────── */
 
-#define UPDATE_CHECK_URL "https://api.github.com/repos/AlbertYm/neuroplastic-memory-mcp/releases/latest"
+#define UPDATE_CHECK_URL \
+    "https://api.github.com/repos/AlbertYm/neuroplastic-memory-mcp/releases/latest"
 
 static void *update_check_thread(void *arg) {
     cbm_mcp_server_t *srv = (cbm_mcp_server_t *)arg;

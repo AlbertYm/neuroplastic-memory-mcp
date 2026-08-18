@@ -78,8 +78,7 @@ static char *memory_arg_raw_dup(yyjson_doc *doc, const char *key) {
     return yyjson_val_write(v, YYJSON_WRITE_ALLOW_INVALID_UNICODE, NULL);
 }
 
-static char *memory_security_response(const cbm_memory_security_result_t *security,
-                                      bool is_error) {
+static char *memory_security_response(const cbm_memory_security_result_t *security, bool is_error) {
     yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
     yyjson_mut_val *root = yyjson_mut_obj(doc);
     yyjson_mut_doc_set_root(doc, root);
@@ -89,8 +88,7 @@ static char *memory_security_response(const cbm_memory_security_result_t *securi
     yyjson_mut_obj_add_str(doc, root, "action", security->action);
     yyjson_mut_obj_add_str(doc, root, "policy_id", CBM_MEMORY_SECURITY_POLICY_ID);
     yyjson_mut_obj_add_int(doc, root, "policy_version", CBM_MEMORY_SECURITY_POLICY_VERSION);
-    yyjson_mut_obj_add_str(doc, root, "detector_version",
-                           CBM_MEMORY_SECURITY_DETECTOR_VERSION);
+    yyjson_mut_obj_add_str(doc, root, "detector_version", CBM_MEMORY_SECURITY_DETECTOR_VERSION);
     yyjson_mut_val *reasons = yyjson_mut_arr(doc);
     yyjson_mut_arr_add_str(doc, reasons, security->reason_code);
     yyjson_mut_obj_add_val(doc, root, "reason_codes", reasons);
@@ -118,43 +116,63 @@ static char *memory_security_scope_response(const char *scope_value) {
     return memory_security_response(&security, true);
 }
 
-static char *memory_security_scan_arg(yyjson_doc *doc, const char *key,
-                                      const char *operation) {
+static char *memory_security_scan_arg(yyjson_doc *doc, const char *key, const char *operation) {
     char *value = memory_arg_raw_dup(doc, key);
-    if (!value) return NULL;
+    if (!value)
+        return NULL;
     cbm_memory_security_result_t security = {0};
     int rc = cbm_memory_security_scan(value, strlen(value), &security);
     free(value);
     if (rc != 0) {
         return cbm_mcp_text_result("SECURITY_POLICY_MISMATCH", true);
     }
-    if (security.allowed) return NULL;
+    if (security.allowed)
+        return NULL;
     cbm_log_security_event(security.code, operation, NULL, security.content_sha256,
                            security.content_length, 0);
     return memory_security_response(&security, true);
 }
 
-static char *memory_security_scan_keys(yyjson_doc *doc, const char *const *keys,
-                                       size_t key_count, const char *operation) {
+static char *memory_security_scan_keys(yyjson_doc *doc, const char *const *keys, size_t key_count,
+                                       const char *operation) {
     for (size_t i = 0; i < key_count; i++) {
         char *blocked = memory_security_scan_arg(doc, keys[i], operation);
-        if (blocked) return blocked;
+        if (blocked)
+            return blocked;
     }
     return NULL;
 }
 
 static bool memory_tool_scope_guarded(const char *tool_name) {
     static const char *const tools[] = {
-        "events", "memories_retrieve", "memories_inspect", "memory_update_status",
-        "memory_feedback", "memory_reinforcement_replay", "memory_edge_lifecycle_migrate",
-        "memory_edge_maintenance", "memory_edge_restore", "memory_concept_generate",
-        "memory_concept_review", "memory_concept_inspect", "memory_observe_injection",
-        "memory_observe_usage", "memory_delete", "admin_consolidate", "admin_decay",
-        "memory_health", "adr_list", "adr_chain", "memory_task_begin", "memory_task_status",
-        "memory_task_complete", "memory_task_migrate",
+        "events",
+        "memories_retrieve",
+        "memories_inspect",
+        "memory_update_status",
+        "memory_feedback",
+        "memory_reinforcement_replay",
+        "memory_edge_lifecycle_migrate",
+        "memory_edge_maintenance",
+        "memory_edge_restore",
+        "memory_concept_generate",
+        "memory_concept_review",
+        "memory_concept_inspect",
+        "memory_observe_injection",
+        "memory_observe_usage",
+        "memory_delete",
+        "admin_consolidate",
+        "admin_decay",
+        "memory_health",
+        "adr_list",
+        "adr_chain",
+        "memory_task_begin",
+        "memory_task_status",
+        "memory_task_complete",
+        "memory_task_migrate",
     };
     for (size_t i = 0; i < sizeof(tools) / sizeof(tools[0]); i++) {
-        if (strcmp(tool_name, tools[i]) == 0) return true;
+        if (strcmp(tool_name, tools[i]) == 0)
+            return true;
     }
     return false;
 }
@@ -163,91 +181,109 @@ static bool memory_global_default_project(const char *project) {
     return project && project[0] && !cbm_mcp_memory_fixture_project_authorized(project);
 }
 
-static cbm_store_t *memory_stage14_store(cbm_mcp_server_t *srv, const char *project,
-                                         bool create) {
+static cbm_store_t *memory_stage14_store(cbm_mcp_server_t *srv, const char *project, bool create) {
     return memory_global_default_project(project) ? resolve_global_memory_store(srv, create)
                                                   : resolve_memory_store(srv, project, create);
 }
 
 static bool memory_stage14_workspace_path(const char *project) {
-    if (!project || !project[0]) return false;
-    return !strncmp(project,"file://",7) || project[0]=='/' || project[0]=='\\' ||
-           (isalpha((unsigned char)project[0]) && project[1]==':' &&
-            (project[2]=='/' || project[2]=='\\'));
+    if (!project || !project[0])
+        return false;
+    return !strncmp(project, "file://", 7) || project[0] == '/' || project[0] == '\\' ||
+           (isalpha((unsigned char)project[0]) && project[1] == ':' &&
+            (project[2] == '/' || project[2] == '\\'));
 }
 
 static int memory_stage14_resolve_project(cbm_store_t *store, const char *project,
                                           cbm_project_resolution_t *out) {
-    if (!store || !project || !out) return CBM_STORE_ERR;
-    memset(out,0,sizeof(*out));
-    sqlite3_stmt *stmt=NULL;
-    const char *sql=
-        "SELECT c.project_uuid,c.canonical_path,c.path_hash,c.display_name,COALESCE(c.volume_id,''),"
+    if (!store || !project || !out)
+        return CBM_STORE_ERR;
+    memset(out, 0, sizeof(*out));
+    sqlite3_stmt *stmt = NULL;
+    const char *sql =
+        "SELECT "
+        "c.project_uuid,c.canonical_path,c.path_hash,c.display_name,COALESCE(c.volume_id,''),"
         "COALESCE(c.source_fingerprint,''),c.workspace_state "
         "FROM global_project_catalog c LEFT JOIN global_legacy_alias a "
         "ON a.project_uuid=c.project_uuid AND a.legacy_kind='project' "
         "WHERE c.project_uuid=?1 OR a.legacy_id=?1 "
         "ORDER BY CASE WHEN c.project_uuid=?1 THEN 0 ELSE 1 END LIMIT 1;";
-    if(sqlite3_prepare_v2(cbm_store_get_db(store),sql,-1,&stmt,NULL)==SQLITE_OK){
-        sqlite3_bind_text(stmt,1,project,-1,SQLITE_TRANSIENT);
-        if(sqlite3_step(stmt)==SQLITE_ROW){
-            snprintf(out->project_uuid,sizeof(out->project_uuid),"%s",sqlite3_column_text(stmt,0));
-            snprintf(out->canonical_path,sizeof(out->canonical_path),"%s",sqlite3_column_text(stmt,1));
-            snprintf(out->path_hash,sizeof(out->path_hash),"%s",sqlite3_column_text(stmt,2));
-            snprintf(out->display_name,sizeof(out->display_name),"%s",sqlite3_column_text(stmt,3));
-            snprintf(out->volume_id,sizeof(out->volume_id),"%s",sqlite3_column_text(stmt,4));
-            snprintf(out->source_fingerprint,sizeof(out->source_fingerprint),"%s",sqlite3_column_text(stmt,5));
-            const char *state=(const char*)sqlite3_column_text(stmt,6);
-            out->path_exists=state&&strcmp(state,"missing")!=0;
-            out->path_writable=state&&strcmp(state,"writable")==0;
-            sqlite3_finalize(stmt);return CBM_STORE_OK;
+    if (sqlite3_prepare_v2(cbm_store_get_db(store), sql, -1, &stmt, NULL) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, project, -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            snprintf(out->project_uuid, sizeof(out->project_uuid), "%s",
+                     sqlite3_column_text(stmt, 0));
+            snprintf(out->canonical_path, sizeof(out->canonical_path), "%s",
+                     sqlite3_column_text(stmt, 1));
+            snprintf(out->path_hash, sizeof(out->path_hash), "%s", sqlite3_column_text(stmt, 2));
+            snprintf(out->display_name, sizeof(out->display_name), "%s",
+                     sqlite3_column_text(stmt, 3));
+            snprintf(out->volume_id, sizeof(out->volume_id), "%s", sqlite3_column_text(stmt, 4));
+            snprintf(out->source_fingerprint, sizeof(out->source_fingerprint), "%s",
+                     sqlite3_column_text(stmt, 5));
+            const char *state = (const char *)sqlite3_column_text(stmt, 6);
+            out->path_exists = state && strcmp(state, "missing") != 0;
+            out->path_writable = state && strcmp(state, "writable") == 0;
+            sqlite3_finalize(stmt);
+            return CBM_STORE_OK;
         }
     }
     sqlite3_finalize(stmt);
-    return memory_stage14_workspace_path(project) && cbm_project_resolve(project,NULL,NULL,out)==0
-               ? CBM_STORE_OK : CBM_STORE_NOT_FOUND;
+    return memory_stage14_workspace_path(project) &&
+                   cbm_project_resolve(project, NULL, NULL, out) == 0
+               ? CBM_STORE_OK
+               : CBM_STORE_NOT_FOUND;
 }
 
 static const char *memory_stage14_project_identity(cbm_store_t *store, const char *project,
                                                    char out[CBM_PROJECT_UUID_SIZE]) {
-    if (!memory_global_default_project(project)) return project;
+    if (!memory_global_default_project(project))
+        return project;
     cbm_project_resolution_t resolution = {0};
-    if (memory_stage14_resolve_project(store,project,&resolution) != CBM_STORE_OK) return NULL;
+    if (memory_stage14_resolve_project(store, project, &resolution) != CBM_STORE_OK)
+        return NULL;
     snprintf(out, CBM_PROJECT_UUID_SIZE, "%s", resolution.project_uuid);
     return out;
 }
 
 static bool memory_security_response_hash(const char *value, char out[65]) {
-    if (!value || !out) return false;
+    if (!value || !out)
+        return false;
     size_t length = strlen(value);
     bool sha256 = length == 64;
     for (size_t i = 0; sha256 && i < length; i++) {
-        if (!isxdigit((unsigned char)value[i])) sha256 = false;
+        if (!isxdigit((unsigned char)value[i]))
+            sha256 = false;
     }
     if (sha256) {
-        for (size_t i = 0; i < length; i++) out[i] = (char)tolower((unsigned char)value[i]);
+        for (size_t i = 0; i < length; i++)
+            out[i] = (char)tolower((unsigned char)value[i]);
         out[length] = '\0';
         return true;
     }
     cbm_memory_security_result_t derived = {0};
-    if (cbm_memory_security_scan(value, length, &derived) != 0) return false;
+    if (cbm_memory_security_scan(value, length, &derived) != 0)
+        return false;
     snprintf(out, 65, "%s", derived.content_sha256);
     return true;
 }
 
 char *cbm_mcp_memory_security_guard(cbm_mcp_server_t *srv, const char *tool_name,
                                     const char *args) {
-    if (!tool_name || !args) return NULL;
+    if (!tool_name || !args)
+        return NULL;
     bool events = strcmp(tool_name, "events") == 0;
     bool feedback = strcmp(tool_name, "memory_feedback") == 0;
     bool concept_review = strcmp(tool_name, "memory_concept_review") == 0;
     bool usage = strcmp(tool_name, "memory_observe_usage") == 0;
     bool injection = strcmp(tool_name, "memory_observe_injection") == 0;
     bool scope_guarded = memory_tool_scope_guarded(tool_name);
-    if (!scope_guarded) return NULL;
+    if (!scope_guarded)
+        return NULL;
 
     yyjson_doc *doc = yyjson_read(args, strlen(args), 0);
-    if (!doc) return NULL;
+    if (!doc)
+        return NULL;
     char *project = memory_arg_string_dup(doc, "project");
     char *store = memory_arg_string_dup(doc, "store");
     char *scope = memory_arg_string_dup(doc, "scope");
@@ -266,7 +302,8 @@ char *cbm_mcp_memory_security_guard(cbm_mcp_server_t *srv, const char *tool_name
         if (!global_identity_valid) {
             cbm_store_t *global_store = resolve_global_memory_store(srv, false);
             cbm_project_resolution_t known = {0};
-            global_identity_valid = global_store &&
+            global_identity_valid =
+                global_store &&
                 memory_stage14_resolve_project(global_store, project, &known) == CBM_STORE_OK;
         }
     }
@@ -292,15 +329,27 @@ char *cbm_mcp_memory_security_guard(cbm_mcp_server_t *srv, const char *tool_name
     char *blocked = NULL;
     if (events) {
         static const char *const keys[] = {
-            "type", "source", "task", "kind", "layer", "title", "summary", "entity_key",
-            "predicate", "payload", "content", "supersedes", "derived_from_memory_id",
-            "context", "about_code",
+            "type",
+            "source",
+            "task",
+            "kind",
+            "layer",
+            "title",
+            "summary",
+            "entity_key",
+            "predicate",
+            "payload",
+            "content",
+            "supersedes",
+            "derived_from_memory_id",
+            "context",
+            "about_code",
         };
         blocked = memory_security_scan_keys(doc, keys, sizeof(keys) / sizeof(keys[0]), tool_name);
     } else if (feedback) {
         static const char *const keys[] = {
-            "task_type", "result_ref", "result_payload", "evidence_source", "evidence_ref",
-            "evidence_payload", "action",
+            "task_type",    "result_ref",       "result_payload", "evidence_source",
+            "evidence_ref", "evidence_payload", "action",
         };
         blocked = memory_security_scan_keys(doc, keys, sizeof(keys) / sizeof(keys[0]), tool_name);
     } else if (concept_review) {
@@ -379,7 +428,6 @@ static const char *memory_structure_advice(const char *kind, const char *content
     }
     return NULL;
 }
-
 
 /* ── Phantom project name guard ─────────────────────────────────────
  * An earlier buggy list_projects handed callers the sidecar filename
@@ -490,16 +538,14 @@ static void memory_activation_add_json(yyjson_mut_doc *doc, yyjson_mut_val *root
     yyjson_mut_obj_add_str(doc, activation, "status", report->status);
     yyjson_mut_obj_add_str(doc, activation, "session_id",
                            report->session_id ? report->session_id : "");
-    yyjson_mut_obj_add_str(doc, activation, "contract_version",
-                           "stage6-bounded-activation-v1");
+    yyjson_mut_obj_add_str(doc, activation, "contract_version", "stage6-bounded-activation-v1");
     yyjson_mut_obj_add_str(doc, activation, "termination_reason",
                            report->termination_reason ? report->termination_reason : "");
     yyjson_mut_obj_add_bool(doc, activation, "request_scoped", true);
     yyjson_mut_obj_add_bool(doc, activation, "long_term_state_written", false);
     yyjson_mut_obj_add_bool(doc, activation, "vector_seed_allowed", false);
     yyjson_mut_obj_add_int(doc, activation, "seed_count", report->seed_count);
-    yyjson_mut_obj_add_int(doc, activation, "vector_seeds_blocked",
-                           report->vector_seeds_blocked);
+    yyjson_mut_obj_add_int(doc, activation, "vector_seeds_blocked", report->vector_seeds_blocked);
     yyjson_mut_obj_add_int(doc, activation, "node_count", report->node_count);
     yyjson_mut_obj_add_int(doc, activation, "edge_visits", report->edge_visits);
     yyjson_mut_obj_add_int(doc, activation, "accepted_visits", report->accepted_visits);
@@ -739,8 +785,8 @@ char *handle_events(cbm_mcp_server_t *srv, const char *args) {
      * scope_project=NULL; anything else (default) is project-scoped. `project`
      * stays required and is still used as anchor/audit context even for global
      * writes — it just isn't the storage key. */
-    bool is_global = (scope && strcmp(scope, "global") == 0) ||
-                     memory_global_default_project(project);
+    bool is_global =
+        (scope && strcmp(scope, "global") == 0) || memory_global_default_project(project);
     cbm_project_resolution_t global_resolution = {0};
     bool has_global_resolution = false;
     bool materialize_relation = derived_from_present && derived_from && derived_from[0];
@@ -791,7 +837,8 @@ char *handle_events(cbm_mcp_server_t *srv, const char *args) {
     if (is_global) {
         store = resolve_global_memory_store(srv, true);
         char ensure_key[96], *ensure_report = NULL;
-        if (!store || memory_stage14_resolve_project(store,project,&global_resolution) != CBM_STORE_OK) {
+        if (!store ||
+            memory_stage14_resolve_project(store, project, &global_resolution) != CBM_STORE_OK) {
             store = NULL;
         } else {
             has_global_resolution = true;
@@ -800,13 +847,15 @@ char *handle_events(cbm_mcp_server_t *srv, const char *args) {
             int ensure_rc = cbm_global_store_ensure_project(store, &global_resolution, ensure_key,
                                                             &ensure_report);
             free(ensure_report);
-            if (ensure_rc != CBM_STORE_OK && ensure_rc != CBM_STORE_REPLAYED) store = NULL;
+            if (ensure_rc != CBM_STORE_OK && ensure_rc != CBM_STORE_REPLAYED)
+                store = NULL;
         }
     } else if (materialize_relation) {
         /* Do not create a new empty store for a relation request. First prove
          * the target store exists, then upgrade the cached handle to writable. */
         store = resolve_memory_store(srv, project, false);
-        if (store) store = resolve_memory_store(srv, project, true);
+        if (store)
+            store = resolve_memory_store(srv, project, true);
     } else {
         store = resolve_memory_store(srv, project, true);
     }
@@ -973,11 +1022,11 @@ char *handle_events(cbm_mcp_server_t *srv, const char *args) {
     /* P0-a: ADR identity — decision and constraint memories default to layer "adr"
      * instead of "episodic" so they are fetchable, rankable, and decay-tunable as a
      * distinct class. An explicit layer argument always wins. */
-    item.layer = layer ? layer
-                       : ((kind && (strcmp(kind, "decision") == 0 ||
-                                    strcmp(kind, "constraint") == 0))
-                              ? "adr"
-                              : "episodic");
+    item.layer = layer
+                     ? layer
+                     : ((kind && (strcmp(kind, "decision") == 0 || strcmp(kind, "constraint") == 0))
+                            ? "adr"
+                            : "episodic");
     /* P0-b: for decision-class items without a title, derive one from the summary
      * (first sentence, up to CBM_SZ_128 chars). Summary always carries the query-like
      * conclusion so it makes a far better display label than a NULL fallback. */
@@ -1010,8 +1059,7 @@ char *handle_events(cbm_mcp_server_t *srv, const char *args) {
             }
         }
         /* Trim trailing punctuation so the label reads cleanly. */
-        while (tl > 0 && (title_buf[tl - 1] == '.' ||
-                          title_buf[tl - 1] == '!')) {
+        while (tl > 0 && (title_buf[tl - 1] == '.' || title_buf[tl - 1] == '!')) {
             tl--;
         }
         title_buf[tl] = '\0';
@@ -1042,9 +1090,10 @@ char *handle_events(cbm_mcp_server_t *srv, const char *args) {
     const char *supersedes_warning = NULL;
     if (supersedes && supersedes[0]) {
         sqlite3_stmt *ver_stmt = NULL;
-        if (sqlite3_prepare_v2(cbm_store_get_db(store),
-                               "SELECT version FROM memory_item WHERE id=?1 AND deleted_at IS NULL;",
-                               -1, &ver_stmt, NULL) == SQLITE_OK) {
+        if (sqlite3_prepare_v2(
+                cbm_store_get_db(store),
+                "SELECT version FROM memory_item WHERE id=?1 AND deleted_at IS NULL;", -1,
+                &ver_stmt, NULL) == SQLITE_OK) {
             sqlite3_bind_text(ver_stmt, 1, supersedes, -1, SQLITE_TRANSIENT);
             if (sqlite3_step(ver_stmt) == SQLITE_ROW) {
                 item.version = sqlite3_column_int(ver_stmt, 0) + 1;
@@ -1133,12 +1182,15 @@ char *handle_events(cbm_mcp_server_t *srv, const char *args) {
         if (provenance_rc == CBM_STORE_OK) {
             snprintf(provenance_seed, sizeof(provenance_seed), "%s\n%s\n%s", item_id,
                      global_resolution.project_uuid, event_id ? event_id : "");
-            provenance_rc = cbm_stage7_sha256_hex(provenance_seed, strlen(provenance_seed),
-                                                   provenance_hash);
+            provenance_rc =
+                cbm_stage7_sha256_hex(provenance_seed, strlen(provenance_seed), provenance_hash);
         }
         if (provenance_rc == CBM_STORE_OK &&
-            sqlite3_prepare_v2(cbm_store_get_db(store),
-                "INSERT OR IGNORE INTO global_memory_provenance(memory_item_id,project_uuid,legacy_project_id,source_kind,payload_sha256,created_at) VALUES(?1,?2,?3,'mcp_events',?4,datetime('now'));",
+            sqlite3_prepare_v2(
+                cbm_store_get_db(store),
+                "INSERT OR IGNORE INTO "
+                "global_memory_provenance(memory_item_id,project_uuid,legacy_project_id,source_"
+                "kind,payload_sha256,created_at) VALUES(?1,?2,?3,'mcp_events',?4,datetime('now'));",
                 -1, &provenance, NULL) == SQLITE_OK) {
             sqlite3_bind_text(provenance, 1, item_id, -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(provenance, 2, global_resolution.project_uuid, -1, SQLITE_TRANSIENT);
@@ -1153,36 +1205,55 @@ char *handle_events(cbm_mcp_server_t *srv, const char *args) {
         int provenance_exact = 0;
         if (provenance_rc == CBM_STORE_OK &&
             sqlite3_prepare_v2(cbm_store_get_db(store),
-                "SELECT COUNT(*) FROM global_memory_provenance WHERE memory_item_id=?1 AND project_uuid=?2 AND legacy_project_id=?3 AND source_kind='mcp_events' AND payload_sha256=?4;",
-                -1, &provenance, NULL) == SQLITE_OK) {
+                               "SELECT COUNT(*) FROM global_memory_provenance WHERE "
+                               "memory_item_id=?1 AND project_uuid=?2 AND legacy_project_id=?3 AND "
+                               "source_kind='mcp_events' AND payload_sha256=?4;",
+                               -1, &provenance, NULL) == SQLITE_OK) {
             sqlite3_bind_text(provenance, 1, item_id, -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(provenance, 2, global_resolution.project_uuid, -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(provenance, 3, project, -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(provenance, 4, provenance_hash, -1, SQLITE_TRANSIENT);
-            provenance_exact = sqlite3_step(provenance) == SQLITE_ROW &&
-                               sqlite3_column_int(provenance, 0) == 1;
+            provenance_exact =
+                sqlite3_step(provenance) == SQLITE_ROW && sqlite3_column_int(provenance, 0) == 1;
         }
         sqlite3_finalize(provenance);
         if (provenance_rc == CBM_STORE_OK && !provenance_exact)
             provenance_rc = CBM_STORE_IDEMPOTENCY_CONFLICT;
         if (provenance_rc != CBM_STORE_OK) {
             cbm_store_rollback(store);
-            free(event_id);free(item_id);free(project);free(type);free(scope);free(source);
-            free(user);free(task);free(kind);free(layer);free(title);free(derived_title);
-            free(summary);free(entity_key);free(predicate);free(payload);free(content);
-            free(supersedes);free(derived_from);free(context_json);
-            free_anchor_qns(about_code_qns,about_code_n);
-            return cbm_mcp_text_result("failed to append global memory provenance; transaction rolled back",true);
+            free(event_id);
+            free(item_id);
+            free(project);
+            free(type);
+            free(scope);
+            free(source);
+            free(user);
+            free(task);
+            free(kind);
+            free(layer);
+            free(title);
+            free(derived_title);
+            free(summary);
+            free(entity_key);
+            free(predicate);
+            free(payload);
+            free(content);
+            free(supersedes);
+            free(derived_from);
+            free(context_json);
+            free_anchor_qns(about_code_qns, about_code_n);
+            return cbm_mcp_text_result(
+                "failed to append global memory provenance; transaction rolled back", true);
         }
     }
 
     char *derived_edge_id = NULL;
     if (materialize_relation) {
-        int relation_rc = events_derived_from_fail_after("item")
-                              ? CBM_STORE_ERR
-                              : cbm_store_memory_link_derived_from(
-                                    store, item_id, derived_from, project, event_id,
-                                    &derived_edge_id);
+        int relation_rc =
+            events_derived_from_fail_after("item")
+                ? CBM_STORE_ERR
+                : cbm_store_memory_link_derived_from(store, item_id, derived_from, project,
+                                                     event_id, &derived_edge_id);
         if (relation_rc == CBM_STORE_OK && events_derived_from_fail_after("edge")) {
             relation_rc = CBM_STORE_ERR;
         }
@@ -1212,7 +1283,8 @@ char *handle_events(cbm_mcp_server_t *srv, const char *args) {
             free_anchor_qns(about_code_qns, about_code_n);
             return cbm_mcp_text_result(
                 relation_rc == CBM_STORE_NOT_FOUND
-                    ? "derived_from target must exist, be non-deleted, active/candidate, and in the same project store"
+                    ? "derived_from target must exist, be non-deleted, active/candidate, and in "
+                      "the same project store"
                     : "failed to materialize derived_from relation; transaction rolled back",
                 true);
         }
@@ -1447,14 +1519,15 @@ static char *memory_observe_query_canonical(const char *project, const cbm_memor
     return result;
 }
 
-static int memory_observe_record_batch(
-    cbm_store_t *store, const cbm_retrieval_session_input_t *session_input,
-    const cbm_memory_item_t *const *ranked, const int *positions, int count,
-    const char *store_kind, const char *store_id, cbm_retrieval_observation_ref_t *all_refs,
-    char **out_session_id, char **out_request_id) {
+static int memory_observe_record_batch(cbm_store_t *store,
+                                       const cbm_retrieval_session_input_t *session_input,
+                                       const cbm_memory_item_t *const *ranked, const int *positions,
+                                       int count, const char *store_kind, const char *store_id,
+                                       cbm_retrieval_observation_ref_t *all_refs,
+                                       char **out_session_id, char **out_request_id) {
     bool replayed = false;
     int rc = cbm_store_memory_observe_session_begin(store, session_input, out_session_id,
-                                                     out_request_id, &replayed);
+                                                    out_request_id, &replayed);
     if (rc != CBM_STORE_OK && rc != CBM_STORE_REPLAYED) {
         return rc;
     }
@@ -1495,15 +1568,16 @@ static int memory_observe_record_batch(
     return rc;
 }
 
-static void memory_concepts_add_json(yyjson_mut_doc *doc, yyjson_mut_val *root,
-                                     cbm_store_t *store, const char *project, int limit) {
+static void memory_concepts_add_json(yyjson_mut_doc *doc, yyjson_mut_val *root, cbm_store_t *store,
+                                     const char *project, int limit) {
     yyjson_mut_val *concepts = yyjson_mut_arr(doc);
     int count = 0;
     sqlite3 *db = store ? cbm_store_get_db(store) : NULL;
     sqlite3_stmt *stmt = NULL;
     const char *sql =
         "SELECT n.node_id,n.candidate_id,nv.content_text,nv.content_sha256 FROM concept_node n "
-        "JOIN concept_node_version nv ON nv.node_id=n.node_id AND nv.version=(SELECT MAX(v2.version) "
+        "JOIN concept_node_version nv ON nv.node_id=n.node_id AND nv.version=(SELECT "
+        "MAX(v2.version) "
         "FROM concept_node_version v2 WHERE v2.node_id=n.node_id) WHERE n.scope_project=?1 AND "
         "n.scope_store='project-memory' AND (SELECT action FROM concept_review_event r WHERE "
         "r.candidate_id=n.candidate_id ORDER BY r.sequence_no DESC LIMIT 1)='approve' ORDER BY "
@@ -1542,8 +1616,7 @@ static void memory_concepts_add_json(yyjson_mut_doc *doc, yyjson_mut_val *root,
 
 static char *memory_global_retrieval_result(const char *project,
                                             const cbm_project_resolution_t *resolution,
-                                            const cbm_global_retrieval_result_t *out,
-                                            int rc) {
+                                            const cbm_global_retrieval_result_t *out, int rc) {
     yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
     yyjson_mut_val *root = doc ? yyjson_mut_obj(doc) : NULL;
     if (!doc || !root) {
@@ -1552,12 +1625,10 @@ static char *memory_global_retrieval_result(const char *project,
     }
     yyjson_mut_doc_set_root(doc, root);
     yyjson_mut_obj_add_str(doc, root, "project", project ? project : "");
-    yyjson_mut_obj_add_str(doc, root, "project_uuid",
-                           resolution ? resolution->project_uuid : "");
+    yyjson_mut_obj_add_str(doc, root, "project_uuid", resolution ? resolution->project_uuid : "");
     yyjson_mut_obj_add_str(doc, root, "retrieval_session_id",
                            out && out->session_id ? out->session_id : "");
-    yyjson_mut_obj_add_str(doc, root, "request_id",
-                           out && out->session_id ? out->session_id : "");
+    yyjson_mut_obj_add_str(doc, root, "request_id", out && out->session_id ? out->session_id : "");
     yyjson_mut_obj_add_str(doc, root, "mode", "observe_only");
     yyjson_mut_obj_add_bool(doc, root, "untrusted_data", true);
     yyjson_mut_obj_add_str(doc, root, "journal_status",
@@ -1597,8 +1668,8 @@ static char *memory_global_retrieval_result(const char *project,
     yyjson_mut_obj_add_val(doc, root, "memories", memories);
     char *json = yy_doc_to_str(doc);
     yyjson_mut_doc_free(doc);
-    char *result = cbm_mcp_text_result(json ? json : "{}",
-                                       rc != CBM_STORE_OK && rc != CBM_STORE_REPLAYED);
+    char *result =
+        cbm_mcp_text_result(json ? json : "{}", rc != CBM_STORE_OK && rc != CBM_STORE_REPLAYED);
     free(json);
     return result;
 }
@@ -1621,8 +1692,7 @@ char *handle_memories_retrieve(cbm_mcp_server_t *srv, const char *args) {
             free(project);
             free(concept_mode);
             return cbm_mcp_text_result(
-                "{\"status\":\"error\",\"code\":\"CONCEPT_RECALL_GUARD_MISSING\"}",
-                true);
+                "{\"status\":\"error\",\"code\":\"CONCEPT_RECALL_GUARD_MISSING\"}", true);
         }
     }
     char *requested_request_id = cbm_mcp_get_string_arg(args, "request_id");
@@ -1650,7 +1720,8 @@ char *handle_memories_retrieve(cbm_mcp_server_t *srv, const char *args) {
     /* Lazy auto-maintenance before reading, so a single-user agent sees freshly
      * consolidated/decayed state without ever calling admin endpoints. At the
      * entry point no transaction is open. Best-effort — never fails the read. */
-    if (!global_default) (void)cbm_store_memory_maintain_if_due(store, project, NULL);
+    if (!global_default)
+        (void)cbm_store_memory_maintain_if_due(store, project, NULL);
     cbm_memory_query_t query = {0};
     query.project = project;
     query.user = cbm_mcp_get_string_arg(args, "user");
@@ -1671,14 +1742,15 @@ char *handle_memories_retrieve(cbm_mcp_server_t *srv, const char *args) {
     if (global_default) {
         cbm_project_resolution_t resolution = {0};
         char ensure_key[96], request_id[128], *ensure_report = NULL;
-        int rc = memory_stage14_resolve_project(store,project,&resolution);
+        int rc = memory_stage14_resolve_project(store, project, &resolution);
         if (rc == CBM_STORE_OK) {
             snprintf(ensure_key, sizeof(ensure_key), "stage14-mcp-project-%.64s",
                      resolution.path_hash);
-            int ensure_rc = cbm_global_store_ensure_project(store, &resolution, ensure_key,
-                                                            &ensure_report);
+            int ensure_rc =
+                cbm_global_store_ensure_project(store, &resolution, ensure_key, &ensure_report);
             free(ensure_report);
-            if (ensure_rc != CBM_STORE_OK && ensure_rc != CBM_STORE_REPLAYED) rc = ensure_rc;
+            if (ensure_rc != CBM_STORE_OK && ensure_rc != CBM_STORE_REPLAYED)
+                rc = ensure_rc;
         }
         if (requested_request_id && requested_request_id[0]) {
             snprintf(request_id, sizeof(request_id), "%s", requested_request_id);
@@ -1693,9 +1765,15 @@ char *handle_memories_retrieve(cbm_mcp_server_t *srv, const char *args) {
                                            &query, &global_out);
         char *result = memory_global_retrieval_result(project, &resolution, &global_out, rc);
         cbm_global_retrieval_result_free(&global_out);
-        free(project);free(concept_mode);free(requested_request_id);
-        free((char *)query.user);free((char *)query.task);free((char *)query.entity_key);
-        free((char *)query.kind);free((char *)query.query);free((char *)query.code_context);
+        free(project);
+        free(concept_mode);
+        free(requested_request_id);
+        free((char *)query.user);
+        free((char *)query.task);
+        free((char *)query.entity_key);
+        free((char *)query.kind);
+        free((char *)query.query);
+        free((char *)query.code_context);
         free((char *)query.activation_mode);
         return result;
     }
@@ -1729,7 +1807,7 @@ char *handle_memories_retrieve(cbm_mcp_server_t *srv, const char *args) {
     if (gstore) {
         (void)cbm_store_memory_maintain_if_due(gstore, CBM_GLOBAL_MEMORY_PROJECT, NULL);
         cbm_memory_query_t gquery = query;
-        gquery.project = NULL; /* global rows carry scope_project=NULL */
+        gquery.project = NULL;         /* global rows carry scope_project=NULL */
         gquery.activation_mode = NULL; /* Stage 6 never crosses physical stores. */
         gquery.activation_session_id = NULL;
         if (cbm_store_memory_retrieve(gstore, &gquery, &gout) == CBM_STORE_OK) {
@@ -1797,11 +1875,10 @@ char *handle_memories_retrieve(cbm_mcp_server_t *srv, const char *args) {
         session_input.algorithm_version = "stage5-observe-only-v1";
         session_input.config_version = 1;
         session_input.query_text = canonical_query;
-        journal_ok = journal_store &&
-                     memory_observe_record_batch(journal_store, &session_input, ranked,
-                                                 project_positions, project_count, "project", project,
-                                                 observe_refs, &session_id,
-                                                 &journal_request_id) == CBM_STORE_OK;
+        journal_ok = journal_store && memory_observe_record_batch(
+                                          journal_store, &session_input, ranked, project_positions,
+                                          project_count, "project", project, observe_refs,
+                                          &session_id, &journal_request_id) == CBM_STORE_OK;
         if (journal_ok && global_count > 0) {
             journal_global_store = resolve_global_memory_store(srv, true);
             session_input.request_id = journal_request_id;
@@ -1813,19 +1890,18 @@ char *handle_memories_retrieve(cbm_mcp_server_t *srv, const char *args) {
                          global_session_id && strcmp(session_id, global_session_id) == 0;
         }
         if (journal_ok) {
-            journal_ok = cbm_store_memory_observe_session_complete(journal_store, session_id,
-                                                                    "completed", NULL) ==
-                         CBM_STORE_OK;
+            journal_ok = cbm_store_memory_observe_session_complete(
+                             journal_store, session_id, "completed", NULL) == CBM_STORE_OK;
             if (journal_ok && journal_global_store) {
-                journal_ok = cbm_store_memory_observe_session_complete(
-                                 journal_global_store, global_session_id, "completed", NULL) ==
-                             CBM_STORE_OK;
+                journal_ok =
+                    cbm_store_memory_observe_session_complete(
+                        journal_global_store, global_session_id, "completed", NULL) == CBM_STORE_OK;
             }
         }
         if (!journal_ok) {
             if (journal_store && session_id)
                 (void)cbm_store_memory_observe_session_complete(journal_store, session_id, "failed",
-                                                                 "JOURNAL_WRITE_FAILED");
+                                                                "JOURNAL_WRITE_FAILED");
             if (journal_global_store && global_session_id)
                 (void)cbm_store_memory_observe_session_complete(
                     journal_global_store, global_session_id, "failed", "JOURNAL_WRITE_FAILED");
@@ -1867,7 +1943,8 @@ char *handle_memories_retrieve(cbm_mcp_server_t *srv, const char *args) {
         yyjson_mut_arr_add_val(arr, item);
     }
     yyjson_mut_obj_add_val(doc, root, "memories", arr);
-    if (concept_enabled) memory_concepts_add_json(doc, root, store, project, query.limit);
+    if (concept_enabled)
+        memory_concepts_add_json(doc, root, store, project, query.limit);
     if (out.activation.status) {
         const char *field_name = out.activation.mode && strcmp(out.activation.mode, "active") == 0
                                      ? "activation"
@@ -2050,19 +2127,39 @@ typedef struct {
 } mcp_stage7_feedback_args_t;
 
 static void mcp_stage7_feedback_args_free(mcp_stage7_feedback_args_t *a) {
-    if (!a) return;
-    free(a->project); free(a->processing_mode); free(a->event_id); free(a->task_id);
-    free(a->task_type); free(a->session_id); free(a->candidate_id); free(a->injection_id);
-    free(a->usage_id); free(a->result_id); free(a->result_type); free(a->result_status);
-    free(a->result_ref); free(a->result_hash); free(a->result_payload); free(a->evidence_id);
-    free(a->evidence_trust); free(a->evidence_state); free(a->evidence_source);
-    free(a->evidence_ref); free(a->evidence_hash); free(a->evidence_payload); free(a->action);
-    free(a->edge_id); free(a->supersedes_event_id); free(a->algorithm_version);
+    if (!a)
+        return;
+    free(a->project);
+    free(a->processing_mode);
+    free(a->event_id);
+    free(a->task_id);
+    free(a->task_type);
+    free(a->session_id);
+    free(a->candidate_id);
+    free(a->injection_id);
+    free(a->usage_id);
+    free(a->result_id);
+    free(a->result_type);
+    free(a->result_status);
+    free(a->result_ref);
+    free(a->result_hash);
+    free(a->result_payload);
+    free(a->evidence_id);
+    free(a->evidence_trust);
+    free(a->evidence_state);
+    free(a->evidence_source);
+    free(a->evidence_ref);
+    free(a->evidence_hash);
+    free(a->evidence_payload);
+    free(a->action);
+    free(a->edge_id);
+    free(a->supersedes_event_id);
+    free(a->algorithm_version);
     memset(a, 0, sizeof(*a));
 }
 
-static char *mcp_stage7_feedback_error(const char *status, const char *code,
-                                       const char *event_id, const char *message) {
+static char *mcp_stage7_feedback_error(const char *status, const char *code, const char *event_id,
+                                       const char *message) {
     yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
     yyjson_mut_val *root = yyjson_mut_obj(doc);
     yyjson_mut_doc_set_root(doc, root);
@@ -2070,7 +2167,8 @@ static char *mcp_stage7_feedback_error(const char *status, const char *code,
     yyjson_mut_obj_add_str(doc, root, "code", code);
     yyjson_mut_obj_add_str(doc, root, "event_id", event_id ? event_id : "");
     yyjson_mut_obj_add_str(doc, root, "processing_mode", "observe_only");
-    if (message) yyjson_mut_obj_add_str(doc, root, "message", message);
+    if (message)
+        yyjson_mut_obj_add_str(doc, root, "message", message);
     char *json = yy_doc_to_str(doc);
     yyjson_mut_doc_free(doc);
     char *result = cbm_mcp_text_result(json, true);
@@ -2114,17 +2212,18 @@ char *handle_memory_feedback(cbm_mcp_server_t *srv, const char *args) {
                     a.evidence_ref && a.evidence_hash && a.evidence_payload && a.action &&
                     a.algorithm_version && a.config_version >= 0;
     if (!complete) {
-        char *result = mcp_stage7_feedback_error(
-            "error", "STAGE7_SCHEMA_REQUIRED", a.event_id,
-            "complete Stage 7 observe-only feedback fields are required");
+        char *result =
+            mcp_stage7_feedback_error("error", "STAGE7_SCHEMA_REQUIRED", a.event_id,
+                                      "complete Stage 7 observe-only feedback fields are required");
         mcp_stage7_feedback_args_free(&a);
         return result;
     }
     cbm_store_t *store = memory_stage14_store(srv, a.project, false);
-    if (store) store = memory_stage14_store(srv, a.project, true);
+    if (store)
+        store = memory_stage14_store(srv, a.project, true);
     if (!store) {
         char *result = mcp_stage7_feedback_error("error", "PROJECT_NOT_FOUND", a.event_id,
-                                                  "project not found or not indexed");
+                                                 "project not found or not indexed");
         mcp_stage7_feedback_args_free(&a);
         return result;
     }
@@ -2165,24 +2264,21 @@ char *handle_memory_feedback(cbm_mcp_server_t *srv, const char *args) {
     } else if (rc == CBM_STORE_IDEMPOTENCY_CONFLICT) {
         result = mcp_stage7_feedback_error("conflict", "IDEMPOTENCY_CONFLICT", a.event_id, NULL);
     } else {
-        result = mcp_stage7_feedback_error("error", "INVALID_ARGUMENT_OR_ATTRIBUTION",
-                                           a.event_id, NULL);
+        result =
+            mcp_stage7_feedback_error("error", "INVALID_ARGUMENT_OR_ATTRIBUTION", a.event_id, NULL);
     }
     cbm_store_memory_feedback_observe_result_free(&observed);
     mcp_stage7_feedback_args_free(&a);
     return result;
 }
 
-static char *handle_stage14_task_evolution_control(cbm_mcp_server_t *srv,
-                                                   const char *args);
+static char *handle_stage14_task_evolution_control(cbm_mcp_server_t *srv, const char *args);
 
 char *handle_memory_reinforcement_replay(cbm_mcp_server_t *srv, const char *args) {
-    yyjson_doc *route_doc =
-        yyjson_read(args ? args : "", args ? strlen(args) : 0, 0);
+    yyjson_doc *route_doc = yyjson_read(args ? args : "", args ? strlen(args) : 0, 0);
     yyjson_val *route_root = route_doc ? yyjson_doc_get_root(route_doc) : NULL;
     bool stage14_request =
-        route_root && yyjson_is_obj(route_root) &&
-        yyjson_obj_get(route_root, "action") != NULL;
+        route_root && yyjson_is_obj(route_root) && yyjson_obj_get(route_root, "action") != NULL;
     yyjson_doc_free(route_doc);
     if (stage14_request)
         return handle_stage14_task_evolution_control(srv, args);
@@ -2219,20 +2315,18 @@ char *handle_memory_reinforcement_replay(cbm_mcp_server_t *srv, const char *args
     if (rc == CBM_STORE_OK || rc == CBM_STORE_REPLAYED) {
         result = cbm_mcp_text_result(replay.report_json ? replay.report_json : "{}", false);
     } else if (rc == CBM_STORE_REJECTED) {
-        result = cbm_mcp_text_result(
-            "{\"status\":\"error\",\"code\":\"ACTIVE_FIXTURE_GUARD\","
-            "\"production_state_written\":false}",
-            true);
+        result = cbm_mcp_text_result("{\"status\":\"error\",\"code\":\"ACTIVE_FIXTURE_GUARD\","
+                                     "\"production_state_written\":false}",
+                                     true);
     } else if (rc == CBM_STORE_IDEMPOTENCY_CONFLICT) {
-        result = cbm_mcp_text_result(
-            "{\"status\":\"conflict\",\"code\":\"IDEMPOTENCY_CONFLICT\","
-            "\"production_state_written\":false}",
-            true);
+        result = cbm_mcp_text_result("{\"status\":\"conflict\",\"code\":\"IDEMPOTENCY_CONFLICT\","
+                                     "\"production_state_written\":false}",
+                                     true);
     } else {
-        result = cbm_mcp_text_result(
-            "{\"status\":\"error\",\"code\":\"REINFORCEMENT_REPLAY_FAILED\","
-            "\"production_state_written\":false}",
-            true);
+        result =
+            cbm_mcp_text_result("{\"status\":\"error\",\"code\":\"REINFORCEMENT_REPLAY_FAILED\","
+                                "\"production_state_written\":false}",
+                                true);
     }
     cbm_store_memory_reinforcement_result_free(&replay);
     free(project);
@@ -2255,7 +2349,8 @@ static bool mcp_stage9_migration_guard(const char *project) {
         cbm_safe_getenv("CBM_STAGE9_ACTIVE_FIXTURE", value, sizeof(value), NULL);
         return strcmp(value, "1") == 0;
     }
-    if (!project || strcmp(project, "H-Codex_H-neuroplastic-main") != 0) return false;
+    if (!project || strcmp(project, "H-Codex_H-neuroplastic-main") != 0)
+        return false;
     char manifest[1024] = {0};
     char hash[80] = {0};
     cbm_safe_getenv("CBM_STAGE9_PRODUCTION_CANARY", value, sizeof(value), NULL);
@@ -2300,17 +2395,15 @@ char *handle_memory_edge_lifecycle_migrate(cbm_mcp_server_t *srv, const char *ar
     snprintf(json, sizeof(json),
              "{\"status\":\"%s\",\"stage9_object_count_before\":%d,"
              "\"stage9_object_count_after\":%d,\"production_state_written\":%s}",
-             rc == CBM_STORE_OK ? (before == 22 ? "replayed" : "migrated") : "error",
-             before, after,
+             rc == CBM_STORE_OK ? (before == 22 ? "replayed" : "migrated") : "error", before, after,
              rc == CBM_STORE_OK && before == 0 &&
                      strcmp(project, "H-Codex_H-neuroplastic-main") == 0
                  ? "true"
                  : "false");
     char *result = rc == CBM_STORE_OK ? cbm_mcp_text_result(json, false)
-                                      : mcp_stage9_error(
-                                            rc == CBM_STORE_IDEMPOTENCY_CONFLICT
-                                                ? "MIGRATION_LEDGER_CONFLICT"
-                                                : "STAGE9_MIGRATION_FAILED");
+                                      : mcp_stage9_error(rc == CBM_STORE_IDEMPOTENCY_CONFLICT
+                                                             ? "MIGRATION_LEDGER_CONFLICT"
+                                                             : "STAGE9_MIGRATION_FAILED");
     free(project);
     free(algorithm);
     free(policy_hash);
@@ -2337,14 +2430,24 @@ char *handle_memory_edge_maintenance(cbm_mcp_server_t *srv, const char *args) {
     yyjson_doc_free(doc);
     if (!project || !mode || !run_id || !algorithm || !policy_hash || as_of_ms < 0 ||
         policy_version < 0 || config_version < 0) {
-        free(project); free(mode); free(run_id); free(algorithm); free(policy_hash);
-        free(manifest_path); free(manifest_sha256);
+        free(project);
+        free(mode);
+        free(run_id);
+        free(algorithm);
+        free(policy_hash);
+        free(manifest_path);
+        free(manifest_sha256);
         return mcp_stage9_error("INVALID_STAGE9_CONTRACT");
     }
     cbm_store_t *store = memory_stage14_store(srv, project, strcmp(mode, "active") == 0);
     if (!store) {
-        free(project); free(mode); free(run_id); free(algorithm); free(policy_hash);
-        free(manifest_path); free(manifest_sha256);
+        free(project);
+        free(mode);
+        free(run_id);
+        free(algorithm);
+        free(policy_hash);
+        free(manifest_path);
+        free(manifest_sha256);
         return mcp_stage9_error("PROJECT_NOT_FOUND");
     }
     cbm_edge_lifecycle_input_t input = {0};
@@ -2372,22 +2475,29 @@ char *handle_memory_edge_maintenance(cbm_mcp_server_t *srv, const char *args) {
         result = mcp_stage9_error("EDGE_MAINTENANCE_FAILED");
     }
     cbm_store_memory_edge_lifecycle_result_free(&lifecycle);
-    free(project); free(mode); free(run_id); free(algorithm); free(policy_hash);
-    free(manifest_path); free(manifest_sha256);
+    free(project);
+    free(mode);
+    free(run_id);
+    free(algorithm);
+    free(policy_hash);
+    free(manifest_path);
+    free(manifest_sha256);
     return result;
 }
 
 char *handle_memory_edge_restore(cbm_mcp_server_t *srv, const char *args) {
     yyjson_doc *doc = yyjson_read(args ? args : "{}", args ? strlen(args) : 2, 0);
     yyjson_val *edge_values = doc ? memory_arg(doc, "edge_ids") : NULL;
-    size_t edge_count = edge_values && yyjson_is_arr(edge_values) ? yyjson_arr_size(edge_values) : 0;
+    size_t edge_count =
+        edge_values && yyjson_is_arr(edge_values) ? yyjson_arr_size(edge_values) : 0;
     char **edge_ids = edge_count > 0 ? calloc(edge_count, sizeof(*edge_ids)) : NULL;
     if (edge_ids) {
         yyjson_arr_iter iter = yyjson_arr_iter_with(edge_values);
         yyjson_val *value = NULL;
         size_t index = 0;
         while ((value = yyjson_arr_iter_next(&iter)) && index < edge_count) {
-            if (!yyjson_is_str(value)) break;
+            if (!yyjson_is_str(value))
+                break;
             edge_ids[index++] = cbm_strdup(yyjson_get_str(value));
         }
     }
@@ -2402,11 +2512,18 @@ char *handle_memory_edge_restore(cbm_mcp_server_t *srv, const char *args) {
     int policy_version = cbm_mcp_get_int_arg(args, "policy_version", -1);
     int config_version = cbm_mcp_get_int_arg(args, "config_version", -1);
     yyjson_doc_free(doc);
-    if (!project || !mode || !run_id || !algorithm || !policy_hash || !edge_ids || edge_count == 0 ||
-        as_of_ms < 0 || policy_version < 0 || config_version < 0) {
-        for (size_t i = 0; i < edge_count; i++) free(edge_ids ? edge_ids[i] : NULL);
-        free(edge_ids); free(project); free(mode); free(run_id); free(algorithm); free(policy_hash);
-        free(manifest_path); free(manifest_sha256);
+    if (!project || !mode || !run_id || !algorithm || !policy_hash || !edge_ids ||
+        edge_count == 0 || as_of_ms < 0 || policy_version < 0 || config_version < 0) {
+        for (size_t i = 0; i < edge_count; i++)
+            free(edge_ids ? edge_ids[i] : NULL);
+        free(edge_ids);
+        free(project);
+        free(mode);
+        free(run_id);
+        free(algorithm);
+        free(policy_hash);
+        free(manifest_path);
+        free(manifest_sha256);
         return mcp_stage9_error("INVALID_STAGE9_RESTORE_CONTRACT");
     }
     cbm_store_t *store = memory_stage14_store(srv, project, strcmp(mode, "active") == 0);
@@ -2439,9 +2556,16 @@ char *handle_memory_edge_restore(cbm_mcp_server_t *srv, const char *args) {
         result = mcp_stage9_error("EDGE_RESTORE_FAILED");
     }
     cbm_store_memory_edge_lifecycle_result_free(&lifecycle);
-    for (size_t i = 0; i < edge_count; i++) free(edge_ids[i]);
-    free(edge_ids); free(project); free(mode); free(run_id); free(algorithm); free(policy_hash);
-    free(manifest_path); free(manifest_sha256);
+    for (size_t i = 0; i < edge_count; i++)
+        free(edge_ids[i]);
+    free(edge_ids);
+    free(project);
+    free(mode);
+    free(run_id);
+    free(algorithm);
+    free(policy_hash);
+    free(manifest_path);
+    free(manifest_sha256);
     return result;
 }
 
@@ -2460,7 +2584,8 @@ static bool mcp_stage10_canary_guard(const char *project) {
         cbm_safe_getenv("CBM_STAGE10_ACTIVE_FIXTURE", enabled, sizeof(enabled), NULL);
         return strcmp(enabled, "1") == 0;
     }
-    if (!project || strcmp(project, "H-Codex_H-neuroplastic-main") != 0) return false;
+    if (!project || strcmp(project, "H-Codex_H-neuroplastic-main") != 0)
+        return false;
     char manifest[1024] = {0};
     char hash[80] = {0};
     cbm_safe_getenv("CBM_STAGE10_PRODUCTION_CANARY", enabled, sizeof(enabled), NULL);
@@ -2549,7 +2674,7 @@ char *handle_memory_concept_generate(cbm_mcp_server_t *srv, const char *args) {
         result = cbm_mcp_text_result(generated.report_json ? generated.report_json : "{}", false);
     } else {
         result = mcp_stage10_error(generated.failure_code ? generated.failure_code
-                                                           : "CONCEPT_GENERATION_FAILED");
+                                                          : "CONCEPT_GENERATION_FAILED");
     }
     cbm_store_memory_concept_result_free(&generated);
 done:
@@ -2580,14 +2705,24 @@ char *handle_memory_concept_review(cbm_mcp_server_t *srv, const char *args) {
     cbm_safe_getenv("CBM_STAGE10_REVIEW_EXPLICIT_USER", guard, sizeof(guard), NULL);
     if (!project || !store_name || !candidate_id || !action || !idempotency_key ||
         strcmp(store_name, "project-memory") != 0 || !explicit_user || strcmp(guard, "1") != 0) {
-        free(project); free(store_name); free(candidate_id); free(action); free(idempotency_key);
-        free(content_text); free(related_candidate_id);
+        free(project);
+        free(store_name);
+        free(candidate_id);
+        free(action);
+        free(idempotency_key);
+        free(content_text);
+        free(related_candidate_id);
         return mcp_stage10_error("REVIEW_REQUIRES_EXPLICIT_USER");
     }
     cbm_store_t *store = memory_stage14_store(srv, project, true);
     if (!store) {
-        free(project); free(store_name); free(candidate_id); free(action); free(idempotency_key);
-        free(content_text); free(related_candidate_id);
+        free(project);
+        free(store_name);
+        free(candidate_id);
+        free(action);
+        free(idempotency_key);
+        free(content_text);
+        free(related_candidate_id);
         return mcp_stage10_error("PROJECT_NOT_FOUND");
     }
     cbm_concept_review_input_t input = {0};
@@ -2607,11 +2742,16 @@ char *handle_memory_concept_review(cbm_mcp_server_t *srv, const char *args) {
         result = cbm_mcp_text_result(reviewed.report_json ? reviewed.report_json : "{}", false);
     } else {
         result = mcp_stage10_error(reviewed.failure_code ? reviewed.failure_code
-                                                          : "CONCEPT_REVIEW_FAILED");
+                                                         : "CONCEPT_REVIEW_FAILED");
     }
     cbm_store_memory_concept_result_free(&reviewed);
-    free(project); free(store_name); free(candidate_id); free(action); free(idempotency_key);
-    free(content_text); free(related_candidate_id);
+    free(project);
+    free(store_name);
+    free(candidate_id);
+    free(action);
+    free(idempotency_key);
+    free(content_text);
+    free(related_candidate_id);
     return result;
 }
 
@@ -2620,23 +2760,28 @@ char *handle_memory_concept_inspect(cbm_mcp_server_t *srv, const char *args) {
     char *store_name = cbm_mcp_get_string_arg(args, "store");
     char *candidate_id = cbm_mcp_get_string_arg(args, "candidate_id");
     if (!project || !store_name || !candidate_id || strcmp(store_name, "project-memory") != 0) {
-        free(project); free(store_name); free(candidate_id);
+        free(project);
+        free(store_name);
+        free(candidate_id);
         return mcp_stage10_error("INVALID_INSPECT_CONTRACT");
     }
     cbm_store_t *store = memory_stage14_store(srv, project, false);
     cbm_concept_result_t inspected = {0};
     char inspect_project_uuid[CBM_PROJECT_UUID_SIZE] = {0};
-    const char *inspect_project = memory_stage14_project_identity(store, project, inspect_project_uuid);
-    int rc = store ? cbm_store_memory_concept_inspect(store, inspect_project, store_name, candidate_id,
-                                                       &inspected)
+    const char *inspect_project =
+        memory_stage14_project_identity(store, project, inspect_project_uuid);
+    int rc = store ? cbm_store_memory_concept_inspect(store, inspect_project, store_name,
+                                                      candidate_id, &inspected)
                    : CBM_STORE_NOT_FOUND;
-    char *result = rc == CBM_STORE_OK
-                       ? cbm_mcp_text_result(inspected.report_json ? inspected.report_json : "{}",
-                                             false)
-                       : mcp_stage10_error(inspected.failure_code ? inspected.failure_code
-                                                                  : "CANDIDATE_NOT_FOUND");
+    char *result =
+        rc == CBM_STORE_OK
+            ? cbm_mcp_text_result(inspected.report_json ? inspected.report_json : "{}", false)
+            : mcp_stage10_error(inspected.failure_code ? inspected.failure_code
+                                                       : "CANDIDATE_NOT_FOUND");
     cbm_store_memory_concept_result_free(&inspected);
-    free(project); free(store_name); free(candidate_id);
+    free(project);
+    free(store_name);
+    free(candidate_id);
     return result;
 }
 
@@ -2690,9 +2835,8 @@ char *handle_memory_observe_injection(cbm_mcp_server_t *srv, const char *args) {
         } else {
             security.code = "SECURITY_PROMPT_INJECTION_REJECTED";
             security.category = "prompt_control_injection";
-            security.reason_code = strcmp(classification, "rule_override") == 0
-                                       ? "rule_override"
-                                       : "prompt_injection";
+            security.reason_code =
+                strcmp(classification, "rule_override") == 0 ? "rule_override" : "prompt_injection";
         }
         cbm_log_security_event(security.code, "memory_observe_injection", NULL,
                                security.content_sha256, 0, 0);
@@ -2729,16 +2873,16 @@ char *handle_memory_observe_injection(cbm_mcp_server_t *srv, const char *args) {
         if (global)
             rc = cbm_store_memory_observe_injection(global, &input);
     }
-    const char *status = rc == CBM_STORE_OK
-                             ? "injected"
-                             : (rc == CBM_STORE_REJECTED
-                                    ? "rejected"
-                                    : (rc == CBM_STORE_REPLAYED
-                                           ? "replayed"
-                                           : (rc == CBM_STORE_IDEMPOTENCY_CONFLICT
-                                                  ? "conflict"
-                                                  : (rc == CBM_STORE_NOT_FOUND ? "not_found"
-                                                                               : "error"))));
+    const char *status =
+        rc == CBM_STORE_OK
+            ? "injected"
+            : (rc == CBM_STORE_REJECTED
+                   ? "rejected"
+                   : (rc == CBM_STORE_REPLAYED
+                          ? "replayed"
+                          : (rc == CBM_STORE_IDEMPOTENCY_CONFLICT
+                                 ? "conflict"
+                                 : (rc == CBM_STORE_NOT_FOUND ? "not_found" : "error"))));
     yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
     yyjson_mut_val *root = yyjson_mut_obj(doc);
     yyjson_mut_doc_set_root(doc, root);
@@ -2748,10 +2892,9 @@ char *handle_memory_observe_injection(cbm_mcp_server_t *srv, const char *args) {
     yyjson_mut_obj_add_str(doc, root, "candidate_id", candidate_id);
     yyjson_mut_obj_add_str(doc, root, "status", status);
     yyjson_mut_obj_add_bool(doc, root, "injected",
-                            rc == CBM_STORE_OK ||
-                                (rc == CBM_STORE_REPLAYED &&
-                                 strcmp(classifier_status, "pass") == 0 &&
-                                 strcmp(classification, "safe") == 0));
+                            rc == CBM_STORE_OK || (rc == CBM_STORE_REPLAYED &&
+                                                   strcmp(classifier_status, "pass") == 0 &&
+                                                   strcmp(classification, "safe") == 0));
     if (rc == CBM_STORE_IDEMPOTENCY_CONFLICT)
         yyjson_mut_obj_add_str(doc, root, "code", "IDEMPOTENCY_CONFLICT");
     char *json = yy_doc_to_str(doc);
@@ -2798,7 +2941,8 @@ char *handle_memory_security_check(cbm_mcp_server_t *srv, const char *args) {
 static bool stage12_args_allowed(yyjson_doc *doc, const char *const *allowed,
                                  size_t allowed_count) {
     yyjson_val *root = doc ? yyjson_doc_get_root(doc) : NULL;
-    if (!root || !yyjson_is_obj(root)) return false;
+    if (!root || !yyjson_is_obj(root))
+        return false;
     size_t index, maximum;
     yyjson_val *key, *value;
     yyjson_obj_foreach(root, index, maximum, key, value) {
@@ -2811,15 +2955,16 @@ static bool stage12_args_allowed(yyjson_doc *doc, const char *const *allowed,
                 break;
             }
         }
-        if (!found) return false;
+        if (!found)
+            return false;
     }
     return true;
 }
 
 static char *stage12_handler_result(char *report, int rc) {
-    char *result = cbm_mcp_text_result(report ? report :
-                                       "{\"status\":\"error\",\"code\":\"ORCHESTRATOR_FAILED\"}",
-                                       rc != CBM_STORE_OK && rc != CBM_STORE_REPLAYED);
+    char *result = cbm_mcp_text_result(
+        report ? report : "{\"status\":\"error\",\"code\":\"ORCHESTRATOR_FAILED\"}",
+        rc != CBM_STORE_OK && rc != CBM_STORE_REPLAYED);
     free(report);
     return result;
 }
@@ -2850,9 +2995,11 @@ static int stage14_evolution_runtime(char mode[32], int *production_gate) {
 static bool stage12_file_bytes(const char *path, unsigned char **out, size_t *out_size) {
     *out = NULL;
     *out_size = 0;
-    if (!path) return false;
+    if (!path)
+        return false;
     FILE *file = fopen(path, "rb");
-    if (!file) return false;
+    if (!file)
+        return false;
     if (fseek(file, 0, SEEK_END) != 0) {
         fclose(file);
         return false;
@@ -2914,29 +3061,30 @@ typedef struct {
 } stage14_canary_authorization_t;
 
 static bool stage14_lower_sha256(const char *value) {
-    if (!value || strlen(value) != 64) return false;
+    if (!value || strlen(value) != 64)
+        return false;
     for (size_t i = 0; i < 64; i++) {
-        if (!((value[i] >= '0' && value[i] <= '9') ||
-              (value[i] >= 'a' && value[i] <= 'f')))
+        if (!((value[i] >= '0' && value[i] <= '9') || (value[i] >= 'a' && value[i] <= 'f')))
             return false;
     }
     return true;
 }
 
 static bool stage14_absolute_path(const char *path) {
-    if (!path || !path[0]) return false;
+    if (!path || !path[0])
+        return false;
 #ifdef _WIN32
     return ((isalpha((unsigned char)path[0]) && path[1] == ':' &&
              (path[2] == '\\' || path[2] == '/')) ||
-            ((path[0] == '\\' || path[0] == '/') &&
-             (path[1] == '\\' || path[1] == '/')));
+            ((path[0] == '\\' || path[0] == '/') && (path[1] == '\\' || path[1] == '/')));
 #else
     return path[0] == '/';
 #endif
 }
 
 static bool stage14_paths_equal(const char *left, const char *right) {
-    if (!left || !right) return false;
+    if (!left || !right)
+        return false;
 #ifdef _WIN32
     char normalized_left[STAGE14_CANARY_PATH_CAP];
     char normalized_right[STAGE14_CANARY_PATH_CAP];
@@ -2945,9 +3093,11 @@ static bool stage14_paths_equal(const char *left, const char *right) {
     snprintf(normalized_left, sizeof(normalized_left), "%s", left);
     snprintf(normalized_right, sizeof(normalized_right), "%s", right);
     for (size_t i = 0; normalized_left[i]; i++)
-        if (normalized_left[i] == '/') normalized_left[i] = '\\';
+        if (normalized_left[i] == '/')
+            normalized_left[i] = '\\';
     for (size_t i = 0; normalized_right[i]; i++)
-        if (normalized_right[i] == '/') normalized_right[i] = '\\';
+        if (normalized_right[i] == '/')
+            normalized_right[i] = '\\';
     return _stricmp(normalized_left, normalized_right) == 0;
 #else
     return strcmp(left, right) == 0;
@@ -2970,7 +3120,8 @@ static bool stage14_object_exact_keys(yyjson_val *object, const char *const *all
                 break;
             }
         }
-        if (!found) return false;
+        if (!found)
+            return false;
     }
     return true;
 }
@@ -2980,7 +3131,8 @@ static bool stage14_copy_required_string(yyjson_val *object, const char *key, ch
     yyjson_val *value = object ? yyjson_obj_get(object, key) : NULL;
     const char *text = value && yyjson_is_str(value) ? yyjson_get_str(value) : NULL;
     size_t length = text ? strlen(text) : 0;
-    if (!text || length == 0 || length >= out_cap) return false;
+    if (!text || length == 0 || length >= out_cap)
+        return false;
     memcpy(out, text, length + 1);
     return true;
 }
@@ -2991,19 +3143,21 @@ static bool stage14_current_executable(char out[STAGE14_CANARY_PATH_CAP]) {
     return length > 0 && length < STAGE14_CANARY_PATH_CAP && stage14_absolute_path(out);
 #else
     ssize_t length = readlink("/proc/self/exe", out, STAGE14_CANARY_PATH_CAP - 1);
-    if (length <= 0 || length >= STAGE14_CANARY_PATH_CAP - 1) return false;
+    if (length <= 0 || length >= STAGE14_CANARY_PATH_CAP - 1)
+        return false;
     out[length] = '\0';
     return stage14_absolute_path(out);
 #endif
 }
 
 static bool stage14_file_sha256(const char *path, char out[65]) {
-    if (!stage14_absolute_path(path)) return false;
+    if (!stage14_absolute_path(path))
+        return false;
 #ifdef _WIN32
     bool ok = false;
-    HANDLE file = CreateFileA(path, GENERIC_READ,
-                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
-                              OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    HANDLE file =
+        CreateFileA(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                    NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     BCRYPT_ALG_HANDLE algorithm = NULL;
     BCRYPT_HASH_HANDLE hash = NULL;
     PUCHAR object = NULL;
@@ -3024,11 +3178,15 @@ static bool stage14_file_sha256(const char *path, char out[65]) {
         goto done;
     for (;;) {
         DWORD read = 0;
-        if (!ReadFile(file, buffer, 1024 * 1024, &read, NULL)) goto done;
-        if (read == 0) break;
-        if (BCryptHashData(hash, buffer, read, 0) != 0) goto done;
+        if (!ReadFile(file, buffer, 1024 * 1024, &read, NULL))
+            goto done;
+        if (read == 0)
+            break;
+        if (BCryptHashData(hash, buffer, read, 0) != 0)
+            goto done;
     }
-    if (BCryptFinishHash(hash, digest, sizeof(digest), 0) != 0) goto done;
+    if (BCryptFinishHash(hash, digest, sizeof(digest), 0) != 0)
+        goto done;
     static const char hex[] = "0123456789abcdef";
     for (size_t i = 0; i < sizeof(digest); i++) {
         out[i * 2] = hex[digest[i] >> 4];
@@ -3037,23 +3195,28 @@ static bool stage14_file_sha256(const char *path, char out[65]) {
     out[64] = '\0';
     ok = true;
 done:
-    if (hash) BCryptDestroyHash(hash);
-    if (algorithm) BCryptCloseAlgorithmProvider(algorithm, 0);
-    if (buffer) HeapFree(GetProcessHeap(), 0, buffer);
-    if (object) HeapFree(GetProcessHeap(), 0, object);
-    if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+    if (hash)
+        BCryptDestroyHash(hash);
+    if (algorithm)
+        BCryptCloseAlgorithmProvider(algorithm, 0);
+    if (buffer)
+        HeapFree(GetProcessHeap(), 0, buffer);
+    if (object)
+        HeapFree(GetProcessHeap(), 0, object);
+    if (file != INVALID_HANDLE_VALUE)
+        CloseHandle(file);
     memset(digest, 0, sizeof(digest));
     return ok;
 #else
     FILE *file = fopen(path, "rb");
-    if (!file) return false;
+    if (!file)
+        return false;
     if (fseek(file, 0, SEEK_END) != 0) {
         fclose(file);
         return false;
     }
     long length = ftell(file);
-    if (length <= 0 || (uint64_t)length > UINT64_C(1073741824) ||
-        fseek(file, 0, SEEK_SET) != 0) {
+    if (length <= 0 || (uint64_t)length > UINT64_C(1073741824) || fseek(file, 0, SEEK_SET) != 0) {
         fclose(file);
         return false;
     }
@@ -3079,47 +3242,50 @@ static bool stage14_small_file_sha256(const char *path, const char *expected) {
 }
 
 static bool stage14_iso_utc_millis_valid(const char *value) {
-    if (!value || strlen(value) != 24 || value[4] != '-' || value[7] != '-' ||
-        value[10] != 'T' || value[13] != ':' || value[16] != ':' || value[19] != '.' ||
-        value[23] != 'Z')
+    if (!value || strlen(value) != 24 || value[4] != '-' || value[7] != '-' || value[10] != 'T' ||
+        value[13] != ':' || value[16] != ':' || value[19] != '.' || value[23] != 'Z')
         return false;
-    const int digit_positions[] = {0,1,2,3,5,6,8,9,11,12,14,15,17,18,20,21,22};
+    const int digit_positions[] = {0, 1, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15, 17, 18, 20, 21, 22};
     for (size_t i = 0; i < sizeof(digit_positions) / sizeof(digit_positions[0]); i++) {
-        if (!isdigit((unsigned char)value[digit_positions[i]])) return false;
+        if (!isdigit((unsigned char)value[digit_positions[i]]))
+            return false;
     }
     int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
     int millis = 0, consumed = 0;
-    if (sscanf(value, "%4d-%2d-%2dT%2d:%2d:%2d.%3dZ%n", &year, &month, &day,
-               &hour, &minute, &second, &millis, &consumed) != 7 ||
-        consumed != 24 || year < 2020 || year > 9999 || month < 1 || month > 12 ||
-        hour < 0 || hour > 23 || minute < 0 || minute > 59 ||
-        second < 0 || second > 59 || millis < 0 || millis > 999)
+    if (sscanf(value, "%4d-%2d-%2dT%2d:%2d:%2d.%3dZ%n", &year, &month, &day, &hour, &minute,
+               &second, &millis, &consumed) != 7 ||
+        consumed != 24 || year < 2020 || year > 9999 || month < 1 || month > 12 || hour < 0 ||
+        hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 || millis < 0 ||
+        millis > 999)
         return false;
-    static const int days[] = {31,28,31,30,31,30,31,31,30,31,30,31};
+    static const int days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     int maximum_day = days[month - 1];
     bool leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
-    if (month == 2 && leap) maximum_day = 29;
+    if (month == 2 && leap)
+        maximum_day = 29;
     return day >= 1 && day <= maximum_day;
 }
 
 static bool stage14_expiration_is_future(const char *value) {
-    if (!stage14_iso_utc_millis_valid(value)) return false;
+    if (!stage14_iso_utc_millis_valid(value))
+        return false;
     char now_value[40] = {0};
 #ifdef _WIN32
     SYSTEMTIME now;
     GetSystemTime(&now);
     snprintf(now_value, sizeof(now_value), "%04u-%02u-%02uT%02u:%02u:%02u.%03uZ",
-             (unsigned)now.wYear, (unsigned)now.wMonth, (unsigned)now.wDay,
-             (unsigned)now.wHour, (unsigned)now.wMinute, (unsigned)now.wSecond,
-             (unsigned)now.wMilliseconds);
+             (unsigned)now.wYear, (unsigned)now.wMonth, (unsigned)now.wDay, (unsigned)now.wHour,
+             (unsigned)now.wMinute, (unsigned)now.wSecond, (unsigned)now.wMilliseconds);
 #else
     struct timespec now;
-    if (timespec_get(&now, TIME_UTC) != TIME_UTC) return false;
+    if (timespec_get(&now, TIME_UTC) != TIME_UTC)
+        return false;
     struct tm utc = {0};
-    if (!gmtime_r(&now.tv_sec, &utc)) return false;
+    if (!gmtime_r(&now.tv_sec, &utc))
+        return false;
     snprintf(now_value, sizeof(now_value), "%04d-%02d-%02dT%02d:%02d:%02d.%03ldZ",
-             utc.tm_year + 1900, utc.tm_mon + 1, utc.tm_mday, utc.tm_hour,
-             utc.tm_min, utc.tm_sec, now.tv_nsec / 1000000L);
+             utc.tm_year + 1900, utc.tm_mon + 1, utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec,
+             now.tv_nsec / 1000000L);
 #endif
     return strcmp(value, now_value) > 0;
 }
@@ -3146,11 +3312,10 @@ static bool stage14_manifest_schema_and_run(const char *path, const char *expect
     yyjson_val *root = doc ? yyjson_doc_get_root(doc) : NULL;
     yyjson_val *schema = root && yyjson_is_obj(root) ? yyjson_obj_get(root, "schema") : NULL;
     yyjson_val *run_id = root && yyjson_is_obj(root) ? yyjson_obj_get(root, "run_id") : NULL;
-    bool ok = schema && yyjson_is_str(schema) &&
-              strcmp(yyjson_get_str(schema), expected_schema) == 0 &&
-              (!expected_run_id ||
-               (run_id && yyjson_is_str(run_id) &&
-                strcmp(yyjson_get_str(run_id), expected_run_id) == 0));
+    bool ok =
+        schema && yyjson_is_str(schema) && strcmp(yyjson_get_str(schema), expected_schema) == 0 &&
+        (!expected_run_id ||
+         (run_id && yyjson_is_str(run_id) && strcmp(yyjson_get_str(run_id), expected_run_id) == 0));
     yyjson_doc_free(doc);
     free(bytes);
     return ok;
@@ -3163,11 +3328,13 @@ static bool stage14_string_array_valid(yyjson_val *array, size_t expected_count)
     yyjson_val *value;
     yyjson_arr_foreach(array, index, maximum, value) {
         const char *text = value && yyjson_is_str(value) ? yyjson_get_str(value) : NULL;
-        if (!text || !text[0]) return false;
+        if (!text || !text[0])
+            return false;
         size_t other_index, other_maximum;
         yyjson_val *other;
         yyjson_arr_foreach(array, other_index, other_maximum, other) {
-            if (other_index >= index) break;
+            if (other_index >= index)
+                break;
             if (yyjson_is_str(other) && strcmp(text, yyjson_get_str(other)) == 0)
                 return false;
         }
@@ -3175,16 +3342,18 @@ static bool stage14_string_array_valid(yyjson_val *array, size_t expected_count)
     return true;
 }
 
-static bool stage14_task_manifest_matches(
-    const stage14_canary_authorization_t *authorization) {
-    static const char *const exact_fields[] = {
-        "schema","mode","task_id","idempotency_key","request_sha256",
-        "memory_item_ids","feedback_event_ids","max_evolution_events",
-        "max_cross_project_edges"
-    };
-    if (!authorization ||
-        !stage14_small_file_sha256(authorization->task_evolution_manifest_path,
-                                   authorization->task_evolution_manifest_sha256))
+static bool stage14_task_manifest_matches(const stage14_canary_authorization_t *authorization) {
+    static const char *const exact_fields[] = {"schema",
+                                               "mode",
+                                               "task_id",
+                                               "idempotency_key",
+                                               "request_sha256",
+                                               "memory_item_ids",
+                                               "feedback_event_ids",
+                                               "max_evolution_events",
+                                               "max_cross_project_edges"};
+    if (!authorization || !stage14_small_file_sha256(authorization->task_evolution_manifest_path,
+                                                     authorization->task_evolution_manifest_sha256))
         return false;
     unsigned char *bytes = NULL;
     size_t size = 0;
@@ -3201,97 +3370,114 @@ static bool stage14_task_manifest_matches(
     yyjson_val *feedback = root ? yyjson_obj_get(root, "feedback_event_ids") : NULL;
     yyjson_val *max_events = root ? yyjson_obj_get(root, "max_evolution_events") : NULL;
     yyjson_val *max_edges = root ? yyjson_obj_get(root, "max_cross_project_edges") : NULL;
-    bool ok =
-        stage14_object_exact_keys(root, exact_fields,
-                                  sizeof(exact_fields) / sizeof(exact_fields[0])) &&
-        schema && yyjson_is_str(schema) &&
-        strcmp(yyjson_get_str(schema), "stage14-task-evolution-canary-manifest/v1") == 0 &&
-        mode && yyjson_is_str(mode) && strcmp(yyjson_get_str(mode), "bounded_canary") == 0 &&
-        task && yyjson_is_str(task) &&
-        strcmp(yyjson_get_str(task), authorization->task_id) == 0 &&
-        key && yyjson_is_str(key) &&
-        strcmp(yyjson_get_str(key), authorization->task_idempotency_key) == 0 &&
-        request && yyjson_is_str(request) &&
-        strcmp(yyjson_get_str(request), authorization->task_request_sha256) == 0 &&
-        max_events && yyjson_is_int(max_events) &&
-        yyjson_get_sint(max_events) == authorization->task_max_evolution_events &&
-        max_edges && yyjson_is_int(max_edges) &&
-        yyjson_get_sint(max_edges) == authorization->task_max_cross_project_edges &&
-        stage14_string_array_valid(memories,
-                                   (size_t)authorization->task_memory_item_count) &&
-        stage14_string_array_valid(feedback,
-                                   (size_t)authorization->task_memory_item_count);
+    bool ok = stage14_object_exact_keys(root, exact_fields,
+                                        sizeof(exact_fields) / sizeof(exact_fields[0])) &&
+              schema && yyjson_is_str(schema) &&
+              strcmp(yyjson_get_str(schema), "stage14-task-evolution-canary-manifest/v1") == 0 &&
+              mode && yyjson_is_str(mode) && strcmp(yyjson_get_str(mode), "bounded_canary") == 0 &&
+              task && yyjson_is_str(task) &&
+              strcmp(yyjson_get_str(task), authorization->task_id) == 0 && key &&
+              yyjson_is_str(key) &&
+              strcmp(yyjson_get_str(key), authorization->task_idempotency_key) == 0 && request &&
+              yyjson_is_str(request) &&
+              strcmp(yyjson_get_str(request), authorization->task_request_sha256) == 0 &&
+              max_events && yyjson_is_int(max_events) &&
+              yyjson_get_sint(max_events) == authorization->task_max_evolution_events &&
+              max_edges && yyjson_is_int(max_edges) &&
+              yyjson_get_sint(max_edges) == authorization->task_max_cross_project_edges &&
+              stage14_string_array_valid(memories, (size_t)authorization->task_memory_item_count) &&
+              stage14_string_array_valid(feedback, (size_t)authorization->task_memory_item_count);
     yyjson_doc_free(doc);
     free(bytes);
     return ok;
 }
 
-static bool stage14_load_canary_authorization(const char *request_path,
-                                              const char *request_sha256,
+static bool stage14_load_canary_authorization(const char *request_path, const char *request_sha256,
                                               bool request_binding_required,
                                               stage14_canary_authorization_t *out,
                                               const char **out_code) {
-    static const char *const exact_fields[] = {
-        "schema","authorization_id","created_at","expires_at",
-        "release_executable_path","release_executable_sha256","target_data_root",
-        "contract_path","contract_sha256","task_evolution","maintenance",
-        "call_policy","secrets_recorded"
-    };
-    static const char *const task_fields[] = {
-        "project_uuid","run_id","task_id","idempotency_key","manifest_path",
-        "manifest_sha256","request_sha256","memory_item_count",
-        "max_evolution_events","max_cross_project_edges","mode","apply_maximum",
-        "exact_replay_allowed"
-    };
-    static const char *const maintenance_fields[] = {
-        "project_uuid","mode","run_id","idempotency_key","owner_id",
-        "frozen_as_of_ms","limit","budget_seconds","edge_manifest_path",
-        "edge_manifest_sha256","concept_manifest_path","concept_manifest_sha256",
-        "apply_maximum","exact_replay_allowed","hard_delete_allowed"
-    };
-    static const char *const policy_fields[] = {
-        "task_evolution_apply_maximum","maintenance_apply_maximum",
-        "exact_replay_allowed","drift_fail_closed"
-    };
+    static const char *const exact_fields[] = {"schema",
+                                               "authorization_id",
+                                               "created_at",
+                                               "expires_at",
+                                               "release_executable_path",
+                                               "release_executable_sha256",
+                                               "target_data_root",
+                                               "contract_path",
+                                               "contract_sha256",
+                                               "task_evolution",
+                                               "maintenance",
+                                               "call_policy",
+                                               "secrets_recorded"};
+    static const char *const task_fields[] = {"project_uuid",
+                                              "run_id",
+                                              "task_id",
+                                              "idempotency_key",
+                                              "manifest_path",
+                                              "manifest_sha256",
+                                              "request_sha256",
+                                              "memory_item_count",
+                                              "max_evolution_events",
+                                              "max_cross_project_edges",
+                                              "mode",
+                                              "apply_maximum",
+                                              "exact_replay_allowed"};
+    static const char *const maintenance_fields[] = {"project_uuid",
+                                                     "mode",
+                                                     "run_id",
+                                                     "idempotency_key",
+                                                     "owner_id",
+                                                     "frozen_as_of_ms",
+                                                     "limit",
+                                                     "budget_seconds",
+                                                     "edge_manifest_path",
+                                                     "edge_manifest_sha256",
+                                                     "concept_manifest_path",
+                                                     "concept_manifest_sha256",
+                                                     "apply_maximum",
+                                                     "exact_replay_allowed",
+                                                     "hard_delete_allowed"};
+    static const char *const policy_fields[] = {"task_evolution_apply_maximum",
+                                                "maintenance_apply_maximum", "exact_replay_allowed",
+                                                "drift_fail_closed"};
     static const char *const frozen_contract_sha256 =
         "2571515732703420e1756f4af8fec41c519a0daa0dc656d5a3c96f0bd42f97dd";
     char gate[16] = {0}, mode[32] = {0}, env_path[STAGE14_CANARY_PATH_CAP] = {0};
     char env_sha256[80] = {0};
     char auto_maintain[16] = {0}, embed_backend[32] = {0}, no_global_union[16] = {0};
-    if (out) memset(out, 0, sizeof(*out));
-    if (out_code) *out_code = "CANARY_AUTH_INVALID";
-    if (!out ||
-        !cbm_safe_getenv("CBM_STAGE14_PRODUCTION_GATE", gate, sizeof(gate), NULL) ||
+    if (out)
+        memset(out, 0, sizeof(*out));
+    if (out_code)
+        *out_code = "CANARY_AUTH_INVALID";
+    if (!out || !cbm_safe_getenv("CBM_STAGE14_PRODUCTION_GATE", gate, sizeof(gate), NULL) ||
         strcmp(gate, "1") != 0 ||
         !cbm_safe_getenv("CBM_STAGE14_EVOLUTION_MODE", mode, sizeof(mode), NULL) ||
         strcmp(mode, "bounded_canary") != 0) {
-        if (out_code) *out_code = "PRODUCTION_GATE_NOT_LOADED";
+        if (out_code)
+            *out_code = "PRODUCTION_GATE_NOT_LOADED";
         return false;
     }
-    bool no_global_union_present =
-        cbm_safe_getenv("CBM_MEMORY_NO_GLOBAL_UNION", no_global_union,
-                        sizeof(no_global_union), NULL);
-    if (!cbm_safe_getenv("CBM_MEMORY_AUTO_MAINTAIN", auto_maintain,
-                         sizeof(auto_maintain), NULL) ||
+    bool no_global_union_present = cbm_safe_getenv("CBM_MEMORY_NO_GLOBAL_UNION", no_global_union,
+                                                   sizeof(no_global_union), NULL);
+    if (!cbm_safe_getenv("CBM_MEMORY_AUTO_MAINTAIN", auto_maintain, sizeof(auto_maintain), NULL) ||
         strcmp(auto_maintain, "0") != 0 ||
-        !cbm_safe_getenv("CBM_MEMORY_EMBED_BACKEND", embed_backend,
-                         sizeof(embed_backend), NULL) ||
+        !cbm_safe_getenv("CBM_MEMORY_EMBED_BACKEND", embed_backend, sizeof(embed_backend), NULL) ||
         strcmp(embed_backend, "static") != 0 || no_global_union_present) {
-        if (out_code) *out_code = "CANARY_RUNTIME_ENV_DRIFT";
+        if (out_code)
+            *out_code = "CANARY_RUNTIME_ENV_DRIFT";
         return false;
     }
-    if (!cbm_safe_getenv("CBM_STAGE14_CANARY_AUTH_MANIFEST", env_path, sizeof(env_path),
-                         NULL) ||
-        !cbm_safe_getenv("CBM_STAGE14_CANARY_AUTH_SHA256", env_sha256,
-                         sizeof(env_sha256), NULL) ||
+    if (!cbm_safe_getenv("CBM_STAGE14_CANARY_AUTH_MANIFEST", env_path, sizeof(env_path), NULL) ||
+        !cbm_safe_getenv("CBM_STAGE14_CANARY_AUTH_SHA256", env_sha256, sizeof(env_sha256), NULL) ||
         !stage14_absolute_path(env_path) || !stage14_lower_sha256(env_sha256)) {
-        if (out_code) *out_code = "CANARY_AUTH_ENV_DRIFT";
+        if (out_code)
+            *out_code = "CANARY_AUTH_ENV_DRIFT";
         return false;
     }
-    if (request_binding_required &&
-        (!stage14_paths_equal(request_path, env_path) ||
-         !request_sha256 || strcmp(request_sha256, env_sha256) != 0)) {
-        if (out_code) *out_code = "CANARY_AUTH_REQUEST_DRIFT";
+    if (request_binding_required && (!stage14_paths_equal(request_path, env_path) ||
+                                     !request_sha256 || strcmp(request_sha256, env_sha256) != 0)) {
+        if (out_code)
+            *out_code = "CANARY_AUTH_REQUEST_DRIFT";
         return false;
     }
 
@@ -3302,7 +3488,8 @@ static bool stage14_load_canary_authorization(const char *request_path,
         cbm_stage7_sha256_hex(bytes, size, actual_sha256) != CBM_STORE_OK ||
         strcmp(actual_sha256, env_sha256) != 0) {
         free(bytes);
-        if (out_code) *out_code = "CANARY_AUTH_HASH_MISMATCH";
+        if (out_code)
+            *out_code = "CANARY_AUTH_HASH_MISMATCH";
         return false;
     }
     yyjson_doc *doc = yyjson_read((const char *)bytes, size, 0);
@@ -3320,8 +3507,7 @@ static bool stage14_load_canary_authorization(const char *request_path,
     yyjson_val *task_replay = task ? yyjson_obj_get(task, "exact_replay_allowed") : NULL;
     yyjson_val *maintenance_frozen =
         maintenance ? yyjson_obj_get(maintenance, "frozen_as_of_ms") : NULL;
-    yyjson_val *maintenance_limit =
-        maintenance ? yyjson_obj_get(maintenance, "limit") : NULL;
+    yyjson_val *maintenance_limit = maintenance ? yyjson_obj_get(maintenance, "limit") : NULL;
     yyjson_val *maintenance_budget =
         maintenance ? yyjson_obj_get(maintenance, "budget_seconds") : NULL;
     yyjson_val *maintenance_apply =
@@ -3330,37 +3516,34 @@ static bool stage14_load_canary_authorization(const char *request_path,
         maintenance ? yyjson_obj_get(maintenance, "exact_replay_allowed") : NULL;
     yyjson_val *hard_delete =
         maintenance ? yyjson_obj_get(maintenance, "hard_delete_allowed") : NULL;
-    yyjson_val *policy_task = policy ?
-        yyjson_obj_get(policy, "task_evolution_apply_maximum") : NULL;
-    yyjson_val *policy_maintenance = policy ?
-        yyjson_obj_get(policy, "maintenance_apply_maximum") : NULL;
-    yyjson_val *policy_replay = policy ?
-        yyjson_obj_get(policy, "exact_replay_allowed") : NULL;
-    yyjson_val *policy_drift = policy ?
-        yyjson_obj_get(policy, "drift_fail_closed") : NULL;
+    yyjson_val *policy_task =
+        policy ? yyjson_obj_get(policy, "task_evolution_apply_maximum") : NULL;
+    yyjson_val *policy_maintenance =
+        policy ? yyjson_obj_get(policy, "maintenance_apply_maximum") : NULL;
+    yyjson_val *policy_replay = policy ? yyjson_obj_get(policy, "exact_replay_allowed") : NULL;
+    yyjson_val *policy_drift = policy ? yyjson_obj_get(policy, "drift_fail_closed") : NULL;
     int64_t task_count_raw =
         task_count && yyjson_is_int(task_count) ? yyjson_get_sint(task_count) : -1;
     int64_t task_events_raw =
         task_events && yyjson_is_int(task_events) ? yyjson_get_sint(task_events) : -1;
     int64_t task_edges_raw =
         task_edges && yyjson_is_int(task_edges) ? yyjson_get_sint(task_edges) : -1;
-    int64_t maintenance_frozen_raw =
-        maintenance_frozen && yyjson_is_int(maintenance_frozen)
-            ? yyjson_get_sint(maintenance_frozen) : -1;
-    int64_t maintenance_limit_raw =
-        maintenance_limit && yyjson_is_int(maintenance_limit)
-            ? yyjson_get_sint(maintenance_limit) : -1;
-    int64_t maintenance_budget_raw =
-        maintenance_budget && yyjson_is_int(maintenance_budget)
-            ? yyjson_get_sint(maintenance_budget) : -1;
+    int64_t maintenance_frozen_raw = maintenance_frozen && yyjson_is_int(maintenance_frozen)
+                                         ? yyjson_get_sint(maintenance_frozen)
+                                         : -1;
+    int64_t maintenance_limit_raw = maintenance_limit && yyjson_is_int(maintenance_limit)
+                                        ? yyjson_get_sint(maintenance_limit)
+                                        : -1;
+    int64_t maintenance_budget_raw = maintenance_budget && yyjson_is_int(maintenance_budget)
+                                         ? yyjson_get_sint(maintenance_budget)
+                                         : -1;
     bool shape_ok =
         stage14_object_exact_keys(root, exact_fields,
                                   sizeof(exact_fields) / sizeof(exact_fields[0])) &&
         stage14_object_exact_keys(task, task_fields,
                                   sizeof(task_fields) / sizeof(task_fields[0])) &&
         stage14_object_exact_keys(maintenance, maintenance_fields,
-                                  sizeof(maintenance_fields) /
-                                      sizeof(maintenance_fields[0])) &&
+                                  sizeof(maintenance_fields) / sizeof(maintenance_fields[0])) &&
         stage14_object_exact_keys(policy, policy_fields,
                                   sizeof(policy_fields) / sizeof(policy_fields[0])) &&
         schema && yyjson_is_str(schema) &&
@@ -3371,8 +3554,7 @@ static bool stage14_load_canary_authorization(const char *request_path,
                                      sizeof(out->created_at)) &&
         stage14_copy_required_string(root, "expires_at", out->expires_at,
                                      sizeof(out->expires_at)) &&
-        stage14_copy_required_string(root, "release_executable_path",
-                                     out->release_executable_path,
+        stage14_copy_required_string(root, "release_executable_path", out->release_executable_path,
                                      sizeof(out->release_executable_path)) &&
         stage14_copy_required_string(root, "release_executable_sha256",
                                      out->release_executable_sha256,
@@ -3385,24 +3567,17 @@ static bool stage14_load_canary_authorization(const char *request_path,
                                      sizeof(out->contract_sha256)) &&
         stage14_copy_required_string(task, "project_uuid", out->task_project_uuid,
                                      sizeof(out->task_project_uuid)) &&
-        stage14_copy_required_string(task, "run_id", out->task_run_id,
-                                     sizeof(out->task_run_id)) &&
-        stage14_copy_required_string(task, "task_id", out->task_id,
-                                     sizeof(out->task_id)) &&
-        stage14_copy_required_string(task, "idempotency_key",
-                                     out->task_idempotency_key,
+        stage14_copy_required_string(task, "run_id", out->task_run_id, sizeof(out->task_run_id)) &&
+        stage14_copy_required_string(task, "task_id", out->task_id, sizeof(out->task_id)) &&
+        stage14_copy_required_string(task, "idempotency_key", out->task_idempotency_key,
                                      sizeof(out->task_idempotency_key)) &&
-        stage14_copy_required_string(task, "manifest_path",
-                                     out->task_evolution_manifest_path,
+        stage14_copy_required_string(task, "manifest_path", out->task_evolution_manifest_path,
                                      sizeof(out->task_evolution_manifest_path)) &&
-        stage14_copy_required_string(task, "manifest_sha256",
-                                     out->task_evolution_manifest_sha256,
+        stage14_copy_required_string(task, "manifest_sha256", out->task_evolution_manifest_sha256,
                                      sizeof(out->task_evolution_manifest_sha256)) &&
-        stage14_copy_required_string(task, "request_sha256",
-                                     out->task_request_sha256,
+        stage14_copy_required_string(task, "request_sha256", out->task_request_sha256,
                                      sizeof(out->task_request_sha256)) &&
-        stage14_copy_required_string(maintenance, "project_uuid",
-                                     out->maintenance_project_uuid,
+        stage14_copy_required_string(maintenance, "project_uuid", out->maintenance_project_uuid,
                                      sizeof(out->maintenance_project_uuid)) &&
         stage14_copy_required_string(maintenance, "mode", out->maintenance_mode,
                                      sizeof(out->maintenance_mode)) &&
@@ -3411,14 +3586,11 @@ static bool stage14_load_canary_authorization(const char *request_path,
         stage14_copy_required_string(maintenance, "idempotency_key",
                                      out->maintenance_idempotency_key,
                                      sizeof(out->maintenance_idempotency_key)) &&
-        stage14_copy_required_string(maintenance, "owner_id",
-                                     out->maintenance_owner_id,
+        stage14_copy_required_string(maintenance, "owner_id", out->maintenance_owner_id,
                                      sizeof(out->maintenance_owner_id)) &&
-        stage14_copy_required_string(maintenance, "edge_manifest_path",
-                                     out->edge_manifest_path,
+        stage14_copy_required_string(maintenance, "edge_manifest_path", out->edge_manifest_path,
                                      sizeof(out->edge_manifest_path)) &&
-        stage14_copy_required_string(maintenance, "edge_manifest_sha256",
-                                     out->edge_manifest_sha256,
+        stage14_copy_required_string(maintenance, "edge_manifest_sha256", out->edge_manifest_sha256,
                                      sizeof(out->edge_manifest_sha256)) &&
         stage14_copy_required_string(maintenance, "concept_manifest_path",
                                      out->concept_manifest_path,
@@ -3426,41 +3598,31 @@ static bool stage14_load_canary_authorization(const char *request_path,
         stage14_copy_required_string(maintenance, "concept_manifest_sha256",
                                      out->concept_manifest_sha256,
                                      sizeof(out->concept_manifest_sha256)) &&
-        task_count && yyjson_is_int(task_count) &&
-        task_events && yyjson_is_int(task_events) &&
-        task_edges && yyjson_is_int(task_edges) &&
-        task_mode && yyjson_is_str(task_mode) &&
-        task_apply && yyjson_is_int(task_apply) &&
-        task_replay && yyjson_is_bool(task_replay) &&
-        maintenance_frozen && yyjson_is_int(maintenance_frozen) &&
-        maintenance_limit && yyjson_is_int(maintenance_limit) &&
-        maintenance_budget && yyjson_is_int(maintenance_budget) &&
-        maintenance_apply && yyjson_is_int(maintenance_apply) &&
-        maintenance_replay && yyjson_is_bool(maintenance_replay) &&
-        hard_delete && yyjson_is_bool(hard_delete) &&
-        policy_task && yyjson_is_int(policy_task) &&
-        policy_maintenance && yyjson_is_int(policy_maintenance) &&
-        policy_replay && yyjson_is_bool(policy_replay) &&
-        policy_drift && yyjson_is_bool(policy_drift) &&
-        secrets && yyjson_is_bool(secrets);
+        task_count && yyjson_is_int(task_count) && task_events && yyjson_is_int(task_events) &&
+        task_edges && yyjson_is_int(task_edges) && task_mode && yyjson_is_str(task_mode) &&
+        task_apply && yyjson_is_int(task_apply) && task_replay && yyjson_is_bool(task_replay) &&
+        maintenance_frozen && yyjson_is_int(maintenance_frozen) && maintenance_limit &&
+        yyjson_is_int(maintenance_limit) && maintenance_budget &&
+        yyjson_is_int(maintenance_budget) && maintenance_apply &&
+        yyjson_is_int(maintenance_apply) && maintenance_replay &&
+        yyjson_is_bool(maintenance_replay) && hard_delete && yyjson_is_bool(hard_delete) &&
+        policy_task && yyjson_is_int(policy_task) && policy_maintenance &&
+        yyjson_is_int(policy_maintenance) && policy_replay && yyjson_is_bool(policy_replay) &&
+        policy_drift && yyjson_is_bool(policy_drift) && secrets && yyjson_is_bool(secrets);
     if (shape_ok) {
-        shape_ok =
-            !strcmp(yyjson_get_str(task_mode), "bounded_canary") &&
-            yyjson_get_sint(task_apply) == 1 && yyjson_get_bool(task_replay) &&
-            !strcmp(out->maintenance_mode, "bounded_canary") &&
-            yyjson_get_sint(maintenance_apply) == 1 &&
-            yyjson_get_bool(maintenance_replay) && !yyjson_get_bool(hard_delete) &&
-            yyjson_get_sint(policy_task) == 1 &&
-            yyjson_get_sint(policy_maintenance) == 1 &&
-            yyjson_get_bool(policy_replay) && yyjson_get_bool(policy_drift) &&
-            !yyjson_get_bool(secrets) &&
-            task_count_raw >= 0 && task_count_raw <= 16 &&
-            task_events_raw >= task_count_raw + 1 && task_events_raw <= 17 &&
-            task_edges_raw >= 0 && task_edges_raw <= 16 &&
-            task_edges_raw <= task_count_raw &&
-            maintenance_frozen_raw > 0 &&
-            maintenance_limit_raw >= 1 && maintenance_limit_raw <= 1000 &&
-            maintenance_budget_raw >= 1 && maintenance_budget_raw <= 30;
+        shape_ok = !strcmp(yyjson_get_str(task_mode), "bounded_canary") &&
+                   yyjson_get_sint(task_apply) == 1 && yyjson_get_bool(task_replay) &&
+                   !strcmp(out->maintenance_mode, "bounded_canary") &&
+                   yyjson_get_sint(maintenance_apply) == 1 && yyjson_get_bool(maintenance_replay) &&
+                   !yyjson_get_bool(hard_delete) && yyjson_get_sint(policy_task) == 1 &&
+                   yyjson_get_sint(policy_maintenance) == 1 && yyjson_get_bool(policy_replay) &&
+                   yyjson_get_bool(policy_drift) && !yyjson_get_bool(secrets) &&
+                   task_count_raw >= 0 && task_count_raw <= 16 &&
+                   task_events_raw >= task_count_raw + 1 && task_events_raw <= 17 &&
+                   task_edges_raw >= 0 && task_edges_raw <= 16 &&
+                   task_edges_raw <= task_count_raw && maintenance_frozen_raw > 0 &&
+                   maintenance_limit_raw >= 1 && maintenance_limit_raw <= 1000 &&
+                   maintenance_budget_raw >= 1 && maintenance_budget_raw <= 30;
     }
     if (shape_ok) {
         out->task_memory_item_count = (int)task_count_raw;
@@ -3484,35 +3646,36 @@ static bool stage14_load_canary_authorization(const char *request_path,
         !stage14_lower_sha256(out->task_request_sha256) ||
         !stage14_lower_sha256(out->edge_manifest_sha256) ||
         !stage14_lower_sha256(out->concept_manifest_sha256) ||
-        !stage14_iso_utc_millis_valid(out->created_at) ||
-        out->task_memory_item_count < 0 || out->task_memory_item_count > 16 ||
+        !stage14_iso_utc_millis_valid(out->created_at) || out->task_memory_item_count < 0 ||
+        out->task_memory_item_count > 16 ||
         out->task_max_evolution_events < out->task_memory_item_count + 1 ||
-        out->task_max_evolution_events > 17 ||
-        out->task_max_cross_project_edges < 0 ||
+        out->task_max_evolution_events > 17 || out->task_max_cross_project_edges < 0 ||
         out->task_max_cross_project_edges > 16 ||
         out->task_max_cross_project_edges > out->task_memory_item_count ||
-        out->maintenance_frozen_as_of_ms <= 0 ||
-        out->limit < 1 || out->limit > 1000 ||
+        out->maintenance_frozen_as_of_ms <= 0 || out->limit < 1 || out->limit > 1000 ||
         out->budget_seconds < 1 || out->budget_seconds > 30) {
-        if (out_code) *out_code = "CANARY_AUTH_SCHEMA_INVALID";
+        if (out_code)
+            *out_code = "CANARY_AUTH_SCHEMA_INVALID";
         return false;
     }
     if (!stage14_expiration_is_future(out->expires_at)) {
-        if (out_code) *out_code = "CANARY_AUTH_EXPIRED";
+        if (out_code)
+            *out_code = "CANARY_AUTH_EXPIRED";
         return false;
     }
     char data_root[STAGE14_CANARY_PATH_CAP] = {0};
     if (!cbm_safe_getenv("CBM_DATA_ROOT", data_root, sizeof(data_root), NULL) ||
         !stage14_paths_equal(data_root, out->target_data_root) ||
         !stage14_directory_exists(out->target_data_root)) {
-        if (out_code) *out_code = "CANARY_DATA_ROOT_MISMATCH";
+        if (out_code)
+            *out_code = "CANARY_DATA_ROOT_MISMATCH";
         return false;
     }
     if (strcmp(out->contract_sha256, frozen_contract_sha256) != 0 ||
-        !stage14_manifest_schema_and_run(
-            out->contract_path, out->contract_sha256,
-            "stage14-rev8-production-closure-contract/v1", NULL)) {
-        if (out_code) *out_code = "CANARY_CONTRACT_MISMATCH";
+        !stage14_manifest_schema_and_run(out->contract_path, out->contract_sha256,
+                                         "stage14-rev8-production-closure-contract/v1", NULL)) {
+        if (out_code)
+            *out_code = "CANARY_CONTRACT_MISMATCH";
         return false;
     }
     char executable_path[STAGE14_CANARY_PATH_CAP] = {0};
@@ -3521,53 +3684,50 @@ static bool stage14_load_canary_authorization(const char *request_path,
         !stage14_paths_equal(executable_path, out->release_executable_path) ||
         !stage14_file_sha256(executable_path, executable_sha256) ||
         strcmp(executable_sha256, out->release_executable_sha256) != 0) {
-        if (out_code) *out_code = "CANARY_EXECUTABLE_MISMATCH";
+        if (out_code)
+            *out_code = "CANARY_EXECUTABLE_MISMATCH";
         return false;
     }
     char edge_run_id[STAGE14_CANARY_ID_CAP + 16] = {0};
     char concept_run_id[STAGE14_CANARY_ID_CAP + 16] = {0};
-    int edge_length = snprintf(edge_run_id, sizeof(edge_run_id), "%s:edge",
-                               out->maintenance_run_id);
-    int concept_length = snprintf(concept_run_id, sizeof(concept_run_id), "%s:concept",
-                                  out->maintenance_run_id);
-    if (!stage14_task_manifest_matches(out) ||
-        edge_length <= 0 || edge_length >= (int)sizeof(edge_run_id) ||
-        concept_length <= 0 || concept_length >= (int)sizeof(concept_run_id) ||
-        !stage14_manifest_schema_and_run(
-            out->edge_manifest_path, out->edge_manifest_sha256,
-            "stage9-production-canary-manifest/v1", edge_run_id) ||
-        !stage14_manifest_schema_and_run(
-            out->concept_manifest_path, out->concept_manifest_sha256,
-            "stage10-production-canary-manifest/v1", concept_run_id)) {
-        if (out_code) *out_code = "CANARY_REFERENCED_MANIFEST_MISMATCH";
+    int edge_length =
+        snprintf(edge_run_id, sizeof(edge_run_id), "%s:edge", out->maintenance_run_id);
+    int concept_length =
+        snprintf(concept_run_id, sizeof(concept_run_id), "%s:concept", out->maintenance_run_id);
+    if (!stage14_task_manifest_matches(out) || edge_length <= 0 ||
+        edge_length >= (int)sizeof(edge_run_id) || concept_length <= 0 ||
+        concept_length >= (int)sizeof(concept_run_id) ||
+        !stage14_manifest_schema_and_run(out->edge_manifest_path, out->edge_manifest_sha256,
+                                         "stage9-production-canary-manifest/v1", edge_run_id) ||
+        !stage14_manifest_schema_and_run(out->concept_manifest_path, out->concept_manifest_sha256,
+                                         "stage10-production-canary-manifest/v1", concept_run_id)) {
+        if (out_code)
+            *out_code = "CANARY_REFERENCED_MANIFEST_MISMATCH";
         return false;
     }
-    snprintf(out->authorization_manifest_path, sizeof(out->authorization_manifest_path),
-             "%s", env_path);
-    snprintf(out->authorization_manifest_sha256,
-             sizeof(out->authorization_manifest_sha256), "%s", env_sha256);
-    if (out_code) *out_code = "CANARY_AUTH_READY";
+    snprintf(out->authorization_manifest_path, sizeof(out->authorization_manifest_path), "%s",
+             env_path);
+    snprintf(out->authorization_manifest_sha256, sizeof(out->authorization_manifest_sha256), "%s",
+             env_sha256);
+    if (out_code)
+        *out_code = "CANARY_AUTH_READY";
     return true;
 }
 
 static bool stage14_authorizes_task(const stage14_canary_authorization_t *authorization,
-                                    const char *project_uuid,const char *run_id,
-                                    const char *task_id,const char *idempotency_key,
-                                    const char *manifest_path,const char *manifest_sha256,
-                                    int max_evolution_events,
-                                    int max_cross_project_edges) {
-    return authorization && project_uuid && run_id && task_id && idempotency_key &&
-           manifest_path && manifest_sha256 &&
-           strcmp(authorization->task_project_uuid,project_uuid)==0 &&
-           strcmp(authorization->task_run_id,run_id)==0 &&
-           strcmp(authorization->task_id,task_id)==0 &&
-           strcmp(authorization->task_idempotency_key,idempotency_key)==0 &&
-           stage14_paths_equal(authorization->task_evolution_manifest_path,
-                               manifest_path) &&
-           strcmp(authorization->task_evolution_manifest_sha256,
-                  manifest_sha256)==0 &&
-           authorization->task_max_evolution_events==max_evolution_events &&
-           authorization->task_max_cross_project_edges==max_cross_project_edges;
+                                    const char *project_uuid, const char *run_id,
+                                    const char *task_id, const char *idempotency_key,
+                                    const char *manifest_path, const char *manifest_sha256,
+                                    int max_evolution_events, int max_cross_project_edges) {
+    return authorization && project_uuid && run_id && task_id && idempotency_key && manifest_path &&
+           manifest_sha256 && strcmp(authorization->task_project_uuid, project_uuid) == 0 &&
+           strcmp(authorization->task_run_id, run_id) == 0 &&
+           strcmp(authorization->task_id, task_id) == 0 &&
+           strcmp(authorization->task_idempotency_key, idempotency_key) == 0 &&
+           stage14_paths_equal(authorization->task_evolution_manifest_path, manifest_path) &&
+           strcmp(authorization->task_evolution_manifest_sha256, manifest_sha256) == 0 &&
+           authorization->task_max_evolution_events == max_evolution_events &&
+           authorization->task_max_cross_project_edges == max_cross_project_edges;
 }
 
 static char *stage14_task_control_error(const char *status, const char *code) {
@@ -3580,35 +3740,41 @@ static char *stage14_task_control_error(const char *status, const char *code) {
     return cbm_mcp_text_result(json, true);
 }
 
-static char *handle_stage14_task_evolution_control(cbm_mcp_server_t *srv,
-                                                   const char *args) {
-    static const char *const preview_fields[] = {
-        "action","mode","project","run_id","task_id","idempotency_key",
-        "max_evolution_events","max_cross_project_edges"
-    };
-    static const char *const apply_fields[] = {
-        "action","mode","project","run_id","task_id","idempotency_key",
-        "max_evolution_events","max_cross_project_edges","manifest_path",
-        "manifest_sha256","authorization_manifest_path",
-        "authorization_manifest_sha256"
-    };
+static char *handle_stage14_task_evolution_control(cbm_mcp_server_t *srv, const char *args) {
+    static const char *const preview_fields[] = {"action",
+                                                 "mode",
+                                                 "project",
+                                                 "run_id",
+                                                 "task_id",
+                                                 "idempotency_key",
+                                                 "max_evolution_events",
+                                                 "max_cross_project_edges"};
+    static const char *const apply_fields[] = {"action",
+                                               "mode",
+                                               "project",
+                                               "run_id",
+                                               "task_id",
+                                               "idempotency_key",
+                                               "max_evolution_events",
+                                               "max_cross_project_edges",
+                                               "manifest_path",
+                                               "manifest_sha256",
+                                               "authorization_manifest_path",
+                                               "authorization_manifest_sha256"};
     (void)srv;
     yyjson_doc *doc = yyjson_read(args ? args : "", args ? strlen(args) : 0, 0);
     yyjson_val *root = doc ? yyjson_doc_get_root(doc) : NULL;
-    yyjson_val *action_value = root && yyjson_is_obj(root)
-                                  ? yyjson_obj_get(root, "action") : NULL;
-    const char *action = action_value && yyjson_is_str(action_value)
-                             ? yyjson_get_str(action_value) : NULL;
+    yyjson_val *action_value = root && yyjson_is_obj(root) ? yyjson_obj_get(root, "action") : NULL;
+    const char *action =
+        action_value && yyjson_is_str(action_value) ? yyjson_get_str(action_value) : NULL;
     bool preview = action && strcmp(action, "preview") == 0;
     bool apply = action && strcmp(action, "apply") == 0;
     bool exact_shape =
         (preview &&
-         stage14_object_exact_keys(
-             root, preview_fields,
-             sizeof(preview_fields) / sizeof(preview_fields[0]))) ||
-        (apply &&
-         stage14_object_exact_keys(
-             root, apply_fields, sizeof(apply_fields) / sizeof(apply_fields[0])));
+         stage14_object_exact_keys(root, preview_fields,
+                                   sizeof(preview_fields) / sizeof(preview_fields[0]))) ||
+        (apply && stage14_object_exact_keys(root, apply_fields,
+                                            sizeof(apply_fields) / sizeof(apply_fields[0])));
     if (!exact_shape) {
         yyjson_doc_free(doc);
         return stage14_task_control_error("rejected", "INVALID_STAGE14_TASK_CONTROL");
@@ -3618,26 +3784,21 @@ static char *handle_stage14_task_evolution_control(cbm_mcp_server_t *srv,
     const char *project = yyjson_get_str(yyjson_obj_get(root, "project"));
     const char *run_id = yyjson_get_str(yyjson_obj_get(root, "run_id"));
     const char *task_id = yyjson_get_str(yyjson_obj_get(root, "task_id"));
-    const char *idempotency_key =
-        yyjson_get_str(yyjson_obj_get(root, "idempotency_key"));
+    const char *idempotency_key = yyjson_get_str(yyjson_obj_get(root, "idempotency_key"));
     yyjson_val *events_value = yyjson_obj_get(root, "max_evolution_events");
     yyjson_val *edges_value = yyjson_obj_get(root, "max_cross_project_edges");
     int64_t max_events_raw =
-        events_value && yyjson_is_int(events_value)
-            ? yyjson_get_sint(events_value) : -1;
+        events_value && yyjson_is_int(events_value) ? yyjson_get_sint(events_value) : -1;
     int64_t max_edges_raw =
-        edges_value && yyjson_is_int(edges_value)
-            ? yyjson_get_sint(edges_value) : -1;
+        edges_value && yyjson_is_int(edges_value) ? yyjson_get_sint(edges_value) : -1;
     if (!mode || strcmp(mode, "bounded_canary") != 0) {
         yyjson_doc_free(doc);
-        return stage14_task_control_error(
-            "rejected", mode && strcmp(mode, "active") == 0
-                            ? "ACTIVE_MODE_FORBIDDEN"
-                            : "BOUNDED_CANARY_MODE_REQUIRED");
+        return stage14_task_control_error("rejected", mode && strcmp(mode, "active") == 0
+                                                          ? "ACTIVE_MODE_FORBIDDEN"
+                                                          : "BOUNDED_CANARY_MODE_REQUIRED");
     }
-    if (!project || !project[0] || !run_id || !run_id[0] || !task_id ||
-        !task_id[0] || !idempotency_key || !idempotency_key[0] ||
-        max_events_raw < 1 || max_events_raw > 17 ||
+    if (!project || !project[0] || !run_id || !run_id[0] || !task_id || !task_id[0] ||
+        !idempotency_key || !idempotency_key[0] || max_events_raw < 1 || max_events_raw > 17 ||
         max_edges_raw < 0 || max_edges_raw > 16) {
         yyjson_doc_free(doc);
         return stage14_task_control_error("rejected", "INVALID_STAGE14_TASK_BINDING");
@@ -3652,17 +3813,14 @@ static char *handle_stage14_task_evolution_control(cbm_mcp_server_t *srv,
     if (apply) {
         manifest_path = yyjson_get_str(yyjson_obj_get(root, "manifest_path"));
         manifest_sha256 = yyjson_get_str(yyjson_obj_get(root, "manifest_sha256"));
-        authorization_path =
-            yyjson_get_str(yyjson_obj_get(root, "authorization_manifest_path"));
+        authorization_path = yyjson_get_str(yyjson_obj_get(root, "authorization_manifest_path"));
         authorization_sha256 =
             yyjson_get_str(yyjson_obj_get(root, "authorization_manifest_sha256"));
-        if (!stage14_absolute_path(manifest_path) ||
-            !stage14_lower_sha256(manifest_sha256) ||
+        if (!stage14_absolute_path(manifest_path) || !stage14_lower_sha256(manifest_sha256) ||
             !stage14_absolute_path(authorization_path) ||
             !stage14_lower_sha256(authorization_sha256)) {
             yyjson_doc_free(doc);
-            return stage14_task_control_error(
-                "rejected", "INVALID_STAGE14_MANIFEST_BINDING");
+            return stage14_task_control_error("rejected", "INVALID_STAGE14_MANIFEST_BINDING");
         }
     }
 
@@ -3688,14 +3846,13 @@ static char *handle_stage14_task_evolution_control(cbm_mcp_server_t *srv,
         cbm_evolution_result_free(&plan);
         cbm_global_memory_close(global);
         yyjson_doc_free(doc);
-        return stage14_task_control_error(
-            plan_rc == CBM_STORE_REJECTED ? "rejected" : "error",
-            plan_rc == CBM_STORE_REJECTED ? "TASK_EVOLUTION_PLAN_REJECTED"
-                                          : "TASK_EVOLUTION_PLAN_FAILED");
+        return stage14_task_control_error(plan_rc == CBM_STORE_REJECTED ? "rejected" : "error",
+                                          plan_rc == CBM_STORE_REJECTED
+                                              ? "TASK_EVOLUTION_PLAN_REJECTED"
+                                              : "TASK_EVOLUTION_PLAN_FAILED");
     }
     if (preview) {
-        char *result = cbm_mcp_text_result(
-            plan.report_json ? plan.report_json : "{}", false);
+        char *result = cbm_mcp_text_result(plan.report_json ? plan.report_json : "{}", false);
         cbm_evolution_result_free(&plan);
         cbm_global_memory_close(global);
         yyjson_doc_free(doc);
@@ -3705,24 +3862,21 @@ static char *handle_stage14_task_evolution_control(cbm_mcp_server_t *srv,
     stage14_canary_authorization_t authorization = {0};
     const char *authorization_code = "CANARY_AUTH_INVALID";
     bool authorization_ready = stage14_load_canary_authorization(
-        authorization_path, authorization_sha256, true, &authorization,
-        &authorization_code);
+        authorization_path, authorization_sha256, true, &authorization, &authorization_code);
     if (!authorization_ready) {
         cbm_evolution_result_free(&plan);
         cbm_global_memory_close(global);
         yyjson_doc_free(doc);
         return stage14_task_control_error("rejected", authorization_code);
     }
-    if (!stage14_authorizes_task(
-            &authorization, project, run_id, task_id, idempotency_key,
-            manifest_path, manifest_sha256, max_events, max_edges) ||
+    if (!stage14_authorizes_task(&authorization, project, run_id, task_id, idempotency_key,
+                                 manifest_path, manifest_sha256, max_events, max_edges) ||
         strcmp(plan.request_sha256, authorization.task_request_sha256) != 0 ||
         plan.eligible != authorization.task_memory_item_count) {
         cbm_evolution_result_free(&plan);
         cbm_global_memory_close(global);
         yyjson_doc_free(doc);
-        return stage14_task_control_error(
-            "rejected", "CANARY_TASK_ALLOWLIST_MISMATCH");
+        return stage14_task_control_error("rejected", "CANARY_TASK_ALLOWLIST_MISMATCH");
     }
     cbm_evolution_result_free(&plan);
 
@@ -3733,17 +3887,13 @@ static char *handle_stage14_task_evolution_control(cbm_mcp_server_t *srv,
     int apply_rc = cbm_evolution_apply_completed_task(global, &input, &applied);
     char *result = NULL;
     if (apply_rc == CBM_STORE_OK || apply_rc == CBM_STORE_REPLAYED) {
-        result = cbm_mcp_text_result(
-            applied.report_json ? applied.report_json : "{}", false);
+        result = cbm_mcp_text_result(applied.report_json ? applied.report_json : "{}", false);
     } else if (apply_rc == CBM_STORE_IDEMPOTENCY_CONFLICT) {
-        result = stage14_task_control_error(
-            "conflict", "IDEMPOTENCY_CONFLICT");
+        result = stage14_task_control_error("conflict", "IDEMPOTENCY_CONFLICT");
     } else if (apply_rc == CBM_STORE_REJECTED) {
-        result = stage14_task_control_error(
-            "rejected", "TASK_EVOLUTION_MANIFEST_OR_GATE_REJECTED");
+        result = stage14_task_control_error("rejected", "TASK_EVOLUTION_MANIFEST_OR_GATE_REJECTED");
     } else {
-        result = stage14_task_control_error(
-            "error", "TASK_EVOLUTION_APPLY_FAILED");
+        result = stage14_task_control_error("error", "TASK_EVOLUTION_APPLY_FAILED");
     }
     cbm_evolution_result_free(&applied);
     cbm_global_memory_close(global);
@@ -3752,31 +3902,31 @@ static char *handle_stage14_task_evolution_control(cbm_mcp_server_t *srv,
 }
 
 static bool stage14_authorizes_maintenance(
-    const stage14_canary_authorization_t *authorization,const char *project_uuid,
-    const char *mode,const char *run_id,const char *idempotency_key,
-    const char *owner_id,int64_t frozen_as_of_ms,const char *edge_manifest_path,
-    const char *edge_manifest_sha256, const char *concept_manifest_path,
-    const char *concept_manifest_sha256, int limit, int budget_seconds) {
-    return authorization && project_uuid && mode && run_id && idempotency_key &&
-           owner_id && edge_manifest_path && edge_manifest_sha256 &&
-           concept_manifest_path && concept_manifest_sha256 &&
-           strcmp(authorization->maintenance_project_uuid,project_uuid)==0 &&
-           strcmp(authorization->maintenance_mode,mode)==0 &&
+    const stage14_canary_authorization_t *authorization, const char *project_uuid, const char *mode,
+    const char *run_id, const char *idempotency_key, const char *owner_id, int64_t frozen_as_of_ms,
+    const char *edge_manifest_path, const char *edge_manifest_sha256,
+    const char *concept_manifest_path, const char *concept_manifest_sha256, int limit,
+    int budget_seconds) {
+    return authorization && project_uuid && mode && run_id && idempotency_key && owner_id &&
+           edge_manifest_path && edge_manifest_sha256 && concept_manifest_path &&
+           concept_manifest_sha256 &&
+           strcmp(authorization->maintenance_project_uuid, project_uuid) == 0 &&
+           strcmp(authorization->maintenance_mode, mode) == 0 &&
            strcmp(authorization->maintenance_run_id, run_id) == 0 &&
            strcmp(authorization->maintenance_idempotency_key, idempotency_key) == 0 &&
-           strcmp(authorization->maintenance_owner_id,owner_id)==0 &&
-           authorization->maintenance_frozen_as_of_ms==frozen_as_of_ms &&
+           strcmp(authorization->maintenance_owner_id, owner_id) == 0 &&
+           authorization->maintenance_frozen_as_of_ms == frozen_as_of_ms &&
            stage14_paths_equal(authorization->edge_manifest_path, edge_manifest_path) &&
            strcmp(authorization->edge_manifest_sha256, edge_manifest_sha256) == 0 &&
            stage14_paths_equal(authorization->concept_manifest_path, concept_manifest_path) &&
            strcmp(authorization->concept_manifest_sha256, concept_manifest_sha256) == 0 &&
-           authorization->limit == limit &&
-           authorization->budget_seconds == budget_seconds;
+           authorization->limit == limit && authorization->budget_seconds == budget_seconds;
 }
 
 static bool stage12_manifest_guard(const char *project, const char *path,
                                    const char *expected_hash) {
-    if (!project || !path || !expected_hash) return false;
+    if (!project || !path || !expected_hash)
+        return false;
     char fixture[16] = {0};
     char production[16] = {0};
     char env_path[4096] = {0};
@@ -3789,10 +3939,12 @@ static bool stage12_manifest_guard(const char *project, const char *path,
     bool production_ok = strcmp(project, "H-Codex_H-neuroplastic-main") == 0 &&
                          strcmp(production, "1") == 0 && env_path[0] && env_hash[0] &&
                          strcmp(path, env_path) == 0 && strcmp(expected_hash, env_hash) == 0;
-    if (!fixture_ok && !production_ok) return false;
+    if (!fixture_ok && !production_ok)
+        return false;
     unsigned char *bytes = NULL;
     size_t size = 0;
-    if (!stage12_file_bytes(path, &bytes, &size)) return false;
+    if (!stage12_file_bytes(path, &bytes, &size))
+        return false;
     char actual_hash[65];
     bool hash_ok = cbm_stage7_sha256_hex(bytes, size, actual_hash) == CBM_STORE_OK &&
                    strcmp(actual_hash, expected_hash) == 0;
@@ -3815,9 +3967,9 @@ char *handle_memory_task_migrate(cbm_mcp_server_t *srv, const char *args) {
     yyjson_doc *doc = yyjson_read(args ? args : "", args ? strlen(args) : 0, 0);
     if (!doc || !stage12_args_allowed(doc, allowed, sizeof(allowed) / sizeof(allowed[0]))) {
         yyjson_doc_free(doc);
-        return cbm_mcp_text_result(
-            "{\"status\":\"error\",\"code\":\"INVALID_ARGUMENT\",\"production_state_written\":false}",
-            true);
+        return cbm_mcp_text_result("{\"status\":\"error\",\"code\":\"INVALID_ARGUMENT\","
+                                   "\"production_state_written\":false}",
+                                   true);
     }
     char *project = memory_arg_string_dup(doc, "project");
     char *manifest_path = memory_arg_string_dup(doc, "manifest_path");
@@ -3832,9 +3984,9 @@ char *handle_memory_task_migrate(cbm_mcp_server_t *srv, const char *args) {
         free(manifest_path);
         free(manifest_hash);
         free(idempotency_key);
-        return cbm_mcp_text_result(
-            "{\"status\":\"error\",\"code\":\"FEATURE_DISABLED\",\"production_state_written\":false}",
-            true);
+        return cbm_mcp_text_result("{\"status\":\"error\",\"code\":\"FEATURE_DISABLED\","
+                                   "\"production_state_written\":false}",
+                                   true);
     }
     cbm_store_t *store = resolve_memory_store(srv, project, true);
     char *report = NULL;
@@ -3848,9 +4000,9 @@ char *handle_memory_task_migrate(cbm_mcp_server_t *srv, const char *args) {
 }
 
 char *handle_memory_task_begin(cbm_mcp_server_t *srv, const char *args) {
-    static const char *const allowed[] = {"project", "session_id", "turn_id", "prompt_sha256",
-                                          "prompt_length", "scope", "retrieval_session_id",
-                                          "idempotency_key", "workspace"};
+    static const char *const allowed[] = {
+        "project", "session_id",           "turn_id",         "prompt_sha256", "prompt_length",
+        "scope",   "retrieval_session_id", "idempotency_key", "workspace"};
     yyjson_doc *doc = yyjson_read(args ? args : "", args ? strlen(args) : 0, 0);
     if (!doc || !stage12_args_allowed(doc, allowed, sizeof(allowed) / sizeof(allowed[0]))) {
         yyjson_doc_free(doc);
@@ -3865,7 +4017,8 @@ char *handle_memory_task_begin(cbm_mcp_server_t *srv, const char *args) {
         .session_id = yyjson_get_str(memory_arg(doc, "session_id")),
         .turn_id = yyjson_get_str(memory_arg(doc, "turn_id")),
         .prompt_sha256 = yyjson_get_str(memory_arg(doc, "prompt_sha256")),
-        .prompt_length = length_value && yyjson_is_int(length_value) ? (int)yyjson_get_int(length_value) : -1,
+        .prompt_length =
+            length_value && yyjson_is_int(length_value) ? (int)yyjson_get_int(length_value) : -1,
         .retrieval_session_id = yyjson_get_str(memory_arg(doc, "retrieval_session_id")),
         .idempotency_key = yyjson_get_str(memory_arg(doc, "idempotency_key")),
     };
@@ -3875,11 +4028,11 @@ char *handle_memory_task_begin(cbm_mcp_server_t *srv, const char *args) {
     int rc = CBM_STORE_ERR;
     if (global) {
         cbm_project_resolution_t resolution = {0};
-        int resolved = workspace
-                           ? (cbm_project_resolve(workspace, project, NULL, &resolution) == 0
-                                  ? CBM_STORE_OK : CBM_STORE_ERR)
-                           : memory_stage14_resolve_project(cbm_global_memory_store(global),project,
-                                                            &resolution);
+        int resolved = workspace ? (cbm_project_resolve(workspace, project, NULL, &resolution) == 0
+                                        ? CBM_STORE_OK
+                                        : CBM_STORE_ERR)
+                                 : memory_stage14_resolve_project(cbm_global_memory_store(global),
+                                                                  project, &resolution);
         if (resolved == CBM_STORE_OK)
             rc = cbm_global_task_begin(global, &resolution, &input, &report);
     }
@@ -3887,7 +4040,8 @@ char *handle_memory_task_begin(cbm_mcp_server_t *srv, const char *args) {
     free(project);
     free(workspace);
     free(scope);
-    if (global) cbm_global_memory_close(global);
+    if (global)
+        cbm_global_memory_close(global);
     if (!global && !report)
         report = cbm_strdup("{\"status\":\"error\",\"code\":\"TASK_SCHEMA_UNAVAILABLE\"}");
     return stage12_handler_result(report, rc);
@@ -3908,15 +4062,16 @@ char *handle_memory_task_status(cbm_mcp_server_t *srv, const char *args) {
     bool legacy_fallback = yyjson_get_bool(memory_arg(doc, "legacy_fallback"));
     cbm_store_t *global = project ? resolve_global_memory_store(srv, false) : NULL;
     char *report = NULL;
-    int rc = global ? cbm_global_store_task_status(global, task_id, session_id, turn_id, NULL,
-                                                    &report)
-                    : CBM_STORE_ERR;
+    int rc = global
+                 ? cbm_global_store_task_status(global, task_id, session_id, turn_id, NULL, &report)
+                 : CBM_STORE_ERR;
     if (rc == CBM_STORE_NOT_FOUND && legacy_fallback) {
-        free(report); report = NULL;
+        free(report);
+        report = NULL;
         cbm_store_t *legacy = resolve_memory_store(srv, project, false);
-        rc = legacy ? cbm_orchestrator_status(legacy, project, task_id, session_id, turn_id,
-                                              &report)
-                    : CBM_STORE_NOT_FOUND;
+        rc = legacy
+                 ? cbm_orchestrator_status(legacy, project, task_id, session_id, turn_id, &report)
+                 : CBM_STORE_NOT_FOUND;
     }
     yyjson_doc_free(doc);
     free(project);
@@ -3926,10 +4081,10 @@ char *handle_memory_task_status(cbm_mcp_server_t *srv, const char *args) {
 }
 
 char *handle_memory_task_complete(cbm_mcp_server_t *srv, const char *args) {
-    static const char *const allowed[] = {"project", "task_id", "outcome", "idempotency_key",
-                                          "attributions", "legacy_fallback"};
+    static const char *const allowed[] = {"project",         "task_id",      "outcome",
+                                          "idempotency_key", "attributions", "legacy_fallback"};
     static const char *const attribution_allowed[] = {"memory_item_id", "state", "evidence_id",
-                                                       "feedback_event_id"};
+                                                      "feedback_event_id"};
     yyjson_doc *doc = yyjson_read(args ? args : "", args ? strlen(args) : 0, 0);
     if (!doc || !stage12_args_allowed(doc, allowed, sizeof(allowed) / sizeof(allowed[0]))) {
         yyjson_doc_free(doc);
@@ -3957,20 +4112,27 @@ char *handle_memory_task_complete(cbm_mcp_server_t *srv, const char *args) {
             (void)value;
             const char *name = yyjson_get_str(key);
             bool found = false;
-            for (size_t a = 0; name && a < sizeof(attribution_allowed) / sizeof(attribution_allowed[0]); a++) {
-                if (strcmp(name, attribution_allowed[a]) == 0) found = true;
+            for (size_t a = 0;
+                 name && a < sizeof(attribution_allowed) / sizeof(attribution_allowed[0]); a++) {
+                if (strcmp(name, attribution_allowed[a]) == 0)
+                    found = true;
             }
-            if (!found) items_valid = false;
+            if (!found)
+                items_valid = false;
         }
         yyjson_val *memory = yyjson_obj_get(item, "memory_item_id");
         yyjson_val *state = yyjson_obj_get(item, "state");
         yyjson_val *evidence = yyjson_obj_get(item, "evidence_id");
         yyjson_val *feedback = yyjson_obj_get(item, "feedback_event_id");
-        attributions[index].memory_item_id = memory && yyjson_is_str(memory) ? yyjson_get_str(memory) : NULL;
+        attributions[index].memory_item_id =
+            memory && yyjson_is_str(memory) ? yyjson_get_str(memory) : NULL;
         attributions[index].state = state && yyjson_is_str(state) ? yyjson_get_str(state) : NULL;
-        attributions[index].evidence_id = evidence && yyjson_is_str(evidence) ? yyjson_get_str(evidence) : NULL;
-        attributions[index].feedback_event_id = feedback && yyjson_is_str(feedback) ? yyjson_get_str(feedback) : NULL;
-        if (!attributions[index].memory_item_id || !attributions[index].state) items_valid = false;
+        attributions[index].evidence_id =
+            evidence && yyjson_is_str(evidence) ? yyjson_get_str(evidence) : NULL;
+        attributions[index].feedback_event_id =
+            feedback && yyjson_is_str(feedback) ? yyjson_get_str(feedback) : NULL;
+        if (!attributions[index].memory_item_id || !attributions[index].state)
+            items_valid = false;
     }
     char *project = memory_arg_string_dup(doc, "project");
     bool legacy_fallback = yyjson_get_bool(memory_arg(doc, "legacy_fallback"));
@@ -4001,8 +4163,7 @@ char *handle_memory_task_complete(cbm_mcp_server_t *srv, const char *args) {
                 .isolated_write_allowed = 0,
                 .production_gate_allowed = production_gate,
             };
-            evolution_rc = cbm_evolution_apply_completed_task(global, &evolution_input,
-                                                               &evolution);
+            evolution_rc = cbm_evolution_apply_completed_task(global, &evolution_input, &evolution);
         }
         cbm_evolution_result_free(&evolution);
         if (evolution_rc != CBM_STORE_OK && evolution_rc != CBM_STORE_REPLAYED) {
@@ -4017,15 +4178,17 @@ char *handle_memory_task_complete(cbm_mcp_server_t *srv, const char *args) {
         }
     }
     if (rc == CBM_STORE_NOT_FOUND && legacy_fallback) {
-        free(report); report = NULL;
+        free(report);
+        report = NULL;
         cbm_store_t *legacy = resolve_memory_store(srv, project, false);
-        if (legacy) legacy = resolve_memory_store(srv, project, true);
-        rc = legacy ? cbm_orchestrator_complete(legacy, &input, &report)
-                    : CBM_STORE_NOT_FOUND;
+        if (legacy)
+            legacy = resolve_memory_store(srv, project, true);
+        rc = legacy ? cbm_orchestrator_complete(legacy, &input, &report) : CBM_STORE_NOT_FOUND;
     }
     yyjson_doc_free(doc);
     free(project);
-    if (global) cbm_global_memory_close(global);
+    if (global)
+        cbm_global_memory_close(global);
     if (!global && !report)
         report = cbm_strdup("{\"status\":\"error\",\"code\":\"INVALID_ARGUMENT\"}");
     return stage12_handler_result(report, rc);
@@ -4128,10 +4291,9 @@ char *handle_memory_delete(cbm_mcp_server_t *srv, const char *args) {
         free(id);
         free(mode);
         free(user);
-        return cbm_mcp_text_result(
-            "{\"status\":\"error\",\"code\":\"HARD_DELETE_DISABLED\","
-            "\"production_state_written\":false}",
-            true);
+        return cbm_mcp_text_result("{\"status\":\"error\",\"code\":\"HARD_DELETE_DISABLED\","
+                                   "\"production_state_written\":false}",
+                                   true);
     }
     cbm_store_t *store = resolve_memory_store(srv, project, false);
     if (!store) {
@@ -4358,8 +4520,7 @@ char *handle_adr_list(cbm_mcp_server_t *srv, const char *args) {
 
     cbm_store_t *store = open_memory_store_for_project(project);
     if (!store) {
-        char *res = cbm_mcp_text_result(
-            "project not found or not indexed", true);
+        char *res = cbm_mcp_text_result("project not found or not indexed", true);
         free(project);
         free(kind);
         free(status);
@@ -4378,14 +4539,14 @@ char *handle_adr_list(cbm_mcp_server_t *srv, const char *args) {
     {
         char gmem_path[CBM_SZ_1K];
         cbm_store_t *gstore = NULL;
-        if (cbm_memory_db_path(CBM_GLOBAL_MEMORY_PROJECT, gmem_path,
-                               sizeof(gmem_path)) == CBM_STORE_OK &&
+        if (cbm_memory_db_path(CBM_GLOBAL_MEMORY_PROJECT, gmem_path, sizeof(gmem_path)) ==
+                CBM_STORE_OK &&
             cbm_file_exists(gmem_path)) {
             gstore = cbm_store_open_path_query(gmem_path);
         }
         if (gstore && rc == CBM_STORE_OK && json) {
-            int grc = cbm_store_memory_adr_list_global(gstore, kind, status, entity_key, limit,
-                                                        &gjson);
+            int grc =
+                cbm_store_memory_adr_list_global(gstore, kind, status, entity_key, limit, &gjson);
             if (grc == CBM_STORE_OK && gjson && gjson[0]) {
                 yyjson_doc *pdoc = yyjson_read(json, strlen(json), 0);
                 yyjson_doc *gdoc = yyjson_read(gjson, strlen(gjson), 0);
@@ -4397,17 +4558,23 @@ char *handle_adr_list(cbm_mcp_server_t *srv, const char *args) {
                     int ptotal = 0, gtotal = 0;
                     yyjson_val *ptv = yyjson_obj_get(proot, "total");
                     yyjson_val *gtv = yyjson_obj_get(groot, "total");
-                    if (ptv && yyjson_is_int(ptv)) ptotal = (int)yyjson_get_int(ptv);
-                    if (gtv && yyjson_is_int(gtv)) gtotal = (int)yyjson_get_int(gtv);
+                    if (ptv && yyjson_is_int(ptv))
+                        ptotal = (int)yyjson_get_int(ptv);
+                    if (gtv && yyjson_is_int(gtv))
+                        gtotal = (int)yyjson_get_int(gtv);
 
                     /* Collect item pointers (raw immutable values) with their
                      * composite scores, sort, then field-copy the top-N into
                      * a fresh mutable doc. Avoids yyjson deep-copy ownership
                      * complications while preserving correct score ordering. */
-                    struct { const yyjson_val *val; double score; } *items = NULL;
+                    struct {
+                        const yyjson_val *val;
+                        double score;
+                    } *items = NULL;
                     int nitems = 0, icap = 0;
                     if (pitems && yyjson_is_arr(pitems)) {
-                        size_t pi, pmax; yyjson_val *pv;
+                        size_t pi, pmax;
+                        yyjson_val *pv;
                         yyjson_arr_foreach(pitems, pi, pmax, pv) {
                             if (nitems == icap) {
                                 icap = icap ? icap * 2 : 64;
@@ -4425,7 +4592,7 @@ char *handle_adr_list(cbm_mcp_server_t *srv, const char *args) {
                                 yyjson_val *con = yyjson_obj_get(pv, "confidence");
                                 yyjson_val *reu = yyjson_obj_get(pv, "reusability");
                                 yyjson_val *spe = yyjson_obj_get(pv, "specificity");
-                                yyjson_val *hc  = yyjson_obj_get(pv, "hit_count");
+                                yyjson_val *hc = yyjson_obj_get(pv, "hit_count");
                                 yyjson_val *dec = yyjson_obj_get(pv, "decay");
                                 items[nitems].val = pv;
                                 items[nitems].score =
@@ -4433,14 +4600,15 @@ char *handle_adr_list(cbm_mcp_server_t *srv, const char *args) {
                                     (con && yyjson_is_num(con) ? yyjson_get_real(con) : 0.0) +
                                     (reu && yyjson_is_num(reu) ? yyjson_get_real(reu) : 0.0) +
                                     (spe && yyjson_is_num(spe) ? yyjson_get_real(spe) : 0.0) +
-                                    (hc  && yyjson_is_int(hc)  ? (double)yyjson_get_int(hc) : 0.0) -
+                                    (hc && yyjson_is_int(hc) ? (double)yyjson_get_int(hc) : 0.0) -
                                     (dec && yyjson_is_num(dec) ? yyjson_get_real(dec) : 0.0);
                                 nitems++;
                             }
                         }
                     }
                     if (gitems && yyjson_is_arr(gitems)) {
-                        size_t gi, gmax; yyjson_val *gv;
+                        size_t gi, gmax;
+                        yyjson_val *gv;
                         yyjson_arr_foreach(gitems, gi, gmax, gv) {
                             if (nitems == icap) {
                                 icap = icap ? icap * 2 : 64;
@@ -4458,7 +4626,7 @@ char *handle_adr_list(cbm_mcp_server_t *srv, const char *args) {
                                 yyjson_val *con = yyjson_obj_get(gv, "confidence");
                                 yyjson_val *reu = yyjson_obj_get(gv, "reusability");
                                 yyjson_val *spe = yyjson_obj_get(gv, "specificity");
-                                yyjson_val *hc  = yyjson_obj_get(gv, "hit_count");
+                                yyjson_val *hc = yyjson_obj_get(gv, "hit_count");
                                 yyjson_val *dec = yyjson_obj_get(gv, "decay");
                                 items[nitems].val = gv;
                                 items[nitems].score =
@@ -4466,7 +4634,7 @@ char *handle_adr_list(cbm_mcp_server_t *srv, const char *args) {
                                     (con && yyjson_is_num(con) ? yyjson_get_real(con) : 0.0) +
                                     (reu && yyjson_is_num(reu) ? yyjson_get_real(reu) : 0.0) +
                                     (spe && yyjson_is_num(spe) ? yyjson_get_real(spe) : 0.0) +
-                                    (hc  && yyjson_is_int(hc)  ? (double)yyjson_get_int(hc) : 0.0) -
+                                    (hc && yyjson_is_int(hc) ? (double)yyjson_get_int(hc) : 0.0) -
                                     (dec && yyjson_is_num(dec) ? yyjson_get_real(dec) : 0.0);
                                 nitems++;
                             }
@@ -4500,18 +4668,24 @@ char *handle_adr_list(cbm_mcp_server_t *srv, const char *args) {
                         for (int k = 0; k < out_n; k++) {
                             const yyjson_val *src = items[k].val;
                             yyjson_mut_val *obj = yyjson_mut_obj(mdoc);
-#define CP_STR(mdoc, obj, key, src) do { \
-    yyjson_val *v = yyjson_obj_get((src), (key)); \
-    if (v && yyjson_is_str(v)) yyjson_mut_obj_add_strcpy((mdoc), (obj), (key), yyjson_get_str(v)); \
-} while(0)
-#define CP_REAL(mdoc, obj, key, src) do { \
-    yyjson_val *v = yyjson_obj_get((src), (key)); \
-    if (v && yyjson_is_num(v)) yyjson_mut_obj_add_real((mdoc), (obj), (key), yyjson_get_real(v)); \
-} while(0)
-#define CP_INT(mdoc, obj, key, src) do { \
-    yyjson_val *v = yyjson_obj_get((src), (key)); \
-    if (v && yyjson_is_int(v)) yyjson_mut_obj_add_int((mdoc), (obj), (key), yyjson_get_sint(v)); \
-} while(0)
+#define CP_STR(mdoc, obj, key, src)                                             \
+    do {                                                                        \
+        yyjson_val *v = yyjson_obj_get((src), (key));                           \
+        if (v && yyjson_is_str(v))                                              \
+            yyjson_mut_obj_add_strcpy((mdoc), (obj), (key), yyjson_get_str(v)); \
+    } while (0)
+#define CP_REAL(mdoc, obj, key, src)                                           \
+    do {                                                                       \
+        yyjson_val *v = yyjson_obj_get((src), (key));                          \
+        if (v && yyjson_is_num(v))                                             \
+            yyjson_mut_obj_add_real((mdoc), (obj), (key), yyjson_get_real(v)); \
+    } while (0)
+#define CP_INT(mdoc, obj, key, src)                                           \
+    do {                                                                      \
+        yyjson_val *v = yyjson_obj_get((src), (key));                         \
+        if (v && yyjson_is_int(v))                                            \
+            yyjson_mut_obj_add_int((mdoc), (obj), (key), yyjson_get_sint(v)); \
+    } while (0)
                             CP_STR(mdoc, obj, "id", src);
                             CP_STR(mdoc, obj, "kind", src);
                             CP_STR(mdoc, obj, "layer", src);
@@ -4536,8 +4710,8 @@ char *handle_adr_list(cbm_mcp_server_t *srv, const char *args) {
                         }
                         yyjson_mut_obj_add_val(mdoc, mroot, "items", marr);
                         size_t mlen = 0;
-                        char *ms = yyjson_mut_write(mdoc,
-                            YYJSON_WRITE_ALLOW_INVALID_UNICODE, &mlen);
+                        char *ms =
+                            yyjson_mut_write(mdoc, YYJSON_WRITE_ALLOW_INVALID_UNICODE, &mlen);
                         free(json);
                         json = ms ? strdup(ms) : NULL;
                         free(ms);
@@ -4546,12 +4720,16 @@ char *handle_adr_list(cbm_mcp_server_t *srv, const char *args) {
                         rc = json ? CBM_STORE_OK : CBM_STORE_ERR;
                     }
                 }
-                if (pdoc) yyjson_doc_free(pdoc);
-                if (gdoc) yyjson_doc_free(gdoc);
+                if (pdoc)
+                    yyjson_doc_free(pdoc);
+                if (gdoc)
+                    yyjson_doc_free(gdoc);
             }
-            if (gjson) free(gjson);
+            if (gjson)
+                free(gjson);
         }
-        if (gstore) cbm_store_close(gstore);
+        if (gstore)
+            cbm_store_close(gstore);
     }
 
     cbm_store_close(store);
@@ -4629,8 +4807,7 @@ char *handle_adr_chain(cbm_mcp_server_t *srv, const char *args) {
     }
 
     char *json = NULL;
-    int rc = cbm_store_memory_adr_chain(store, project, entity_key, item_id,
-                                        max_depth, &json);
+    int rc = cbm_store_memory_adr_chain(store, project, entity_key, item_id, max_depth, &json);
     cbm_store_close(store);
 
     free(project);
@@ -4645,399 +4822,834 @@ char *handle_adr_chain(cbm_mcp_server_t *srv, const char *args) {
     return result;
 }
 
-static int manager_table_exists(sqlite3 *db,const char *name) {
-    sqlite3_stmt *stmt=NULL;int exists=0;
-    if(db&&sqlite3_prepare_v2(db,"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1;",-1,&stmt,NULL)==SQLITE_OK){sqlite3_bind_text(stmt,1,name,-1,SQLITE_TRANSIENT);exists=sqlite3_step(stmt)==SQLITE_ROW&&sqlite3_column_int(stmt,0)==1;}
-    sqlite3_finalize(stmt);return exists;
+static int manager_table_exists(sqlite3 *db, const char *name) {
+    sqlite3_stmt *stmt = NULL;
+    int exists = 0;
+    if (db &&
+        sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1;",
+                           -1, &stmt, NULL) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
+        exists = sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_int(stmt, 0) == 1;
+    }
+    sqlite3_finalize(stmt);
+    return exists;
 }
 
-static int manager_count(sqlite3 *db,const char *table) {
-    if(!manager_table_exists(db,table))return 0;
-    char sql[256];snprintf(sql,sizeof(sql),"SELECT COUNT(*) FROM %s;",table);
-    sqlite3_stmt *stmt=NULL;int value=0;if(sqlite3_prepare_v2(db,sql,-1,&stmt,NULL)==SQLITE_OK&&sqlite3_step(stmt)==SQLITE_ROW)value=sqlite3_column_int(stmt,0);sqlite3_finalize(stmt);return value;
+static int manager_count(sqlite3 *db, const char *table) {
+    if (!manager_table_exists(db, table))
+        return 0;
+    char sql[256];
+    snprintf(sql, sizeof(sql), "SELECT COUNT(*) FROM %s;", table);
+    sqlite3_stmt *stmt = NULL;
+    int value = 0;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK &&
+        sqlite3_step(stmt) == SQLITE_ROW)
+        value = sqlite3_column_int(stmt, 0);
+    sqlite3_finalize(stmt);
+    return value;
 }
 
 static char *manager_wrap(yyjson_mut_doc *doc) {
-    char *json=yy_doc_to_str(doc);yyjson_mut_doc_free(doc);char *result=cbm_mcp_text_result(json?json:"{}",json==NULL);free(json);return result;
+    char *json = yy_doc_to_str(doc);
+    yyjson_mut_doc_free(doc);
+    char *result = cbm_mcp_text_result(json ? json : "{}", json == NULL);
+    free(json);
+    return result;
 }
 
-static yyjson_mut_doc *manager_detail_doc(const char *schema,const char *status,yyjson_mut_val **item) {
-    yyjson_mut_doc *doc=yyjson_mut_doc_new(NULL);yyjson_mut_val *root=yyjson_mut_obj(doc);*item=yyjson_mut_obj(doc);yyjson_mut_doc_set_root(doc,root);yyjson_mut_obj_add_str(doc,root,"schema",schema);yyjson_mut_obj_add_str(doc,root,"status",status);yyjson_mut_obj_add_val(doc,root,"item",*item);return doc;
+static yyjson_mut_doc *manager_detail_doc(const char *schema, const char *status,
+                                          yyjson_mut_val **item) {
+    yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
+    yyjson_mut_val *root = yyjson_mut_obj(doc);
+    *item = yyjson_mut_obj(doc);
+    yyjson_mut_doc_set_root(doc, root);
+    yyjson_mut_obj_add_str(doc, root, "schema", schema);
+    yyjson_mut_obj_add_str(doc, root, "status", status);
+    yyjson_mut_obj_add_val(doc, root, "item", *item);
+    return doc;
 }
 
-static yyjson_mut_doc *manager_list_doc(const char *schema,const char *status,yyjson_mut_val **root,yyjson_mut_val **items) {
-    yyjson_mut_doc *doc=yyjson_mut_doc_new(NULL);*root=yyjson_mut_obj(doc);*items=yyjson_mut_arr(doc);yyjson_mut_doc_set_root(doc,*root);yyjson_mut_obj_add_str(doc,*root,"schema",schema);yyjson_mut_obj_add_str(doc,*root,"status",status);yyjson_mut_obj_add_val(doc,*root,"items",*items);return doc;
+static yyjson_mut_doc *manager_list_doc(const char *schema, const char *status,
+                                        yyjson_mut_val **root, yyjson_mut_val **items) {
+    yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
+    *root = yyjson_mut_obj(doc);
+    *items = yyjson_mut_arr(doc);
+    yyjson_mut_doc_set_root(doc, *root);
+    yyjson_mut_obj_add_str(doc, *root, "schema", schema);
+    yyjson_mut_obj_add_str(doc, *root, "status", status);
+    yyjson_mut_obj_add_val(doc, *root, "items", *items);
+    return doc;
 }
 
 static sqlite3 *manager_global_db(cbm_mcp_server_t *srv) {
-    cbm_store_t *store=resolve_global_memory_store(srv,false);return store?cbm_store_get_db(store):NULL;
+    cbm_store_t *store = resolve_global_memory_store(srv, false);
+    return store ? cbm_store_get_db(store) : NULL;
 }
 
 static sqlite3 *manager_global_graph_db(cbm_mcp_server_t *srv) {
-    cbm_store_t *store=resolve_global_graph_store(srv);return store?cbm_store_get_db(store):NULL;
+    cbm_store_t *store = resolve_global_graph_store(srv);
+    return store ? cbm_store_get_db(store) : NULL;
 }
 
-static int manager_count_for(sqlite3 *db,const char *sql,const char *value) {
-    sqlite3_stmt *stmt=NULL;int count=0;
-    if(db&&sqlite3_prepare_v2(db,sql,-1,&stmt,NULL)==SQLITE_OK){
-        sqlite3_bind_text(stmt,1,value?value:"",-1,SQLITE_TRANSIENT);
-        if(sqlite3_step(stmt)==SQLITE_ROW)count=sqlite3_column_int(stmt,0);
+static int manager_count_for(sqlite3 *db, const char *sql, const char *value) {
+    sqlite3_stmt *stmt = NULL;
+    int count = 0;
+    if (db && sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, value ? value : "", -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(stmt) == SQLITE_ROW)
+            count = sqlite3_column_int(stmt, 0);
     }
-    sqlite3_finalize(stmt);return count;
+    sqlite3_finalize(stmt);
+    return count;
 }
 
-static const char *manager_text(sqlite3_stmt *stmt,int column) {
-    const unsigned char *value=sqlite3_column_text(stmt,column);
-    return value?(const char*)value:"";
+static const char *manager_text(sqlite3_stmt *stmt, int column) {
+    const unsigned char *value = sqlite3_column_text(stmt, column);
+    return value ? (const char *)value : "";
 }
 
 static int manager_isolated_mock_enabled(void) {
-    char guard[16]={0},cache[CBM_SZ_1K]={0},temp[CBM_SZ_1K]={0};
-    if(!cbm_safe_getenv("CBM_STAGE14_MANAGER_ISOLATED_MOCK",guard,sizeof(guard),NULL)||strcmp(guard,"1")!=0)return 0;
-    const char *cache_dir=cbm_resolve_cache_dir(),*temp_dir=cbm_tmpdir();
-    if(!cache_dir||!temp_dir)return 0;
-    snprintf(cache,sizeof(cache),"%s",cache_dir);snprintf(temp,sizeof(temp),"%s",temp_dir);
-    cbm_normalize_path_sep(cache);cbm_normalize_path_sep(temp);
-    size_t n=strlen(temp);while(n>1&&temp[n-1]=='/')temp[--n]='\0';
+    char guard[16] = {0}, cache[CBM_SZ_1K] = {0}, temp[CBM_SZ_1K] = {0};
+    if (!cbm_safe_getenv("CBM_STAGE14_MANAGER_ISOLATED_MOCK", guard, sizeof(guard), NULL) ||
+        strcmp(guard, "1") != 0)
+        return 0;
+    const char *cache_dir = cbm_resolve_cache_dir(), *temp_dir = cbm_tmpdir();
+    if (!cache_dir || !temp_dir)
+        return 0;
+    snprintf(cache, sizeof(cache), "%s", cache_dir);
+    snprintf(temp, sizeof(temp), "%s", temp_dir);
+    cbm_normalize_path_sep(cache);
+    cbm_normalize_path_sep(temp);
+    size_t n = strlen(temp);
+    while (n > 1 && temp[n - 1] == '/')
+        temp[--n] = '\0';
 #ifdef _WIN32
-    return _strnicmp(cache,temp,n)==0&&(cache[n]=='\0'||cache[n]=='/');
+    return _strnicmp(cache, temp, n) == 0 && (cache[n] == '\0' || cache[n] == '/');
 #else
-    return strncmp(cache,temp,n)==0&&(cache[n]=='\0'||cache[n]=='/');
+    return strncmp(cache, temp, n) == 0 && (cache[n] == '\0' || cache[n] == '/');
 #endif
 }
 
 static const char *manager_maintenance_state(sqlite3 *db) {
-    if(!manager_table_exists(db,"global_maintenance_lease"))return "idle";
-    sqlite3_stmt *stmt=NULL;const char *state="idle";
-    if(sqlite3_prepare_v2(db,"SELECT COUNT(*) FROM global_maintenance_lease WHERE expires_at>strftime('%Y-%m-%dT%H:%M:%SZ','now');",-1,&stmt,NULL)==SQLITE_OK&&sqlite3_step(stmt)==SQLITE_ROW&&sqlite3_column_int(stmt,0)>0)state="running";
-    sqlite3_finalize(stmt);return state;
+    if (!manager_table_exists(db, "global_maintenance_lease"))
+        return "idle";
+    sqlite3_stmt *stmt = NULL;
+    const char *state = "idle";
+    if (sqlite3_prepare_v2(db,
+                           "SELECT COUNT(*) FROM global_maintenance_lease WHERE "
+                           "expires_at>strftime('%Y-%m-%dT%H:%M:%SZ','now');",
+                           -1, &stmt, NULL) == SQLITE_OK &&
+        sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_int(stmt, 0) > 0)
+        state = "running";
+    sqlite3_finalize(stmt);
+    return state;
 }
 
-char *handle_manager_global_overview(cbm_mcp_server_t *srv,const char *args) {
-    (void)args;sqlite3 *db=manager_global_db(srv),*graph=manager_global_graph_db(srv);yyjson_mut_val *item=NULL;yyjson_mut_doc *doc=manager_detail_doc("semantic-memory-manager-global-overview/v1",db?"ok":"unavailable",&item);
-    yyjson_mut_obj_add_int(doc,item,"project_count",manager_count(db,"global_project_catalog"));yyjson_mut_obj_add_int(doc,item,"memory_count",manager_count(db,"memory_item"));yyjson_mut_obj_add_int(doc,item,"cross_project_edge_count",manager_count(graph,"global_cross_project_edge"));yyjson_mut_obj_add_int(doc,item,"task_count",manager_count(db,"memory_task"));yyjson_mut_obj_add_str(doc,item,"maintenance_state",manager_maintenance_state(db));yyjson_mut_obj_add_bool(doc,item,"global_default_candidate_pool",true);
-    yyjson_mut_val *projects=yyjson_mut_arr(doc);yyjson_mut_obj_add_val(doc,item,"projects",projects);sqlite3_stmt *stmt=NULL;
-    const char *sql="SELECT c.project_uuid,c.display_name,c.workspace_state,c.index_state,c.last_seen_at,(SELECT COUNT(*) FROM global_memory_provenance p WHERE p.project_uuid=c.project_uuid),(SELECT COUNT(*) FROM global_task_workspace w WHERE w.project_uuid=c.project_uuid) FROM global_project_catalog c ORDER BY c.display_name,c.project_uuid;";
-    if(db&&sqlite3_prepare_v2(db,sql,-1,&stmt,NULL)==SQLITE_OK){while(sqlite3_step(stmt)==SQLITE_ROW){yyjson_mut_val *row=yyjson_mut_obj(doc);yyjson_mut_obj_add_strcpy(doc,row,"project_uuid",manager_text(stmt,0));yyjson_mut_obj_add_strcpy(doc,row,"display_name",manager_text(stmt,1));yyjson_mut_obj_add_strcpy(doc,row,"workspace_state",manager_text(stmt,2));yyjson_mut_obj_add_strcpy(doc,row,"index_state",manager_text(stmt,3));yyjson_mut_obj_add_strcpy(doc,row,"last_seen_at",manager_text(stmt,4));yyjson_mut_obj_add_int(doc,row,"memory_count",sqlite3_column_int(stmt,5));yyjson_mut_obj_add_int(doc,row,"task_count",sqlite3_column_int(stmt,6));yyjson_mut_arr_add_val(projects,row);}}sqlite3_finalize(stmt);return manager_wrap(doc);
-}
-
-char *handle_manager_global_memory(cbm_mcp_server_t *srv,const char *args) {
-    sqlite3 *db=manager_global_db(srv);int cursor=cbm_mcp_get_int_arg(args,"cursor",0),limit=cbm_mcp_get_int_arg(args,"limit",50);if(cursor<0)cursor=0;if(limit<1)limit=1;if(limit>200)limit=200;
-    yyjson_mut_val *root=NULL,*items=NULL;yyjson_mut_doc *doc=manager_list_doc("semantic-memory-manager-global-memory/v1",db?"ok":"unavailable",&root,&items);int returned=0,total=manager_count(db,"memory_item");
-    const char *sql="SELECT m.id,m.kind,COALESCE(m.title,''),COALESCE(m.summary,''),m.status,COALESCE(p.project_uuid,m.scope_project,'__global__'),COALESCE(c.display_name,COALESCE(p.project_uuid,m.scope_project,'Global')),COALESCE((SELECT e.evidence_grade FROM global_evolution_event e WHERE e.object_id=m.id ORDER BY e.sequence_no DESC LIMIT 1),'ungraded'),m.created_at,COALESCE(p.source_kind,'global_memory'),COALESCE(p.legacy_project_id,'') FROM memory_item m LEFT JOIN global_memory_provenance p ON p.memory_item_id=m.id LEFT JOIN global_project_catalog c ON c.project_uuid=p.project_uuid WHERE m.deleted_at IS NULL ORDER BY m.updated_at DESC,m.id LIMIT ?1 OFFSET ?2;";
-    sqlite3_stmt *stmt=NULL;if(db&&sqlite3_prepare_v2(db,sql,-1,&stmt,NULL)==SQLITE_OK){sqlite3_bind_int(stmt,1,limit);sqlite3_bind_int(stmt,2,cursor);while(sqlite3_step(stmt)==SQLITE_ROW){yyjson_mut_val *row=yyjson_mut_obj(doc);yyjson_mut_obj_add_strcpy(doc,row,"memory_item_id",manager_text(stmt,0));yyjson_mut_obj_add_strcpy(doc,row,"kind",manager_text(stmt,1));yyjson_mut_obj_add_strcpy(doc,row,"title",manager_text(stmt,2));yyjson_mut_obj_add_strcpy(doc,row,"summary",manager_text(stmt,3));yyjson_mut_obj_add_strcpy(doc,row,"status",manager_text(stmt,4));yyjson_mut_obj_add_strcpy(doc,row,"project_uuid",manager_text(stmt,5));yyjson_mut_obj_add_strcpy(doc,row,"project_name",manager_text(stmt,6));yyjson_mut_obj_add_strcpy(doc,row,"evidence_grade",manager_text(stmt,7));yyjson_mut_obj_add_strcpy(doc,row,"created_at",manager_text(stmt,8));yyjson_mut_val *prov=yyjson_mut_obj(doc);yyjson_mut_obj_add_strcpy(doc,prov,"project_uuid",manager_text(stmt,5));yyjson_mut_obj_add_strcpy(doc,prov,"project_name",manager_text(stmt,6));yyjson_mut_obj_add_strcpy(doc,prov,"source_kind",manager_text(stmt,9));yyjson_mut_obj_add_strcpy(doc,prov,"legacy_project_id",manager_text(stmt,10));yyjson_mut_obj_add_val(doc,row,"provenance",prov);yyjson_mut_arr_add_val(items,row);returned++;}}sqlite3_finalize(stmt);
-    if(cursor+returned<total)yyjson_mut_obj_add_int(doc,root,"next_cursor",cursor+returned);else yyjson_mut_obj_add_null(doc,root,"next_cursor");yyjson_mut_obj_add_int(doc,root,"total",total);return manager_wrap(doc);
-}
-
-char *handle_manager_global_topology(cbm_mcp_server_t *srv,const char *args) {
-    sqlite3 *db=manager_global_graph_db(srv);int cursor=cbm_mcp_get_int_arg(args,"cursor",0),limit=cbm_mcp_get_int_arg(args,"limit",50);if(cursor<0)cursor=0;if(limit<1)limit=1;if(limit>200)limit=200;
-    yyjson_mut_val *root=NULL,*items=NULL;yyjson_mut_doc *doc=manager_list_doc("semantic-memory-manager-global-topology/v1",db?"ok":"unavailable",&root,&items);int total=manager_count(db,"global_cross_project_edge"),returned=0;sqlite3_stmt *stmt=NULL;
-    const char *sql="SELECT e.edge_id,e.source_project_uuid,e.target_project_uuid,e.relation_type,e.weight_ppm,e.confidence_ppm,e.status,e.version,COALESCE(v.evidence_event_id,''),COALESCE(v.payload_sha256,'') FROM global_cross_project_edge e LEFT JOIN global_cross_project_edge_version v ON v.edge_id=e.edge_id AND v.version=e.version ORDER BY e.edge_id LIMIT ?1 OFFSET ?2;";
-    if(db&&manager_table_exists(db,"global_cross_project_edge")&&sqlite3_prepare_v2(db,sql,-1,&stmt,NULL)==SQLITE_OK){sqlite3_bind_int(stmt,1,limit);sqlite3_bind_int(stmt,2,cursor);while(sqlite3_step(stmt)==SQLITE_ROW){yyjson_mut_val *row=yyjson_mut_obj(doc);yyjson_mut_obj_add_strcpy(doc,row,"edge_id",manager_text(stmt,0));yyjson_mut_obj_add_strcpy(doc,row,"source_project_uuid",manager_text(stmt,1));yyjson_mut_obj_add_strcpy(doc,row,"target_project_uuid",manager_text(stmt,2));yyjson_mut_obj_add_strcpy(doc,row,"relation_type",manager_text(stmt,3));yyjson_mut_obj_add_int(doc,row,"weight_ppm",sqlite3_column_int(stmt,4));yyjson_mut_obj_add_int(doc,row,"confidence_ppm",sqlite3_column_int(stmt,5));yyjson_mut_obj_add_strcpy(doc,row,"status",manager_text(stmt,6));yyjson_mut_obj_add_int(doc,row,"version",sqlite3_column_int(stmt,7));yyjson_mut_val *prov=yyjson_mut_obj(doc);yyjson_mut_obj_add_str(doc,prov,"source_kind","global_cross_project_graph");yyjson_mut_obj_add_strcpy(doc,prov,"evidence_event_id",manager_text(stmt,8));yyjson_mut_obj_add_strcpy(doc,prov,"payload_sha256",manager_text(stmt,9));yyjson_mut_obj_add_val(doc,row,"provenance",prov);yyjson_mut_arr_add_val(items,row);returned++;}}sqlite3_finalize(stmt);if(cursor+returned<total)yyjson_mut_obj_add_int(doc,root,"next_cursor",cursor+returned);else yyjson_mut_obj_add_null(doc,root,"next_cursor");yyjson_mut_obj_add_int(doc,root,"total",total);return manager_wrap(doc);
-}
-
-char *handle_manager_evolution(cbm_mcp_server_t *srv,const char *args) {
-    sqlite3 *db=manager_global_db(srv);int cursor=cbm_mcp_get_int_arg(args,"cursor",0),limit=cbm_mcp_get_int_arg(args,"limit",50);if(cursor<0)cursor=0;if(limit<1)limit=1;if(limit>200)limit=200;
-    yyjson_mut_val *root=NULL,*items=NULL;yyjson_mut_doc *doc=manager_list_doc("semantic-memory-manager-evolution/v1",db?"ok":"unavailable",&root,&items);int total=manager_count(db,"global_evolution_event"),returned=0;sqlite3_stmt *stmt=NULL;
-    if(db&&manager_table_exists(db,"global_evolution_event")&&sqlite3_prepare_v2(db,"SELECT event_id,sequence_no,COALESCE(task_id,''),project_uuid,object_kind,object_id,operation,evidence_grade,COALESCE(evidence_id,''),before_sha256,after_sha256,created_at FROM global_evolution_event ORDER BY sequence_no DESC LIMIT ?1 OFFSET ?2;",-1,&stmt,NULL)==SQLITE_OK){sqlite3_bind_int(stmt,1,limit);sqlite3_bind_int(stmt,2,cursor);while(sqlite3_step(stmt)==SQLITE_ROW){yyjson_mut_val *row=yyjson_mut_obj(doc);yyjson_mut_obj_add_strcpy(doc,row,"event_id",manager_text(stmt,0));yyjson_mut_obj_add_int(doc,row,"sequence_no",sqlite3_column_int64(stmt,1));if(manager_text(stmt,2)[0])yyjson_mut_obj_add_strcpy(doc,row,"task_id",manager_text(stmt,2));else yyjson_mut_obj_add_null(doc,row,"task_id");const char *names[]={"project_uuid","object_kind","object_id","operation","evidence_grade","evidence_id","before_sha256","after_sha256","created_at"};for(int i=0;i<9;i++)yyjson_mut_obj_add_strcpy(doc,row,names[i],manager_text(stmt,i+3));yyjson_mut_arr_add_val(items,row);returned++;}}sqlite3_finalize(stmt);if(cursor+returned<total)yyjson_mut_obj_add_int(doc,root,"next_cursor",cursor+returned);else yyjson_mut_obj_add_null(doc,root,"next_cursor");yyjson_mut_obj_add_int(doc,root,"total",total);return manager_wrap(doc);
-}
-
-char *handle_manager_task_chain(cbm_mcp_server_t *srv,const char *args) {
-    sqlite3 *db=manager_global_db(srv);char *task_id=cbm_mcp_get_string_arg(args,"task_id");int exists=manager_count_for(db,"SELECT COUNT(*) FROM memory_task WHERE task_id=?1;",task_id)>0;yyjson_mut_val *item=NULL;yyjson_mut_doc *doc=manager_detail_doc("semantic-memory-manager-task-chain/v1",exists?"ok":"not_found",&item);yyjson_mut_val *links=yyjson_mut_arr(doc);yyjson_mut_obj_add_val(doc,item,"links",links);
-    if(task_id){yyjson_mut_obj_add_strcpy(doc,item,"task_id",task_id);sqlite3_stmt *stmt=NULL;char project_uuid[128]={0};if(db&&sqlite3_prepare_v2(db,"SELECT project,task_type,created_at FROM memory_task WHERE task_id=?1;",-1,&stmt,NULL)==SQLITE_OK){sqlite3_bind_text(stmt,1,task_id,-1,SQLITE_TRANSIENT);if(sqlite3_step(stmt)==SQLITE_ROW){snprintf(project_uuid,sizeof(project_uuid),"%s",manager_text(stmt,0));yyjson_mut_obj_add_strcpy(doc,item,"project_uuid",project_uuid);yyjson_mut_obj_add_strcpy(doc,item,"task_type",manager_text(stmt,1));yyjson_mut_obj_add_strcpy(doc,item,"created_at",manager_text(stmt,2));yyjson_mut_val *link=yyjson_mut_obj(doc);yyjson_mut_obj_add_str(doc,link,"kind","task");yyjson_mut_obj_add_strcpy(doc,link,"id",task_id);yyjson_mut_obj_add_strcpy(doc,link,"label",manager_text(stmt,1));yyjson_mut_obj_add_strcpy(doc,link,"project_uuid",project_uuid);yyjson_mut_arr_add_val(links,link);}}sqlite3_finalize(stmt);
-        int evidence_count=manager_count_for(db,"SELECT COUNT(*) FROM memory_evidence WHERE task_id=?1;",task_id),attribution_count=manager_count_for(db,"SELECT COUNT(*) FROM codex_task_attribution WHERE task_id=?1;",task_id);yyjson_mut_obj_add_int(doc,item,"evidence_count",evidence_count);yyjson_mut_obj_add_int(doc,item,"attribution_total",attribution_count);
-        const char *grade="ungraded";if(manager_count_for(db,"SELECT COUNT(*) FROM memory_evidence WHERE task_id=?1 AND trust_class='external_verified' AND evidence_state='valid';",task_id)>0)grade="A";else if(manager_count_for(db,"SELECT COUNT(*) FROM memory_evidence WHERE task_id=?1 AND trust_class='explicit_user' AND evidence_state='valid';",task_id)>0)grade="B";else if(evidence_count>0)grade="C";yyjson_mut_obj_add_str(doc,item,"evidence_grade",grade);
-        if(db&&sqlite3_prepare_v2(db,"SELECT evidence_id,trust_class,evidence_state,source_type FROM memory_evidence WHERE task_id=?1 ORDER BY created_at,evidence_id;",-1,&stmt,NULL)==SQLITE_OK){sqlite3_bind_text(stmt,1,task_id,-1,SQLITE_TRANSIENT);while(sqlite3_step(stmt)==SQLITE_ROW){yyjson_mut_val *link=yyjson_mut_obj(doc);yyjson_mut_obj_add_str(doc,link,"kind","evidence");yyjson_mut_obj_add_strcpy(doc,link,"id",manager_text(stmt,0));yyjson_mut_obj_add_strcpy(doc,link,"label",manager_text(stmt,1));yyjson_mut_obj_add_strcpy(doc,link,"provenance",manager_text(stmt,3));yyjson_mut_arr_add_val(links,link);}}sqlite3_finalize(stmt);stmt=NULL;
-        if(db&&sqlite3_prepare_v2(db,"SELECT attribution_id,memory_item_id,attribution_state FROM codex_task_attribution WHERE task_id=?1 ORDER BY created_at,attribution_id;",-1,&stmt,NULL)==SQLITE_OK){sqlite3_bind_text(stmt,1,task_id,-1,SQLITE_TRANSIENT);while(sqlite3_step(stmt)==SQLITE_ROW){yyjson_mut_val *link=yyjson_mut_obj(doc);yyjson_mut_obj_add_str(doc,link,"kind","attribution");yyjson_mut_obj_add_strcpy(doc,link,"id",manager_text(stmt,0));yyjson_mut_obj_add_strcpy(doc,link,"label",manager_text(stmt,2));yyjson_mut_obj_add_strcpy(doc,link,"provenance",manager_text(stmt,1));yyjson_mut_arr_add_val(links,link);}}sqlite3_finalize(stmt);stmt=NULL;
-        if(db&&sqlite3_prepare_v2(db,"SELECT event_id,operation,project_uuid FROM global_evolution_event WHERE task_id=?1 ORDER BY sequence_no;",-1,&stmt,NULL)==SQLITE_OK){sqlite3_bind_text(stmt,1,task_id,-1,SQLITE_TRANSIENT);while(sqlite3_step(stmt)==SQLITE_ROW){yyjson_mut_val *link=yyjson_mut_obj(doc);yyjson_mut_obj_add_str(doc,link,"kind","evolution");yyjson_mut_obj_add_strcpy(doc,link,"id",manager_text(stmt,0));yyjson_mut_obj_add_strcpy(doc,link,"label",manager_text(stmt,1));yyjson_mut_obj_add_strcpy(doc,link,"project_uuid",manager_text(stmt,2));yyjson_mut_arr_add_val(links,link);}}sqlite3_finalize(stmt);
+char *handle_manager_global_overview(cbm_mcp_server_t *srv, const char *args) {
+    (void)args;
+    sqlite3 *db = manager_global_db(srv), *graph = manager_global_graph_db(srv);
+    yyjson_mut_val *item = NULL;
+    yyjson_mut_doc *doc = manager_detail_doc("semantic-memory-manager-global-overview/v1",
+                                             db ? "ok" : "unavailable", &item);
+    yyjson_mut_obj_add_int(doc, item, "project_count", manager_count(db, "global_project_catalog"));
+    yyjson_mut_obj_add_int(doc, item, "memory_count", manager_count(db, "memory_item"));
+    yyjson_mut_obj_add_int(doc, item, "cross_project_edge_count",
+                           manager_count(graph, "global_cross_project_edge"));
+    yyjson_mut_obj_add_int(doc, item, "task_count", manager_count(db, "memory_task"));
+    yyjson_mut_obj_add_str(doc, item, "maintenance_state", manager_maintenance_state(db));
+    yyjson_mut_obj_add_bool(doc, item, "global_default_candidate_pool", true);
+    yyjson_mut_val *projects = yyjson_mut_arr(doc);
+    yyjson_mut_obj_add_val(doc, item, "projects", projects);
+    sqlite3_stmt *stmt = NULL;
+    const char *sql =
+        "SELECT "
+        "c.project_uuid,c.display_name,c.workspace_state,c.index_state,c.last_seen_at,(SELECT "
+        "COUNT(*) FROM global_memory_provenance p WHERE p.project_uuid=c.project_uuid),(SELECT "
+        "COUNT(*) FROM global_task_workspace w WHERE w.project_uuid=c.project_uuid) FROM "
+        "global_project_catalog c ORDER BY c.display_name,c.project_uuid;";
+    if (db && sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK) {
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            yyjson_mut_val *row = yyjson_mut_obj(doc);
+            yyjson_mut_obj_add_strcpy(doc, row, "project_uuid", manager_text(stmt, 0));
+            yyjson_mut_obj_add_strcpy(doc, row, "display_name", manager_text(stmt, 1));
+            yyjson_mut_obj_add_strcpy(doc, row, "workspace_state", manager_text(stmt, 2));
+            yyjson_mut_obj_add_strcpy(doc, row, "index_state", manager_text(stmt, 3));
+            yyjson_mut_obj_add_strcpy(doc, row, "last_seen_at", manager_text(stmt, 4));
+            yyjson_mut_obj_add_int(doc, row, "memory_count", sqlite3_column_int(stmt, 5));
+            yyjson_mut_obj_add_int(doc, row, "task_count", sqlite3_column_int(stmt, 6));
+            yyjson_mut_arr_add_val(projects, row);
+        }
     }
-    char *response=manager_wrap(doc);
+    sqlite3_finalize(stmt);
+    return manager_wrap(doc);
+}
+
+char *handle_manager_global_memory(cbm_mcp_server_t *srv, const char *args) {
+    sqlite3 *db = manager_global_db(srv);
+    int cursor = cbm_mcp_get_int_arg(args, "cursor", 0),
+        limit = cbm_mcp_get_int_arg(args, "limit", 50);
+    if (cursor < 0)
+        cursor = 0;
+    if (limit < 1)
+        limit = 1;
+    if (limit > 200)
+        limit = 200;
+    yyjson_mut_val *root = NULL, *items = NULL;
+    yyjson_mut_doc *doc = manager_list_doc("semantic-memory-manager-global-memory/v1",
+                                           db ? "ok" : "unavailable", &root, &items);
+    int returned = 0, total = manager_count(db, "memory_item");
+    const char *sql =
+        "SELECT "
+        "m.id,m.kind,COALESCE(m.title,''),COALESCE(m.summary,''),m.status,COALESCE(p.project_uuid,"
+        "m.scope_project,'__global__'),COALESCE(c.display_name,COALESCE(p.project_uuid,m.scope_"
+        "project,'Global')),COALESCE((SELECT e.evidence_grade FROM global_evolution_event e WHERE "
+        "e.object_id=m.id ORDER BY e.sequence_no DESC LIMIT "
+        "1),'ungraded'),m.created_at,COALESCE(p.source_kind,'global_memory'),COALESCE(p.legacy_"
+        "project_id,'') FROM memory_item m LEFT JOIN global_memory_provenance p ON "
+        "p.memory_item_id=m.id LEFT JOIN global_project_catalog c ON c.project_uuid=p.project_uuid "
+        "WHERE m.deleted_at IS NULL ORDER BY m.updated_at DESC,m.id LIMIT ?1 OFFSET ?2;";
+    sqlite3_stmt *stmt = NULL;
+    if (db && sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, limit);
+        sqlite3_bind_int(stmt, 2, cursor);
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            yyjson_mut_val *row = yyjson_mut_obj(doc);
+            yyjson_mut_obj_add_strcpy(doc, row, "memory_item_id", manager_text(stmt, 0));
+            yyjson_mut_obj_add_strcpy(doc, row, "kind", manager_text(stmt, 1));
+            yyjson_mut_obj_add_strcpy(doc, row, "title", manager_text(stmt, 2));
+            yyjson_mut_obj_add_strcpy(doc, row, "summary", manager_text(stmt, 3));
+            yyjson_mut_obj_add_strcpy(doc, row, "status", manager_text(stmt, 4));
+            yyjson_mut_obj_add_strcpy(doc, row, "project_uuid", manager_text(stmt, 5));
+            yyjson_mut_obj_add_strcpy(doc, row, "project_name", manager_text(stmt, 6));
+            yyjson_mut_obj_add_strcpy(doc, row, "evidence_grade", manager_text(stmt, 7));
+            yyjson_mut_obj_add_strcpy(doc, row, "created_at", manager_text(stmt, 8));
+            yyjson_mut_val *prov = yyjson_mut_obj(doc);
+            yyjson_mut_obj_add_strcpy(doc, prov, "project_uuid", manager_text(stmt, 5));
+            yyjson_mut_obj_add_strcpy(doc, prov, "project_name", manager_text(stmt, 6));
+            yyjson_mut_obj_add_strcpy(doc, prov, "source_kind", manager_text(stmt, 9));
+            yyjson_mut_obj_add_strcpy(doc, prov, "legacy_project_id", manager_text(stmt, 10));
+            yyjson_mut_obj_add_val(doc, row, "provenance", prov);
+            yyjson_mut_arr_add_val(items, row);
+            returned++;
+        }
+    }
+    sqlite3_finalize(stmt);
+    if (cursor + returned < total)
+        yyjson_mut_obj_add_int(doc, root, "next_cursor", cursor + returned);
+    else
+        yyjson_mut_obj_add_null(doc, root, "next_cursor");
+    yyjson_mut_obj_add_int(doc, root, "total", total);
+    return manager_wrap(doc);
+}
+
+char *handle_manager_global_topology(cbm_mcp_server_t *srv, const char *args) {
+    sqlite3 *db = manager_global_graph_db(srv);
+    int cursor = cbm_mcp_get_int_arg(args, "cursor", 0),
+        limit = cbm_mcp_get_int_arg(args, "limit", 50);
+    if (cursor < 0)
+        cursor = 0;
+    if (limit < 1)
+        limit = 1;
+    if (limit > 200)
+        limit = 200;
+    yyjson_mut_val *root = NULL, *items = NULL;
+    yyjson_mut_doc *doc = manager_list_doc("semantic-memory-manager-global-topology/v1",
+                                           db ? "ok" : "unavailable", &root, &items);
+    int total = manager_count(db, "global_cross_project_edge"), returned = 0;
+    sqlite3_stmt *stmt = NULL;
+    const char *sql =
+        "SELECT "
+        "e.edge_id,e.source_project_uuid,e.target_project_uuid,e.relation_type,e.weight_ppm,e."
+        "confidence_ppm,e.status,e.version,COALESCE(v.evidence_event_id,''),COALESCE(v.payload_"
+        "sha256,'') FROM global_cross_project_edge e LEFT JOIN global_cross_project_edge_version v "
+        "ON v.edge_id=e.edge_id AND v.version=e.version ORDER BY e.edge_id LIMIT ?1 OFFSET ?2;";
+    if (db && manager_table_exists(db, "global_cross_project_edge") &&
+        sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, limit);
+        sqlite3_bind_int(stmt, 2, cursor);
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            yyjson_mut_val *row = yyjson_mut_obj(doc);
+            yyjson_mut_obj_add_strcpy(doc, row, "edge_id", manager_text(stmt, 0));
+            yyjson_mut_obj_add_strcpy(doc, row, "source_project_uuid", manager_text(stmt, 1));
+            yyjson_mut_obj_add_strcpy(doc, row, "target_project_uuid", manager_text(stmt, 2));
+            yyjson_mut_obj_add_strcpy(doc, row, "relation_type", manager_text(stmt, 3));
+            yyjson_mut_obj_add_int(doc, row, "weight_ppm", sqlite3_column_int(stmt, 4));
+            yyjson_mut_obj_add_int(doc, row, "confidence_ppm", sqlite3_column_int(stmt, 5));
+            yyjson_mut_obj_add_strcpy(doc, row, "status", manager_text(stmt, 6));
+            yyjson_mut_obj_add_int(doc, row, "version", sqlite3_column_int(stmt, 7));
+            yyjson_mut_val *prov = yyjson_mut_obj(doc);
+            yyjson_mut_obj_add_str(doc, prov, "source_kind", "global_cross_project_graph");
+            yyjson_mut_obj_add_strcpy(doc, prov, "evidence_event_id", manager_text(stmt, 8));
+            yyjson_mut_obj_add_strcpy(doc, prov, "payload_sha256", manager_text(stmt, 9));
+            yyjson_mut_obj_add_val(doc, row, "provenance", prov);
+            yyjson_mut_arr_add_val(items, row);
+            returned++;
+        }
+    }
+    sqlite3_finalize(stmt);
+    if (cursor + returned < total)
+        yyjson_mut_obj_add_int(doc, root, "next_cursor", cursor + returned);
+    else
+        yyjson_mut_obj_add_null(doc, root, "next_cursor");
+    yyjson_mut_obj_add_int(doc, root, "total", total);
+    return manager_wrap(doc);
+}
+
+char *handle_manager_evolution(cbm_mcp_server_t *srv, const char *args) {
+    sqlite3 *db = manager_global_db(srv);
+    int cursor = cbm_mcp_get_int_arg(args, "cursor", 0),
+        limit = cbm_mcp_get_int_arg(args, "limit", 50);
+    if (cursor < 0)
+        cursor = 0;
+    if (limit < 1)
+        limit = 1;
+    if (limit > 200)
+        limit = 200;
+    yyjson_mut_val *root = NULL, *items = NULL;
+    yyjson_mut_doc *doc = manager_list_doc("semantic-memory-manager-evolution/v1",
+                                           db ? "ok" : "unavailable", &root, &items);
+    int total = manager_count(db, "global_evolution_event"), returned = 0;
+    sqlite3_stmt *stmt = NULL;
+    if (db && manager_table_exists(db, "global_evolution_event") &&
+        sqlite3_prepare_v2(
+            db,
+            "SELECT "
+            "event_id,sequence_no,COALESCE(task_id,''),project_uuid,object_kind,object_id,"
+            "operation,evidence_grade,COALESCE(evidence_id,''),before_sha256,after_sha256,created_"
+            "at FROM global_evolution_event ORDER BY sequence_no DESC LIMIT ?1 OFFSET ?2;",
+            -1, &stmt, NULL) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, limit);
+        sqlite3_bind_int(stmt, 2, cursor);
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            yyjson_mut_val *row = yyjson_mut_obj(doc);
+            yyjson_mut_obj_add_strcpy(doc, row, "event_id", manager_text(stmt, 0));
+            yyjson_mut_obj_add_int(doc, row, "sequence_no", sqlite3_column_int64(stmt, 1));
+            if (manager_text(stmt, 2)[0])
+                yyjson_mut_obj_add_strcpy(doc, row, "task_id", manager_text(stmt, 2));
+            else
+                yyjson_mut_obj_add_null(doc, row, "task_id");
+            const char *names[] = {"project_uuid",  "object_kind",    "object_id",
+                                   "operation",     "evidence_grade", "evidence_id",
+                                   "before_sha256", "after_sha256",   "created_at"};
+            for (int i = 0; i < 9; i++)
+                yyjson_mut_obj_add_strcpy(doc, row, names[i], manager_text(stmt, i + 3));
+            yyjson_mut_arr_add_val(items, row);
+            returned++;
+        }
+    }
+    sqlite3_finalize(stmt);
+    if (cursor + returned < total)
+        yyjson_mut_obj_add_int(doc, root, "next_cursor", cursor + returned);
+    else
+        yyjson_mut_obj_add_null(doc, root, "next_cursor");
+    yyjson_mut_obj_add_int(doc, root, "total", total);
+    return manager_wrap(doc);
+}
+
+char *handle_manager_task_chain(cbm_mcp_server_t *srv, const char *args) {
+    sqlite3 *db = manager_global_db(srv);
+    char *task_id = cbm_mcp_get_string_arg(args, "task_id");
+    int exists =
+        manager_count_for(db, "SELECT COUNT(*) FROM memory_task WHERE task_id=?1;", task_id) > 0;
+    yyjson_mut_val *item = NULL;
+    yyjson_mut_doc *doc = manager_detail_doc("semantic-memory-manager-task-chain/v1",
+                                             exists ? "ok" : "not_found", &item);
+    yyjson_mut_val *links = yyjson_mut_arr(doc);
+    yyjson_mut_obj_add_val(doc, item, "links", links);
+    if (task_id) {
+        yyjson_mut_obj_add_strcpy(doc, item, "task_id", task_id);
+        sqlite3_stmt *stmt = NULL;
+        char project_uuid[128] = {0};
+        if (db && sqlite3_prepare_v2(
+                      db, "SELECT project,task_type,created_at FROM memory_task WHERE task_id=?1;",
+                      -1, &stmt, NULL) == SQLITE_OK) {
+            sqlite3_bind_text(stmt, 1, task_id, -1, SQLITE_TRANSIENT);
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                snprintf(project_uuid, sizeof(project_uuid), "%s", manager_text(stmt, 0));
+                yyjson_mut_obj_add_strcpy(doc, item, "project_uuid", project_uuid);
+                yyjson_mut_obj_add_strcpy(doc, item, "task_type", manager_text(stmt, 1));
+                yyjson_mut_obj_add_strcpy(doc, item, "created_at", manager_text(stmt, 2));
+                yyjson_mut_val *link = yyjson_mut_obj(doc);
+                yyjson_mut_obj_add_str(doc, link, "kind", "task");
+                yyjson_mut_obj_add_strcpy(doc, link, "id", task_id);
+                yyjson_mut_obj_add_strcpy(doc, link, "label", manager_text(stmt, 1));
+                yyjson_mut_obj_add_strcpy(doc, link, "project_uuid", project_uuid);
+                yyjson_mut_arr_add_val(links, link);
+            }
+        }
+        sqlite3_finalize(stmt);
+        int evidence_count = manager_count_for(
+                db, "SELECT COUNT(*) FROM memory_evidence WHERE task_id=?1;", task_id),
+            attribution_count = manager_count_for(
+                db, "SELECT COUNT(*) FROM codex_task_attribution WHERE task_id=?1;", task_id);
+        yyjson_mut_obj_add_int(doc, item, "evidence_count", evidence_count);
+        yyjson_mut_obj_add_int(doc, item, "attribution_total", attribution_count);
+        const char *grade = "ungraded";
+        if (manager_count_for(db,
+                              "SELECT COUNT(*) FROM memory_evidence WHERE task_id=?1 AND "
+                              "trust_class='external_verified' AND evidence_state='valid';",
+                              task_id) > 0)
+            grade = "A";
+        else if (manager_count_for(db,
+                                   "SELECT COUNT(*) FROM memory_evidence WHERE task_id=?1 AND "
+                                   "trust_class='explicit_user' AND evidence_state='valid';",
+                                   task_id) > 0)
+            grade = "B";
+        else if (evidence_count > 0)
+            grade = "C";
+        yyjson_mut_obj_add_str(doc, item, "evidence_grade", grade);
+        if (db &&
+            sqlite3_prepare_v2(db,
+                               "SELECT evidence_id,trust_class,evidence_state,source_type FROM "
+                               "memory_evidence WHERE task_id=?1 ORDER BY created_at,evidence_id;",
+                               -1, &stmt, NULL) == SQLITE_OK) {
+            sqlite3_bind_text(stmt, 1, task_id, -1, SQLITE_TRANSIENT);
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+                yyjson_mut_val *link = yyjson_mut_obj(doc);
+                yyjson_mut_obj_add_str(doc, link, "kind", "evidence");
+                yyjson_mut_obj_add_strcpy(doc, link, "id", manager_text(stmt, 0));
+                yyjson_mut_obj_add_strcpy(doc, link, "label", manager_text(stmt, 1));
+                yyjson_mut_obj_add_strcpy(doc, link, "provenance", manager_text(stmt, 3));
+                yyjson_mut_arr_add_val(links, link);
+            }
+        }
+        sqlite3_finalize(stmt);
+        stmt = NULL;
+        if (db && sqlite3_prepare_v2(
+                      db,
+                      "SELECT attribution_id,memory_item_id,attribution_state FROM "
+                      "codex_task_attribution WHERE task_id=?1 ORDER BY created_at,attribution_id;",
+                      -1, &stmt, NULL) == SQLITE_OK) {
+            sqlite3_bind_text(stmt, 1, task_id, -1, SQLITE_TRANSIENT);
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+                yyjson_mut_val *link = yyjson_mut_obj(doc);
+                yyjson_mut_obj_add_str(doc, link, "kind", "attribution");
+                yyjson_mut_obj_add_strcpy(doc, link, "id", manager_text(stmt, 0));
+                yyjson_mut_obj_add_strcpy(doc, link, "label", manager_text(stmt, 2));
+                yyjson_mut_obj_add_strcpy(doc, link, "provenance", manager_text(stmt, 1));
+                yyjson_mut_arr_add_val(links, link);
+            }
+        }
+        sqlite3_finalize(stmt);
+        stmt = NULL;
+        if (db &&
+            sqlite3_prepare_v2(db,
+                               "SELECT event_id,operation,project_uuid FROM global_evolution_event "
+                               "WHERE task_id=?1 ORDER BY sequence_no;",
+                               -1, &stmt, NULL) == SQLITE_OK) {
+            sqlite3_bind_text(stmt, 1, task_id, -1, SQLITE_TRANSIENT);
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+                yyjson_mut_val *link = yyjson_mut_obj(doc);
+                yyjson_mut_obj_add_str(doc, link, "kind", "evolution");
+                yyjson_mut_obj_add_strcpy(doc, link, "id", manager_text(stmt, 0));
+                yyjson_mut_obj_add_strcpy(doc, link, "label", manager_text(stmt, 1));
+                yyjson_mut_obj_add_strcpy(doc, link, "project_uuid", manager_text(stmt, 2));
+                yyjson_mut_arr_add_val(links, link);
+            }
+        }
+        sqlite3_finalize(stmt);
+    }
+    char *response = manager_wrap(doc);
     free(task_id);
     return response;
 }
 
-char *handle_manager_drift_preview(cbm_mcp_server_t *srv,const char *args) {
-    (void)args;sqlite3 *db=manager_global_db(srv);yyjson_mut_val *item=NULL;yyjson_mut_doc *doc=manager_detail_doc("semantic-memory-manager-drift-preview/v1",db?"ok":"unavailable",&item);int count=manager_count(db,"global_config_drift_event");char classification[128]="none";sqlite3_stmt *stmt=NULL;if(db&&sqlite3_prepare_v2(db,"SELECT classification FROM global_config_drift_event ORDER BY created_at DESC,event_id DESC LIMIT 1;",-1,&stmt,NULL)==SQLITE_OK&&sqlite3_step(stmt)==SQLITE_ROW)snprintf(classification,sizeof(classification),"%s",manager_text(stmt,0));sqlite3_finalize(stmt);int blocking=count>0&&strncmp(classification,"GREEN_",6)!=0&&strcmp(classification,"none")!=0;yyjson_mut_obj_add_int(doc,item,"event_count",count);yyjson_mut_obj_add_bool(doc,item,"third_party_config_body_included",false);yyjson_mut_obj_add_str(doc,item,"classification",classification);yyjson_mut_obj_add_bool(doc,item,"blocking",blocking!=0);yyjson_mut_val *repair=yyjson_mut_obj(doc);yyjson_mut_obj_add_str(doc,repair,"action",blocking?"restore_managed_fields":"none");yyjson_mut_obj_add_int(doc,repair,"writes_required",0);yyjson_mut_obj_add_bool(doc,repair,"requires_confirmation",blocking!=0);yyjson_mut_obj_add_val(doc,item,"repair_preview",repair);return manager_wrap(doc);
+char *handle_manager_drift_preview(cbm_mcp_server_t *srv, const char *args) {
+    (void)args;
+    sqlite3 *db = manager_global_db(srv);
+    yyjson_mut_val *item = NULL;
+    yyjson_mut_doc *doc = manager_detail_doc("semantic-memory-manager-drift-preview/v1",
+                                             db ? "ok" : "unavailable", &item);
+    int count = manager_count(db, "global_config_drift_event");
+    char classification[128] = "none";
+    sqlite3_stmt *stmt = NULL;
+    if (db &&
+        sqlite3_prepare_v2(db,
+                           "SELECT classification FROM global_config_drift_event ORDER BY "
+                           "created_at DESC,event_id DESC LIMIT 1;",
+                           -1, &stmt, NULL) == SQLITE_OK &&
+        sqlite3_step(stmt) == SQLITE_ROW)
+        snprintf(classification, sizeof(classification), "%s", manager_text(stmt, 0));
+    sqlite3_finalize(stmt);
+    int blocking = count > 0 && strncmp(classification, "GREEN_", 6) != 0 &&
+                   strcmp(classification, "none") != 0;
+    yyjson_mut_obj_add_int(doc, item, "event_count", count);
+    yyjson_mut_obj_add_bool(doc, item, "third_party_config_body_included", false);
+    yyjson_mut_obj_add_str(doc, item, "classification", classification);
+    yyjson_mut_obj_add_bool(doc, item, "blocking", blocking != 0);
+    yyjson_mut_val *repair = yyjson_mut_obj(doc);
+    yyjson_mut_obj_add_str(doc, repair, "action", blocking ? "restore_managed_fields" : "none");
+    yyjson_mut_obj_add_int(doc, repair, "writes_required", 0);
+    yyjson_mut_obj_add_bool(doc, repair, "requires_confirmation", blocking != 0);
+    yyjson_mut_obj_add_val(doc, item, "repair_preview", repair);
+    return manager_wrap(doc);
 }
 
-char *handle_manager_maintenance_preview(cbm_mcp_server_t *srv,const char *args) {
+char *handle_manager_maintenance_preview(cbm_mcp_server_t *srv, const char *args) {
     (void)args;
-    cbm_store_t *store=resolve_global_memory_store(srv,false);
-    sqlite3 *db=store?cbm_store_get_db(store):NULL;
-    cbm_evolution_maintenance_input_t input={.mode="shadow",.project_uuid="*",
-        .owner_id="manager-preview",.idempotency_key="manager-preview-shadow-v1",
-        .limit=1000,.budget_seconds=30,.isolated_write_allowed=0,.production_gate_allowed=0};
-    cbm_evolution_result_t preview={0};
-    int preview_rc=store?cbm_evolution_maintenance_store(store,&input,&preview):CBM_STORE_ERR;
-    yyjson_mut_val *item=NULL;
-    yyjson_mut_doc *doc=manager_detail_doc("semantic-memory-manager-maintenance-preview/v1",
-        preview_rc==CBM_STORE_OK?"ok":"unavailable",&item);
-    yyjson_mut_obj_add_str(doc,item,"state",manager_maintenance_state(db));
-    yyjson_mut_obj_add_str(doc,item,"mode",manager_isolated_mock_enabled()?"isolated_mock":"production");
-    yyjson_mut_obj_add_int(doc,item,"candidate_memories",preview.eligible);
-    yyjson_mut_obj_add_str(doc,item,"controller_mode","shadow");
-    yyjson_mut_obj_add_bool(doc,item,"controller_wrote",false);
-    yyjson_mut_obj_add_int(doc,item,"budget_seconds_max",30);
-    yyjson_mut_obj_add_bool(doc,item,"hard_delete_allowed",false);
-    stage14_canary_authorization_t authorization={0};
-    const char *authorization_code="PRODUCTION_GATE_NOT_LOADED";
-    int authorization_ready=stage14_load_canary_authorization(
-        NULL,NULL,false,&authorization,&authorization_code);
-    char authorization_path[STAGE14_CANARY_PATH_CAP]={0};
-    char authorization_sha256[80]={0};
-    cbm_safe_getenv("CBM_STAGE14_CANARY_AUTH_MANIFEST",authorization_path,
-                    sizeof(authorization_path),NULL);
-    cbm_safe_getenv("CBM_STAGE14_CANARY_AUTH_SHA256",authorization_sha256,
-                    sizeof(authorization_sha256),NULL);
-    yyjson_mut_obj_add_bool(doc,item,"production_gate_loaded",authorization_ready!=0);
-    yyjson_mut_obj_add_bool(doc,item,"production_actions_enabled",authorization_ready!=0);
-    yyjson_mut_obj_add_str(doc,item,"production_gate_status",authorization_code);
-    yyjson_mut_obj_add_strcpy(doc,item,"authorization_manifest_path",authorization_path);
-    yyjson_mut_obj_add_strcpy(doc,item,"authorization_manifest_sha256",
-                              authorization_sha256);
-    yyjson_mut_obj_add_strcpy(doc,item,"task_evolution_manifest_path",
+    cbm_store_t *store = resolve_global_memory_store(srv, false);
+    sqlite3 *db = store ? cbm_store_get_db(store) : NULL;
+    cbm_evolution_maintenance_input_t input = {.mode = "shadow",
+                                               .project_uuid = "*",
+                                               .owner_id = "manager-preview",
+                                               .idempotency_key = "manager-preview-shadow-v1",
+                                               .limit = 1000,
+                                               .budget_seconds = 30,
+                                               .isolated_write_allowed = 0,
+                                               .production_gate_allowed = 0};
+    cbm_evolution_result_t preview = {0};
+    int preview_rc =
+        store ? cbm_evolution_maintenance_store(store, &input, &preview) : CBM_STORE_ERR;
+    yyjson_mut_val *item = NULL;
+    yyjson_mut_doc *doc =
+        manager_detail_doc("semantic-memory-manager-maintenance-preview/v1",
+                           preview_rc == CBM_STORE_OK ? "ok" : "unavailable", &item);
+    yyjson_mut_obj_add_str(doc, item, "state", manager_maintenance_state(db));
+    yyjson_mut_obj_add_str(doc, item, "mode",
+                           manager_isolated_mock_enabled() ? "isolated_mock" : "production");
+    yyjson_mut_obj_add_int(doc, item, "candidate_memories", preview.eligible);
+    yyjson_mut_obj_add_str(doc, item, "controller_mode", "shadow");
+    yyjson_mut_obj_add_bool(doc, item, "controller_wrote", false);
+    yyjson_mut_obj_add_int(doc, item, "budget_seconds_max", 30);
+    yyjson_mut_obj_add_bool(doc, item, "hard_delete_allowed", false);
+    stage14_canary_authorization_t authorization = {0};
+    const char *authorization_code = "PRODUCTION_GATE_NOT_LOADED";
+    int authorization_ready =
+        stage14_load_canary_authorization(NULL, NULL, false, &authorization, &authorization_code);
+    char authorization_path[STAGE14_CANARY_PATH_CAP] = {0};
+    char authorization_sha256[80] = {0};
+    cbm_safe_getenv("CBM_STAGE14_CANARY_AUTH_MANIFEST", authorization_path,
+                    sizeof(authorization_path), NULL);
+    cbm_safe_getenv("CBM_STAGE14_CANARY_AUTH_SHA256", authorization_sha256,
+                    sizeof(authorization_sha256), NULL);
+    yyjson_mut_obj_add_bool(doc, item, "production_gate_loaded", authorization_ready != 0);
+    yyjson_mut_obj_add_bool(doc, item, "production_actions_enabled", authorization_ready != 0);
+    yyjson_mut_obj_add_str(doc, item, "production_gate_status", authorization_code);
+    yyjson_mut_obj_add_strcpy(doc, item, "authorization_manifest_path", authorization_path);
+    yyjson_mut_obj_add_strcpy(doc, item, "authorization_manifest_sha256", authorization_sha256);
+    yyjson_mut_obj_add_strcpy(doc, item, "task_evolution_manifest_path",
                               authorization.task_evolution_manifest_path);
-    yyjson_mut_obj_add_strcpy(doc,item,"task_evolution_manifest_sha256",
+    yyjson_mut_obj_add_strcpy(doc, item, "task_evolution_manifest_sha256",
                               authorization.task_evolution_manifest_sha256);
-    yyjson_mut_obj_add_strcpy(doc,item,"edge_manifest_path",
-                              authorization.edge_manifest_path);
-    yyjson_mut_obj_add_strcpy(doc,item,"edge_manifest_sha256",
+    yyjson_mut_obj_add_strcpy(doc, item, "edge_manifest_path", authorization.edge_manifest_path);
+    yyjson_mut_obj_add_strcpy(doc, item, "edge_manifest_sha256",
                               authorization.edge_manifest_sha256);
-    yyjson_mut_obj_add_strcpy(doc,item,"concept_manifest_path",
+    yyjson_mut_obj_add_strcpy(doc, item, "concept_manifest_path",
                               authorization.concept_manifest_path);
-    yyjson_mut_obj_add_strcpy(doc,item,"concept_manifest_sha256",
+    yyjson_mut_obj_add_strcpy(doc, item, "concept_manifest_sha256",
                               authorization.concept_manifest_sha256);
-    yyjson_mut_obj_add_strcpy(doc,item,"authorization_expires_at",
-                              authorization.expires_at);
-    yyjson_mut_obj_add_bool(doc,item,"production_pause_supported",false);
-    yyjson_mut_obj_add_str(doc,item,"production_pause_status",
-                           "CORE_PAUSE_API_UNAVAILABLE");
-    sqlite3_stmt *stmt=NULL;int lease=0;
-    if(db&&sqlite3_prepare_v2(db,"SELECT owner_id,checkpoint_json,acquired_at FROM global_maintenance_lease ORDER BY acquired_at DESC LIMIT 1;",-1,&stmt,NULL)==SQLITE_OK&&sqlite3_step(stmt)==SQLITE_ROW){lease=1;yyjson_mut_obj_add_strcpy(doc,item,"lease_owner",manager_text(stmt,0));yyjson_mut_obj_add_strcpy(doc,item,"checkpoint",manager_text(stmt,1));yyjson_mut_obj_add_strcpy(doc,item,"last_run_at",manager_text(stmt,2));}
-    sqlite3_finalize(stmt);stmt=NULL;
-    if(!lease){yyjson_mut_obj_add_null(doc,item,"lease_owner");yyjson_mut_obj_add_str(doc,item,"checkpoint","none");yyjson_mut_obj_add_null(doc,item,"last_run_at");}
-    yyjson_mut_val *history=yyjson_mut_arr(doc);yyjson_mut_obj_add_val(doc,item,"history",history);
-    if(db&&manager_table_exists(db,"global_maintenance_run")&&sqlite3_prepare_v2(db,"SELECT run_id,mode,status,started_at,COALESCE(completed_at,''),checkpoint_json FROM global_maintenance_run ORDER BY started_at DESC,run_id DESC LIMIT 50;",-1,&stmt,NULL)==SQLITE_OK){while(sqlite3_step(stmt)==SQLITE_ROW){yyjson_mut_val *row=yyjson_mut_obj(doc);yyjson_mut_obj_add_strcpy(doc,row,"run_id",manager_text(stmt,0));yyjson_mut_obj_add_strcpy(doc,row,"mode",manager_text(stmt,1));yyjson_mut_obj_add_strcpy(doc,row,"status",manager_text(stmt,2));yyjson_mut_obj_add_strcpy(doc,row,"created_at",manager_text(stmt,3));yyjson_mut_obj_add_strcpy(doc,row,"completed_at",manager_text(stmt,4));yyjson_mut_obj_add_strcpy(doc,row,"checkpoint",manager_text(stmt,5));yyjson_mut_arr_add_val(history,row);}}
+    yyjson_mut_obj_add_strcpy(doc, item, "authorization_expires_at", authorization.expires_at);
+    yyjson_mut_obj_add_bool(doc, item, "production_pause_supported", false);
+    yyjson_mut_obj_add_str(doc, item, "production_pause_status", "CORE_PAUSE_API_UNAVAILABLE");
+    sqlite3_stmt *stmt = NULL;
+    int lease = 0;
+    if (db &&
+        sqlite3_prepare_v2(db,
+                           "SELECT owner_id,checkpoint_json,acquired_at FROM "
+                           "global_maintenance_lease ORDER BY acquired_at DESC LIMIT 1;",
+                           -1, &stmt, NULL) == SQLITE_OK &&
+        sqlite3_step(stmt) == SQLITE_ROW) {
+        lease = 1;
+        yyjson_mut_obj_add_strcpy(doc, item, "lease_owner", manager_text(stmt, 0));
+        yyjson_mut_obj_add_strcpy(doc, item, "checkpoint", manager_text(stmt, 1));
+        yyjson_mut_obj_add_strcpy(doc, item, "last_run_at", manager_text(stmt, 2));
+    }
+    sqlite3_finalize(stmt);
+    stmt = NULL;
+    if (!lease) {
+        yyjson_mut_obj_add_null(doc, item, "lease_owner");
+        yyjson_mut_obj_add_str(doc, item, "checkpoint", "none");
+        yyjson_mut_obj_add_null(doc, item, "last_run_at");
+    }
+    yyjson_mut_val *history = yyjson_mut_arr(doc);
+    yyjson_mut_obj_add_val(doc, item, "history", history);
+    if (db && manager_table_exists(db, "global_maintenance_run") &&
+        sqlite3_prepare_v2(
+            db,
+            "SELECT run_id,mode,status,started_at,COALESCE(completed_at,''),checkpoint_json FROM "
+            "global_maintenance_run ORDER BY started_at DESC,run_id DESC LIMIT 50;",
+            -1, &stmt, NULL) == SQLITE_OK) {
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            yyjson_mut_val *row = yyjson_mut_obj(doc);
+            yyjson_mut_obj_add_strcpy(doc, row, "run_id", manager_text(stmt, 0));
+            yyjson_mut_obj_add_strcpy(doc, row, "mode", manager_text(stmt, 1));
+            yyjson_mut_obj_add_strcpy(doc, row, "status", manager_text(stmt, 2));
+            yyjson_mut_obj_add_strcpy(doc, row, "created_at", manager_text(stmt, 3));
+            yyjson_mut_obj_add_strcpy(doc, row, "completed_at", manager_text(stmt, 4));
+            yyjson_mut_obj_add_strcpy(doc, row, "checkpoint", manager_text(stmt, 5));
+            yyjson_mut_arr_add_val(history, row);
+        }
+    }
     sqlite3_finalize(stmt);
     cbm_evolution_result_free(&preview);
     return manager_wrap(doc);
 }
 
-static int manager_maintenance_run_state(sqlite3 *db,const char *run_id,
+static int manager_maintenance_run_state(sqlite3 *db, const char *run_id,
                                          const char *idempotency_key) {
-    if(!db||!run_id||!idempotency_key||
-       !manager_table_exists(db,"global_maintenance_run"))return 0;
-    sqlite3_stmt *stmt=NULL;int state=0;
-    if(sqlite3_prepare_v2(db,
-        "SELECT run_id,status FROM global_maintenance_run WHERE idempotency_key=?1;",
-        -1,&stmt,NULL)==SQLITE_OK){
-        sqlite3_bind_text(stmt,1,idempotency_key,-1,SQLITE_TRANSIENT);
-        if(sqlite3_step(stmt)==SQLITE_ROW){
-            const char *stored_run=manager_text(stmt,0),*status=manager_text(stmt,1);
-            if(strcmp(stored_run,run_id)!=0)state=-1;
-            else if(!strcmp(status,"completed"))state=1;
-            else state=2;
+    if (!db || !run_id || !idempotency_key || !manager_table_exists(db, "global_maintenance_run"))
+        return 0;
+    sqlite3_stmt *stmt = NULL;
+    int state = 0;
+    if (sqlite3_prepare_v2(
+            db, "SELECT run_id,status FROM global_maintenance_run WHERE idempotency_key=?1;", -1,
+            &stmt, NULL) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, idempotency_key, -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            const char *stored_run = manager_text(stmt, 0), *status = manager_text(stmt, 1);
+            if (strcmp(stored_run, run_id) != 0)
+                state = -1;
+            else if (!strcmp(status, "completed"))
+                state = 1;
+            else
+                state = 2;
         }
     }
     sqlite3_finalize(stmt);
     return state;
 }
 
-char *handle_manager_maintenance_control(cbm_mcp_server_t *srv,const char *args) {
-    static const char *const allowed[]={
-        "action","scope","mode","project","owner_id","run_id","idempotency_key",
-        "frozen_as_of_ms","limit","budget_seconds","edge_manifest_path",
-        "edge_manifest_sha256","concept_manifest_path","concept_manifest_sha256",
-        "authorization_manifest_path","authorization_manifest_sha256"
-    };
-    static const char *const isolated_fields[]={"action","scope"};
-    static const char *const preview_fields[]={
-        "action","scope","mode","project","owner_id","run_id","idempotency_key",
-        "frozen_as_of_ms","limit","budget_seconds"
-    };
-    static const char *const execution_fields[]={
-        "action","scope","mode","project","owner_id","run_id","idempotency_key",
-        "frozen_as_of_ms","limit","budget_seconds","edge_manifest_path",
-        "edge_manifest_sha256","concept_manifest_path","concept_manifest_sha256",
-        "authorization_manifest_path","authorization_manifest_sha256"
-    };
-    yyjson_doc *args_doc=yyjson_read(args?args:"",args?strlen(args):0,0);
-    int arguments_allowed=args_doc&&stage12_args_allowed(
-        args_doc,allowed,sizeof(allowed)/sizeof(allowed[0]));
-    yyjson_val *args_root=args_doc?yyjson_doc_get_root(args_doc):NULL;
-    char *action=arguments_allowed?memory_arg_string_dup(args_doc,"action"):NULL;
-    char *scope=arguments_allowed?memory_arg_string_dup(args_doc,"scope"):NULL;
-    int isolated=scope&&!strcmp(scope,"isolated_mock")&&manager_isolated_mock_enabled();
-    cbm_evolution_result_t result={0};
-    int controller_rc=CBM_STORE_REJECTED;
-    const char *status="rejected",*code="INVALID_ARGUMENT",*controller_mode="none";
-    int production_state_written=0,authorization_ready=0;
-    stage14_canary_authorization_t authorization={0};
-    const char *authorization_code="PRODUCTION_GATE_NOT_LOADED";
+char *handle_manager_maintenance_control(cbm_mcp_server_t *srv, const char *args) {
+    static const char *const allowed[] = {"action",
+                                          "scope",
+                                          "mode",
+                                          "project",
+                                          "owner_id",
+                                          "run_id",
+                                          "idempotency_key",
+                                          "frozen_as_of_ms",
+                                          "limit",
+                                          "budget_seconds",
+                                          "edge_manifest_path",
+                                          "edge_manifest_sha256",
+                                          "concept_manifest_path",
+                                          "concept_manifest_sha256",
+                                          "authorization_manifest_path",
+                                          "authorization_manifest_sha256"};
+    static const char *const isolated_fields[] = {"action", "scope"};
+    static const char *const preview_fields[] = {
+        "action",          "scope",           "mode",  "project",       "owner_id", "run_id",
+        "idempotency_key", "frozen_as_of_ms", "limit", "budget_seconds"};
+    static const char *const execution_fields[] = {"action",
+                                                   "scope",
+                                                   "mode",
+                                                   "project",
+                                                   "owner_id",
+                                                   "run_id",
+                                                   "idempotency_key",
+                                                   "frozen_as_of_ms",
+                                                   "limit",
+                                                   "budget_seconds",
+                                                   "edge_manifest_path",
+                                                   "edge_manifest_sha256",
+                                                   "concept_manifest_path",
+                                                   "concept_manifest_sha256",
+                                                   "authorization_manifest_path",
+                                                   "authorization_manifest_sha256"};
+    yyjson_doc *args_doc = yyjson_read(args ? args : "", args ? strlen(args) : 0, 0);
+    int arguments_allowed =
+        args_doc && stage12_args_allowed(args_doc, allowed, sizeof(allowed) / sizeof(allowed[0]));
+    yyjson_val *args_root = args_doc ? yyjson_doc_get_root(args_doc) : NULL;
+    char *action = arguments_allowed ? memory_arg_string_dup(args_doc, "action") : NULL;
+    char *scope = arguments_allowed ? memory_arg_string_dup(args_doc, "scope") : NULL;
+    int isolated = scope && !strcmp(scope, "isolated_mock") && manager_isolated_mock_enabled();
+    cbm_evolution_result_t result = {0};
+    int controller_rc = CBM_STORE_REJECTED;
+    const char *status = "rejected", *code = "INVALID_ARGUMENT", *controller_mode = "none";
+    int production_state_written = 0, authorization_ready = 0;
+    stage14_canary_authorization_t authorization = {0};
+    const char *authorization_code = "PRODUCTION_GATE_NOT_LOADED";
 
-    if(action&&scope&&isolated&&stage14_object_exact_keys(
-           args_root,isolated_fields,sizeof(isolated_fields)/sizeof(isolated_fields[0]))&&
-       (!strcmp(action,"dry_run")||!strcmp(action,"pause")||!strcmp(action,"resume"))){
-        if(!strcmp(action,"dry_run")){
-            cbm_store_t *store=resolve_global_memory_store(srv,false);
-            cbm_evolution_maintenance_input_t input={.mode="dry_run",.project_uuid="*",
-                .owner_id="manager-control",.idempotency_key="manager-control-dry-run-v1",
-                .limit=1000,.budget_seconds=30,.isolated_write_allowed=1,
-                .production_gate_allowed=0};
-            if(store)controller_rc=cbm_evolution_maintenance_store(store,&input,&result);
-            status=controller_rc==CBM_STORE_OK?"planned":"rejected";
-            code=controller_rc==CBM_STORE_OK?"ISOLATED_DRY_RUN_READY":
-                                            "ISOLATED_DRY_RUN_FAILED";
-            controller_mode="dry_run";
-        }else{
-            status="simulated";code="ISOLATED_CONTROL_SIMULATED";
+    if (action && scope && isolated &&
+        stage14_object_exact_keys(args_root, isolated_fields,
+                                  sizeof(isolated_fields) / sizeof(isolated_fields[0])) &&
+        (!strcmp(action, "dry_run") || !strcmp(action, "pause") || !strcmp(action, "resume"))) {
+        if (!strcmp(action, "dry_run")) {
+            cbm_store_t *store = resolve_global_memory_store(srv, false);
+            cbm_evolution_maintenance_input_t input = {.mode = "dry_run",
+                                                       .project_uuid = "*",
+                                                       .owner_id = "manager-control",
+                                                       .idempotency_key =
+                                                           "manager-control-dry-run-v1",
+                                                       .limit = 1000,
+                                                       .budget_seconds = 30,
+                                                       .isolated_write_allowed = 1,
+                                                       .production_gate_allowed = 0};
+            if (store)
+                controller_rc = cbm_evolution_maintenance_store(store, &input, &result);
+            status = controller_rc == CBM_STORE_OK ? "planned" : "rejected";
+            code = controller_rc == CBM_STORE_OK ? "ISOLATED_DRY_RUN_READY"
+                                                 : "ISOLATED_DRY_RUN_FAILED";
+            controller_mode = "dry_run";
+        } else {
+            status = "simulated";
+            code = "ISOLATED_CONTROL_SIMULATED";
         }
-    }else if(action&&scope&&!strcmp(scope,"production")){
-        char *mode=memory_arg_string_dup(args_doc,"mode");
-        char *project=memory_arg_string_dup(args_doc,"project");
-        char *owner=memory_arg_string_dup(args_doc,"owner_id");
-        char *run_id=memory_arg_string_dup(args_doc,"run_id");
-        char *idempotency_key=memory_arg_string_dup(args_doc,"idempotency_key");
-        char *edge_path=memory_arg_string_dup(args_doc,"edge_manifest_path");
-        char *edge_sha=memory_arg_string_dup(args_doc,"edge_manifest_sha256");
-        char *concept_path=memory_arg_string_dup(args_doc,"concept_manifest_path");
-        char *concept_sha=memory_arg_string_dup(args_doc,"concept_manifest_sha256");
-        char *auth_path=memory_arg_string_dup(args_doc,"authorization_manifest_path");
-        char *auth_sha=memory_arg_string_dup(args_doc,"authorization_manifest_sha256");
-        yyjson_val *frozen_value=memory_arg(args_doc,"frozen_as_of_ms");
-        yyjson_val *limit_value=memory_arg(args_doc,"limit");
-        yyjson_val *budget_value=memory_arg(args_doc,"budget_seconds");
-        int64_t frozen=frozen_value&&yyjson_is_int(frozen_value)?
-                       yyjson_get_sint(frozen_value):0;
-        int64_t limit_raw=limit_value&&yyjson_is_int(limit_value)?
-                          yyjson_get_sint(limit_value):0;
-        int64_t budget_raw=budget_value&&yyjson_is_int(budget_value)?
-                           yyjson_get_sint(budget_value):0;
-        int limit=(limit_raw>=1&&limit_raw<=1000)?(int)limit_raw:0;
-        int budget=(budget_raw>=1&&budget_raw<=30)?(int)budget_raw:0;
-        int preview_action=!strcmp(action,"preview");
-        int execution_action=!strcmp(action,"run")||!strcmp(action,"resume")||
-                             !strcmp(action,"pause");
-        int base_complete=(preview_action||execution_action)&&
-            mode&&!strcmp(mode,"bounded_canary")&&
-            project&&project[0]&&owner&&owner[0]&&run_id&&run_id[0]&&
-            idempotency_key&&idempotency_key[0]&&frozen>0&&
-            limit_raw>=1&&limit_raw<=1000&&budget_raw>=1&&budget_raw<=30;
-        int preview_shape=stage14_object_exact_keys(
-            args_root,preview_fields,sizeof(preview_fields)/sizeof(preview_fields[0]));
-        int execution_shape=stage14_object_exact_keys(
-            args_root,execution_fields,
-            sizeof(execution_fields)/sizeof(execution_fields[0]));
-        if(preview_action&&base_complete&&preview_shape){
-            cbm_store_t *store=resolve_global_memory_store(srv,false);
-            cbm_evolution_maintenance_input_t input={
-                .mode="dry_run",.project_uuid=project,.owner_id=owner,
-                .idempotency_key=idempotency_key,.run_id=run_id,
-                .frozen_as_of_ms=frozen,.limit=limit,.budget_seconds=budget,
-                .isolated_write_allowed=0,.production_gate_allowed=0};
-            controller_mode="dry_run";
-            authorization_code="READ_ONLY_PREVIEW_NO_AUTH_REQUIRED";
-            if(store)controller_rc=cbm_evolution_maintenance_store(
-                store,&input,&result);
-            if(controller_rc==CBM_STORE_OK){
-                status="planned";code="PRODUCTION_PREVIEW_READY";
-            }else{
-                code="PRODUCTION_PREVIEW_FAILED";
+    } else if (action && scope && !strcmp(scope, "production")) {
+        char *mode = memory_arg_string_dup(args_doc, "mode");
+        char *project = memory_arg_string_dup(args_doc, "project");
+        char *owner = memory_arg_string_dup(args_doc, "owner_id");
+        char *run_id = memory_arg_string_dup(args_doc, "run_id");
+        char *idempotency_key = memory_arg_string_dup(args_doc, "idempotency_key");
+        char *edge_path = memory_arg_string_dup(args_doc, "edge_manifest_path");
+        char *edge_sha = memory_arg_string_dup(args_doc, "edge_manifest_sha256");
+        char *concept_path = memory_arg_string_dup(args_doc, "concept_manifest_path");
+        char *concept_sha = memory_arg_string_dup(args_doc, "concept_manifest_sha256");
+        char *auth_path = memory_arg_string_dup(args_doc, "authorization_manifest_path");
+        char *auth_sha = memory_arg_string_dup(args_doc, "authorization_manifest_sha256");
+        yyjson_val *frozen_value = memory_arg(args_doc, "frozen_as_of_ms");
+        yyjson_val *limit_value = memory_arg(args_doc, "limit");
+        yyjson_val *budget_value = memory_arg(args_doc, "budget_seconds");
+        int64_t frozen =
+            frozen_value && yyjson_is_int(frozen_value) ? yyjson_get_sint(frozen_value) : 0;
+        int64_t limit_raw =
+            limit_value && yyjson_is_int(limit_value) ? yyjson_get_sint(limit_value) : 0;
+        int64_t budget_raw =
+            budget_value && yyjson_is_int(budget_value) ? yyjson_get_sint(budget_value) : 0;
+        int limit = (limit_raw >= 1 && limit_raw <= 1000) ? (int)limit_raw : 0;
+        int budget = (budget_raw >= 1 && budget_raw <= 30) ? (int)budget_raw : 0;
+        int preview_action = !strcmp(action, "preview");
+        int execution_action =
+            !strcmp(action, "run") || !strcmp(action, "resume") || !strcmp(action, "pause");
+        int base_complete = (preview_action || execution_action) && mode &&
+                            !strcmp(mode, "bounded_canary") && project && project[0] && owner &&
+                            owner[0] && run_id && run_id[0] && idempotency_key &&
+                            idempotency_key[0] && frozen > 0 && limit_raw >= 1 &&
+                            limit_raw <= 1000 && budget_raw >= 1 && budget_raw <= 30;
+        int preview_shape = stage14_object_exact_keys(
+            args_root, preview_fields, sizeof(preview_fields) / sizeof(preview_fields[0]));
+        int execution_shape = stage14_object_exact_keys(
+            args_root, execution_fields, sizeof(execution_fields) / sizeof(execution_fields[0]));
+        if (preview_action && base_complete && preview_shape) {
+            cbm_store_t *store = resolve_global_memory_store(srv, false);
+            cbm_evolution_maintenance_input_t input = {.mode = "dry_run",
+                                                       .project_uuid = project,
+                                                       .owner_id = owner,
+                                                       .idempotency_key = idempotency_key,
+                                                       .run_id = run_id,
+                                                       .frozen_as_of_ms = frozen,
+                                                       .limit = limit,
+                                                       .budget_seconds = budget,
+                                                       .isolated_write_allowed = 0,
+                                                       .production_gate_allowed = 0};
+            controller_mode = "dry_run";
+            authorization_code = "READ_ONLY_PREVIEW_NO_AUTH_REQUIRED";
+            if (store)
+                controller_rc = cbm_evolution_maintenance_store(store, &input, &result);
+            if (controller_rc == CBM_STORE_OK) {
+                status = "planned";
+                code = "PRODUCTION_PREVIEW_READY";
+            } else {
+                code = "PRODUCTION_PREVIEW_FAILED";
             }
-            production_state_written=0;
-        }else if(execution_action&&base_complete&&execution_shape&&
-                 stage14_absolute_path(edge_path)&&stage14_lower_sha256(edge_sha)&&
-                 stage14_absolute_path(concept_path)&&
-                 stage14_lower_sha256(concept_sha)&&
-                 stage14_absolute_path(auth_path)&&stage14_lower_sha256(auth_sha)){
-            authorization_ready=stage14_load_canary_authorization(
-                auth_path,auth_sha,true,&authorization,&authorization_code);
-            if(!authorization_ready){
-                code=authorization_code;
-            }else if(!stage14_authorizes_maintenance(
-                &authorization,project,mode,run_id,idempotency_key,owner,frozen,
-                edge_path,edge_sha,concept_path,concept_sha,limit,budget)){
-                code="CANARY_MAINTENANCE_ALLOWLIST_MISMATCH";
-            }else if(!strcmp(action,"pause")){
-                code="CORE_PAUSE_API_UNAVAILABLE";
-            }else{
-                cbm_store_t *store=resolve_global_memory_store(srv,false);
-                sqlite3 *db=store?cbm_store_get_db(store):NULL;
-                int run_state=manager_maintenance_run_state(db,run_id,idempotency_key);
-                if(!strcmp(action,"resume")&&run_state==0){
-                    code="MAINTENANCE_CHECKPOINT_NOT_FOUND";
-                }else if(!strcmp(action,"run")&&run_state==2){
-                    code="MAINTENANCE_RESUME_REQUIRED";
-                }else if(run_state<0){
-                    code="IDEMPOTENCY_CONFLICT";
-                }else{
-                    cbm_evolution_maintenance_input_t input={
-                        .mode="bounded_canary",
-                        .project_uuid=project,.owner_id=owner,
-                        .idempotency_key=idempotency_key,.run_id=run_id,
-                        .edge_manifest_path=edge_path,.edge_manifest_sha256=edge_sha,
-                        .concept_manifest_path=concept_path,
-                        .concept_manifest_sha256=concept_sha,
-                        .frozen_as_of_ms=frozen,.limit=limit,.budget_seconds=budget,
-                        .isolated_write_allowed=0,
-                        .production_gate_allowed=1};
-                    controller_mode=input.mode;
-                    if(store)controller_rc=cbm_evolution_maintenance_store(
-                        store,&input,&result);
-                    if(controller_rc==CBM_STORE_OK){
-                        status="applied";code="PRODUCTION_CANARY_APPLIED";
-                    }else if(controller_rc==CBM_STORE_REPLAYED){
-                        status="replayed";code="EXACT_REPLAY_ZERO_WRITE";
-                    }else if(controller_rc==CBM_STORE_CHECKPOINTED){
-                        status="checkpointed";code="MAINTENANCE_CHECKPOINTED";
-                    }else if(controller_rc==CBM_STORE_IDEMPOTENCY_CONFLICT){
-                        status="conflict";code="IDEMPOTENCY_CONFLICT";
-                    }else if(controller_rc==CBM_STORE_REJECTED){
-                        code="MAINTENANCE_LEASE_OR_GATE_REJECTED";
-                    }else{
-                        code="MAINTENANCE_CONTROLLER_FAILED";
+            production_state_written = 0;
+        } else if (execution_action && base_complete && execution_shape &&
+                   stage14_absolute_path(edge_path) && stage14_lower_sha256(edge_sha) &&
+                   stage14_absolute_path(concept_path) && stage14_lower_sha256(concept_sha) &&
+                   stage14_absolute_path(auth_path) && stage14_lower_sha256(auth_sha)) {
+            authorization_ready = stage14_load_canary_authorization(
+                auth_path, auth_sha, true, &authorization, &authorization_code);
+            if (!authorization_ready) {
+                code = authorization_code;
+            } else if (!stage14_authorizes_maintenance(
+                           &authorization, project, mode, run_id, idempotency_key, owner, frozen,
+                           edge_path, edge_sha, concept_path, concept_sha, limit, budget)) {
+                code = "CANARY_MAINTENANCE_ALLOWLIST_MISMATCH";
+            } else if (!strcmp(action, "pause")) {
+                code = "CORE_PAUSE_API_UNAVAILABLE";
+            } else {
+                cbm_store_t *store = resolve_global_memory_store(srv, false);
+                sqlite3 *db = store ? cbm_store_get_db(store) : NULL;
+                int run_state = manager_maintenance_run_state(db, run_id, idempotency_key);
+                if (!strcmp(action, "resume") && run_state == 0) {
+                    code = "MAINTENANCE_CHECKPOINT_NOT_FOUND";
+                } else if (!strcmp(action, "run") && run_state == 2) {
+                    code = "MAINTENANCE_RESUME_REQUIRED";
+                } else if (run_state < 0) {
+                    code = "IDEMPOTENCY_CONFLICT";
+                } else {
+                    cbm_evolution_maintenance_input_t input = {
+                        .mode = "bounded_canary",
+                        .project_uuid = project,
+                        .owner_id = owner,
+                        .idempotency_key = idempotency_key,
+                        .run_id = run_id,
+                        .edge_manifest_path = edge_path,
+                        .edge_manifest_sha256 = edge_sha,
+                        .concept_manifest_path = concept_path,
+                        .concept_manifest_sha256 = concept_sha,
+                        .frozen_as_of_ms = frozen,
+                        .limit = limit,
+                        .budget_seconds = budget,
+                        .isolated_write_allowed = 0,
+                        .production_gate_allowed = 1};
+                    controller_mode = input.mode;
+                    if (store)
+                        controller_rc = cbm_evolution_maintenance_store(store, &input, &result);
+                    if (controller_rc == CBM_STORE_OK) {
+                        status = "applied";
+                        code = "PRODUCTION_CANARY_APPLIED";
+                    } else if (controller_rc == CBM_STORE_REPLAYED) {
+                        status = "replayed";
+                        code = "EXACT_REPLAY_ZERO_WRITE";
+                    } else if (controller_rc == CBM_STORE_CHECKPOINTED) {
+                        status = "checkpointed";
+                        code = "MAINTENANCE_CHECKPOINTED";
+                    } else if (controller_rc == CBM_STORE_IDEMPOTENCY_CONFLICT) {
+                        status = "conflict";
+                        code = "IDEMPOTENCY_CONFLICT";
+                    } else if (controller_rc == CBM_STORE_REJECTED) {
+                        code = "MAINTENANCE_LEASE_OR_GATE_REJECTED";
+                    } else {
+                        code = "MAINTENANCE_CONTROLLER_FAILED";
                     }
-                    production_state_written=result.wrote!=0;
+                    production_state_written = result.wrote != 0;
                 }
             }
-        }else if(mode&&!strcmp(mode,"active")){
-            code="ACTIVE_MODE_FORBIDDEN";
+        } else if (mode && !strcmp(mode, "active")) {
+            code = "ACTIVE_MODE_FORBIDDEN";
         }
-        free(mode);free(project);free(owner);free(run_id);free(idempotency_key);
-        free(edge_path);free(edge_sha);free(concept_path);free(concept_sha);
-        free(auth_path);free(auth_sha);
+        free(mode);
+        free(project);
+        free(owner);
+        free(run_id);
+        free(idempotency_key);
+        free(edge_path);
+        free(edge_sha);
+        free(concept_path);
+        free(concept_sha);
+        free(auth_path);
+        free(auth_sha);
     }
 
-    yyjson_mut_val *item=NULL;
-    yyjson_mut_doc *doc=manager_detail_doc(
-        "semantic-memory-manager-maintenance-control/v2",status,&item);
-    yyjson_mut_obj_add_strcpy(doc,item,"action",action?action:"");
-    yyjson_mut_obj_add_strcpy(doc,item,"scope",scope?scope:"");
-    yyjson_mut_obj_add_str(doc,item,"status",status);
-    yyjson_mut_obj_add_str(doc,item,"code",code);
-    yyjson_mut_obj_add_bool(doc,item,"production_state_written",
-                            production_state_written!=0);
-    yyjson_mut_obj_add_bool(doc,item,"isolated_mock",isolated!=0);
-    yyjson_mut_obj_add_bool(doc,item,"authorization_ready",authorization_ready!=0);
-    yyjson_mut_obj_add_str(doc,item,"authorization_status",authorization_code);
-    yyjson_mut_obj_add_int(doc,item,"eligible",result.eligible);
-    yyjson_mut_obj_add_int(doc,item,"evolution_events",result.evolution_events);
-    yyjson_mut_obj_add_bool(doc,item,"checkpointed",result.checkpointed!=0);
-    yyjson_mut_obj_add_str(doc,item,"controller_mode",controller_mode);
-    yyjson_mut_obj_add_bool(doc,item,"hard_delete_allowed",false);
-    yyjson_mut_obj_add_str(doc,item,"production_transaction_owner",
-                           "core-evolution-controller");
-    if(result.report_json){
-        yyjson_doc *report_doc=yyjson_read(result.report_json,
-                                           strlen(result.report_json),0);
-        yyjson_val *report_root=report_doc?yyjson_doc_get_root(report_doc):NULL;
-        yyjson_mut_val *report_copy=report_root?
-            yyjson_val_mut_copy(doc,report_root):NULL;
-        if(report_copy)yyjson_mut_obj_add_val(doc,item,"controller_report",report_copy);
+    yyjson_mut_val *item = NULL;
+    yyjson_mut_doc *doc =
+        manager_detail_doc("semantic-memory-manager-maintenance-control/v2", status, &item);
+    yyjson_mut_obj_add_strcpy(doc, item, "action", action ? action : "");
+    yyjson_mut_obj_add_strcpy(doc, item, "scope", scope ? scope : "");
+    yyjson_mut_obj_add_str(doc, item, "status", status);
+    yyjson_mut_obj_add_str(doc, item, "code", code);
+    yyjson_mut_obj_add_bool(doc, item, "production_state_written", production_state_written != 0);
+    yyjson_mut_obj_add_bool(doc, item, "isolated_mock", isolated != 0);
+    yyjson_mut_obj_add_bool(doc, item, "authorization_ready", authorization_ready != 0);
+    yyjson_mut_obj_add_str(doc, item, "authorization_status", authorization_code);
+    yyjson_mut_obj_add_int(doc, item, "eligible", result.eligible);
+    yyjson_mut_obj_add_int(doc, item, "evolution_events", result.evolution_events);
+    yyjson_mut_obj_add_bool(doc, item, "checkpointed", result.checkpointed != 0);
+    yyjson_mut_obj_add_str(doc, item, "controller_mode", controller_mode);
+    yyjson_mut_obj_add_bool(doc, item, "hard_delete_allowed", false);
+    yyjson_mut_obj_add_str(doc, item, "production_transaction_owner", "core-evolution-controller");
+    if (result.report_json) {
+        yyjson_doc *report_doc = yyjson_read(result.report_json, strlen(result.report_json), 0);
+        yyjson_val *report_root = report_doc ? yyjson_doc_get_root(report_doc) : NULL;
+        yyjson_mut_val *report_copy = report_root ? yyjson_val_mut_copy(doc, report_root) : NULL;
+        if (report_copy)
+            yyjson_mut_obj_add_val(doc, item, "controller_report", report_copy);
         yyjson_doc_free(report_doc);
     }
     cbm_evolution_result_free(&result);
     yyjson_doc_free(args_doc);
-    free(action);free(scope);
+    free(action);
+    free(scope);
     return manager_wrap(doc);
 }

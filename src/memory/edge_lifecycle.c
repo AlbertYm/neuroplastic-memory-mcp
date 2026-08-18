@@ -88,14 +88,16 @@ static const stage9_schema_object_t STAGE9_OBJECTS[] = {
      "AUTOINCREMENT,event_id TEXT NOT NULL UNIQUE,run_id TEXT NOT NULL REFERENCES edge_maintenance_"
      "run(run_id) ON DELETE RESTRICT,edge_id TEXT NOT NULL REFERENCES memory_edge(id) ON DELETE "
      "RESTRICT,operation TEXT NOT NULL CHECK(operation IN ('initialize','transition','restore')),"
-     "from_state TEXT NOT NULL CHECK(from_state IN ('active','cold','archived','disabled')),to_state"
+     "from_state TEXT NOT NULL CHECK(from_state IN "
+     "('active','cold','archived','disabled')),to_state"
      " TEXT NOT NULL CHECK(to_state IN ('active','cold','archived','disabled')),before_state_sha256"
      " TEXT NOT NULL CHECK(length(before_state_sha256)=64 AND before_state_sha256 NOT GLOB "
      "'*[^0-9a-f]*'),after_state_sha256 TEXT NOT NULL CHECK(length(after_state_sha256)=64 AND "
      "after_state_sha256 NOT GLOB '*[^0-9a-f]*'),decision_sha256 TEXT NOT NULL CHECK(length("
      "decision_sha256)=64 AND decision_sha256 NOT GLOB '*[^0-9a-f]*'),algorithm_version TEXT NOT "
      "NULL,policy_version INTEGER NOT NULL CHECK(policy_version>=1),config_version INTEGER NOT NULL"
-     " CHECK(config_version>=1),prev_hash TEXT NOT NULL CHECK((sequence_no=1 AND prev_hash='GENESIS'"
+     " CHECK(config_version>=1),prev_hash TEXT NOT NULL CHECK((sequence_no=1 AND "
+     "prev_hash='GENESIS'"
      ") OR (sequence_no>1 AND length(prev_hash)=64 AND prev_hash NOT GLOB '*[^0-9a-f]*')),event_"
      "hash TEXT NOT NULL UNIQUE CHECK(length(event_hash)=64 AND event_hash NOT GLOB '*[^0-9a-f]*'"
      "),created_at TEXT NOT NULL);"},
@@ -134,10 +136,12 @@ static const stage9_schema_object_t STAGE9_OBJECTS[] = {
      "CREATE TRIGGER IF NOT EXISTS edge_lifecycle_state_no_delete BEFORE DELETE ON edge_lifecycle_"
      "state BEGIN SELECT RAISE(ABORT,'hard-delete-disabled'); END;"},
     {"trigger", "edge_maintenance_run_no_update",
-     "CREATE TRIGGER IF NOT EXISTS edge_maintenance_run_no_update BEFORE UPDATE ON edge_maintenance_"
+     "CREATE TRIGGER IF NOT EXISTS edge_maintenance_run_no_update BEFORE UPDATE ON "
+     "edge_maintenance_"
      "run BEGIN SELECT RAISE(ABORT,'append-only'); END;"},
     {"trigger", "edge_maintenance_run_no_delete",
-     "CREATE TRIGGER IF NOT EXISTS edge_maintenance_run_no_delete BEFORE DELETE ON edge_maintenance_"
+     "CREATE TRIGGER IF NOT EXISTS edge_maintenance_run_no_delete BEFORE DELETE ON "
+     "edge_maintenance_"
      "run BEGIN SELECT RAISE(ABORT,'append-only'); END;"},
     {"trigger", "edge_maintenance_decision_no_update",
      "CREATE TRIGGER IF NOT EXISTS edge_maintenance_decision_no_update BEFORE UPDATE ON edge_"
@@ -204,10 +208,12 @@ typedef struct {
 } stage9_decision_t;
 
 static char *stage9_dup(const char *value) {
-    if (!value) value = "";
+    if (!value)
+        value = "";
     size_t size = strlen(value) + 1;
     char *copy = malloc(size);
-    if (copy) memcpy(copy, value, size);
+    if (copy)
+        memcpy(copy, value, size);
     return copy;
 }
 
@@ -223,11 +229,11 @@ static int64_t stage9_clamp(int64_t value, int64_t minimum, int64_t maximum) {
 static bool stage9_table_exists(sqlite3 *db, const char *name) {
     sqlite3_stmt *stmt = NULL;
     int found = 0;
-    if (sqlite3_prepare_v2(db,
-                           "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1;",
+    if (sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1;",
                            -1, &stmt, NULL) == SQLITE_OK) {
         sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
-        if (sqlite3_step(stmt) == SQLITE_ROW) found = sqlite3_column_int(stmt, 0);
+        if (sqlite3_step(stmt) == SQLITE_ROW)
+            found = sqlite3_column_int(stmt, 0);
     }
     sqlite3_finalize(stmt);
     return found == 1;
@@ -248,8 +254,7 @@ static void stage9_iso_from_ms(int64_t value, char out[40]) {
     gmtime_r(&seconds, &utc);
 #endif
     strftime(out, 32, "%Y-%m-%dT%H:%M:%S", &utc);
-    snprintf(out + strlen(out), 40 - strlen(out), ".%03lldZ",
-             (long long)(value % 1000));
+    snprintf(out + strlen(out), 40 - strlen(out), ".%03lldZ", (long long)(value % 1000));
 }
 
 static int stage9_hash_text(const char *text, char out[65]) {
@@ -259,7 +264,8 @@ static int stage9_hash_text(const char *text, char out[65]) {
 static char *stage9_hash_id(const char *prefix, const char *a, const char *b, const char *c) {
     size_t size = strlen(a ? a : "") + strlen(b ? b : "") + strlen(c ? c : "") + 4;
     char *payload = malloc(size);
-    if (!payload) return NULL;
+    if (!payload)
+        return NULL;
     snprintf(payload, size, "%s|%s|%s", a ? a : "", b ? b : "", c ? c : "");
     char hash[65];
     if (stage9_hash_text(payload, hash) != CBM_STORE_OK) {
@@ -269,19 +275,22 @@ static char *stage9_hash_id(const char *prefix, const char *a, const char *b, co
     free(payload);
     size_t out_size = strlen(prefix) + 25;
     char *out = malloc(out_size);
-    if (out) snprintf(out, out_size, "%s%.24s", prefix, hash);
+    if (out)
+        snprintf(out, out_size, "%s%.24s", prefix, hash);
     return out;
 }
 
 static const stage9_relation_policy_t *stage9_policy(const char *type) {
     for (size_t i = 0; i < sizeof(STAGE9_POLICIES) / sizeof(STAGE9_POLICIES[0]); i++) {
-        if (type && strcmp(type, STAGE9_POLICIES[i].type) == 0) return &STAGE9_POLICIES[i];
+        if (type && strcmp(type, STAGE9_POLICIES[i].type) == 0)
+            return &STAGE9_POLICIES[i];
     }
     return NULL;
 }
 
 static void stage9_edge_clear(stage9_edge_t *edge) {
-    if (!edge) return;
+    if (!edge)
+        return;
     free(edge->edge_id);
     free(edge->relation_type);
     free(edge->src_kind);
@@ -294,12 +303,14 @@ static void stage9_edge_clear(stage9_edge_t *edge) {
 }
 
 static void stage9_edges_free(stage9_edge_t *edges, int count) {
-    for (int i = 0; i < count; i++) stage9_edge_clear(&edges[i]);
+    for (int i = 0; i < count; i++)
+        stage9_edge_clear(&edges[i]);
     free(edges);
 }
 
 static void stage9_decision_clear(stage9_decision_t *decision) {
-    if (!decision) return;
+    if (!decision)
+        return;
     free(decision->edge_id);
     free(decision->relation_type);
     free(decision->from_state);
@@ -309,7 +320,8 @@ static void stage9_decision_clear(stage9_decision_t *decision) {
 }
 
 static void stage9_decisions_free(stage9_decision_t *decisions, int count) {
-    for (int i = 0; i < count; i++) stage9_decision_clear(&decisions[i]);
+    for (int i = 0; i < count; i++)
+        stage9_decision_clear(&decisions[i]);
     free(decisions);
 }
 
@@ -327,11 +339,11 @@ static int stage9_decision_compare(const void *left, const void *right) {
 
 int cbm_store_memory_stage9_object_count(cbm_store_t *store) {
     sqlite3 *db = store ? cbm_store_get_db(store) : NULL;
-    if (!db) return -1;
+    if (!db)
+        return -1;
     sqlite3_stmt *stmt = NULL;
-    const char *sql =
-        "SELECT COUNT(*) FROM sqlite_master WHERE name LIKE 'stage9_%' OR name LIKE "
-        "'edge_lifecycle_%' OR name LIKE 'edge_maintenance_%';";
+    const char *sql = "SELECT COUNT(*) FROM sqlite_master WHERE name LIKE 'stage9_%' OR name LIKE "
+                      "'edge_lifecycle_%' OR name LIKE 'edge_maintenance_%';";
     int count = -1;
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK &&
         sqlite3_step(stmt) == SQLITE_ROW) {
@@ -342,7 +354,8 @@ int cbm_store_memory_stage9_object_count(cbm_store_t *store) {
 }
 
 static bool stage9_ledger_valid(sqlite3 *db) {
-    if (!stage9_table_exists(db, "stage9_component_ledger")) return false;
+    if (!stage9_table_exists(db, "stage9_component_ledger"))
+        return false;
     sqlite3_stmt *stmt = NULL;
     const char *sql =
         "SELECT COUNT(*) FROM stage9_component_ledger WHERE component=?1 AND version=1 AND "
@@ -353,7 +366,8 @@ static bool stage9_ledger_valid(sqlite3 *db) {
         sqlite3_bind_text(stmt, 2, STAGE9_COMPONENT_NAME, -1, SQLITE_STATIC);
         sqlite3_bind_text(stmt, 3, CBM_STAGE9_MIGRATION_SHA256, -1, SQLITE_STATIC);
         sqlite3_bind_text(stmt, 4, CBM_STAGE9_POLICY_SHA256, -1, SQLITE_STATIC);
-        if (sqlite3_step(stmt) == SQLITE_ROW) count = sqlite3_column_int(stmt, 0);
+        if (sqlite3_step(stmt) == SQLITE_ROW)
+            count = sqlite3_column_int(stmt, 0);
     }
     sqlite3_finalize(stmt);
     return count == 1;
@@ -361,14 +375,17 @@ static bool stage9_ledger_valid(sqlite3 *db) {
 
 int cbm_store_memory_stage9_migrate(cbm_store_t *store) {
     sqlite3 *db = store ? cbm_store_get_db(store) : NULL;
-    if (!db) return CBM_STORE_ERR;
+    if (!db)
+        return CBM_STORE_ERR;
     int count = cbm_store_memory_stage9_object_count(store);
     if (count == (int)(sizeof(STAGE9_OBJECTS) / sizeof(STAGE9_OBJECTS[0])) &&
         stage9_ledger_valid(db)) {
         return CBM_STORE_OK;
     }
-    if (count != 0) return CBM_STORE_IDEMPOTENCY_CONFLICT;
-    if (cbm_store_begin(store) != CBM_STORE_OK) return CBM_STORE_ERR;
+    if (count != 0)
+        return CBM_STORE_IDEMPOTENCY_CONFLICT;
+    if (cbm_store_begin(store) != CBM_STORE_OK)
+        return CBM_STORE_ERR;
     int fail_after = stage9_env_int("CBM_STAGE9_MIGRATION_FAIL_AFTER");
     int rc = CBM_STORE_OK;
     for (size_t i = 0; i < sizeof(STAGE9_OBJECTS) / sizeof(STAGE9_OBJECTS[0]); i++) {
@@ -393,7 +410,8 @@ int cbm_store_memory_stage9_migrate(cbm_store_t *store) {
             sqlite3_bind_text(stmt, 3, CBM_STAGE9_MIGRATION_SHA256, -1, SQLITE_STATIC);
             sqlite3_bind_text(stmt, 4, CBM_STAGE9_POLICY_SHA256, -1, SQLITE_STATIC);
             sqlite3_bind_text(stmt, 5, timestamp, -1, SQLITE_TRANSIENT);
-            if (sqlite3_step(stmt) != SQLITE_DONE) rc = CBM_STORE_ERR;
+            if (sqlite3_step(stmt) != SQLITE_DONE)
+                rc = CBM_STORE_ERR;
         }
         sqlite3_finalize(stmt);
     }
@@ -405,7 +423,8 @@ int cbm_store_memory_stage9_migrate(cbm_store_t *store) {
     } else {
         rc = CBM_STORE_ERR;
     }
-    if (rc != CBM_STORE_OK) cbm_store_rollback(store);
+    if (rc != CBM_STORE_OK)
+        cbm_store_rollback(store);
     return rc;
 }
 
@@ -434,7 +453,8 @@ static int stage9_load_edges(sqlite3 *db, stage9_edge_t **out_edges, int *out_co
              " dst ON dst.id=e.dst_id%s%sORDER BY e.id;",
              pcols, lcols, pjoin, ljoin);
     sqlite3_stmt *stmt = NULL;
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     int capacity = 16;
     int count = 0;
     stage9_edge_t *edges = calloc((size_t)capacity, sizeof(*edges));
@@ -475,8 +495,7 @@ static int stage9_load_edges(sqlite3 *db, stage9_edge_t **out_edges, int *out_co
         edge->state_changed_at_ms = sqlite3_column_int64(stmt, 17);
         edge->protection_reason = stage9_dup(stage9_col_text(stmt, 18));
         if (!edge->edge_id || !edge->relation_type || !edge->src_kind || !edge->dst_kind ||
-            !edge->src_project || !edge->dst_project || !edge->state ||
-            !edge->protection_reason) {
+            !edge->src_project || !edge->dst_project || !edge->state || !edge->protection_reason) {
             rc = CBM_STORE_ERR;
             break;
         }
@@ -515,7 +534,8 @@ static int stage9_decision_hash(stage9_decision_t *decision) {
     yyjson_mut_obj_add_str(doc, root, "to_state", decision->to_state);
     char *json = yyjson_mut_write(doc, 0, NULL);
     yyjson_mut_doc_free(doc);
-    if (!json) return CBM_STORE_ERR;
+    if (!json)
+        return CBM_STORE_ERR;
     int rc = stage9_hash_text(json, decision->decision_sha256);
     free(json);
     return rc;
@@ -530,26 +550,22 @@ static int stage9_decide(const stage9_edge_t *edge, const char *project, int64_t
     decision->to_state = stage9_dup(edge->state);
     decision->success_count = edge->success_count;
     decision->failure_count = edge->failure_count;
-    decision->age_days = as_of_ms > edge->last_signal_ms
-                             ? (as_of_ms - edge->last_signal_ms) / STAGE9_DAY_MS
-                             : 0;
-    decision->cold_dwell_days = strcmp(edge->state, "cold") == 0 &&
-                                        as_of_ms > edge->state_changed_at_ms
-                                    ? (as_of_ms - edge->state_changed_at_ms) / STAGE9_DAY_MS
-                                    : 0;
+    decision->age_days =
+        as_of_ms > edge->last_signal_ms ? (as_of_ms - edge->last_signal_ms) / STAGE9_DAY_MS : 0;
+    decision->cold_dwell_days =
+        strcmp(edge->state, "cold") == 0 && as_of_ms > edge->state_changed_at_ms
+            ? (as_of_ms - edge->state_changed_at_ms) / STAGE9_DAY_MS
+            : 0;
     const stage9_relation_policy_t *policy = stage9_policy(edge->relation_type);
     int64_t pheromone_score = stage9_clamp(edge->pheromone_ppm, 0, 2000000) / 2;
     decision->success_flow_ppm =
-        (int64_t)edge->success_count * STAGE9_PPM /
-        (edge->success_count + edge->failure_count + 1);
+        (int64_t)edge->success_count * STAGE9_PPM / (edge->success_count + edge->failure_count + 1);
     if (policy && !policy->protected_relation) {
-        int64_t base =
-            (pheromone_score * 500000 + decision->success_flow_ppm * 300000 +
-             stage9_clamp(edge->confidence_ppm, 0, STAGE9_PPM) * 200000) /
-            STAGE9_PPM;
-        int64_t stale_days = decision->age_days > policy->grace_days
-                                 ? decision->age_days - policy->grace_days
-                                 : 0;
+        int64_t base = (pheromone_score * 500000 + decision->success_flow_ppm * 300000 +
+                        stage9_clamp(edge->confidence_ppm, 0, STAGE9_PPM) * 200000) /
+                       STAGE9_PPM;
+        int64_t stale_days =
+            decision->age_days > policy->grace_days ? decision->age_days - policy->grace_days : 0;
         int64_t decay = stage9_clamp(stale_days * policy->decay_rate, 0, policy->max_decay);
         decision->conductance_ppm = base * (STAGE9_PPM - decay) / STAGE9_PPM;
     }
@@ -616,7 +632,7 @@ static int stage9_decide(const stage9_edge_t *edge, const char *project, int64_t
 }
 
 static yyjson_mut_val *stage9_decision_json(yyjson_mut_doc *doc,
-                                             const stage9_decision_t *decision) {
+                                            const stage9_decision_t *decision) {
     yyjson_mut_val *item = yyjson_mut_obj(doc);
     yyjson_mut_obj_add_sint(doc, item, "age_days", decision->age_days);
     yyjson_mut_obj_add_sint(doc, item, "cold_dwell_days", decision->cold_dwell_days);
@@ -647,15 +663,16 @@ static int stage9_decision_set_hash(stage9_decision_t *decisions, int count, cha
     }
     char *json = yyjson_mut_write(doc, 0, NULL);
     yyjson_mut_doc_free(doc);
-    if (!json) return CBM_STORE_ERR;
+    if (!json)
+        return CBM_STORE_ERR;
     int rc = stage9_hash_text(json, out);
     free(json);
     return rc;
 }
 
 static int stage9_report_hash(const cbm_edge_lifecycle_input_t *input, const char *operation,
-                              const char *decision_hash, int decision_count,
-                              int transition_count, int protected_count, char out[65]) {
+                              const char *decision_hash, int decision_count, int transition_count,
+                              int protected_count, char out[65]) {
     yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
     yyjson_mut_val *root = doc ? yyjson_mut_obj(doc) : NULL;
     if (!doc || !root) {
@@ -678,16 +695,16 @@ static int stage9_report_hash(const cbm_edge_lifecycle_input_t *input, const cha
     yyjson_mut_obj_add_int(doc, root, "transition_count", transition_count);
     char *json = yyjson_mut_write(doc, 0, NULL);
     yyjson_mut_doc_free(doc);
-    if (!json) return CBM_STORE_ERR;
+    if (!json)
+        return CBM_STORE_ERR;
     int rc = stage9_hash_text(json, out);
     free(json);
     return rc;
 }
 
-static char *stage9_report_json(const cbm_edge_lifecycle_input_t *input,
-                                const char *operation, stage9_decision_t *decisions, int count,
-                                const char *decision_hash, const char *report_hash,
-                                bool wrote, bool replayed) {
+static char *stage9_report_json(const cbm_edge_lifecycle_input_t *input, const char *operation,
+                                stage9_decision_t *decisions, int count, const char *decision_hash,
+                                const char *report_hash, bool wrote, bool replayed) {
     int transitions = 0;
     int protected_count = 0;
     yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
@@ -699,8 +716,10 @@ static char *stage9_report_json(const cbm_edge_lifecycle_input_t *input,
     }
     yyjson_mut_doc_set_root(doc, root);
     for (int i = 0; i < count; i++) {
-        if (strcmp(decisions[i].from_state, decisions[i].to_state) != 0) transitions++;
-        if (decisions[i].protected_edge) protected_count++;
+        if (strcmp(decisions[i].from_state, decisions[i].to_state) != 0)
+            transitions++;
+        if (decisions[i].protected_edge)
+            protected_count++;
         yyjson_mut_arr_add_val(array, stage9_decision_json(doc, &decisions[i]));
     }
     yyjson_mut_obj_add_str(doc, root, "schema", "stage9-edge-maintenance-report/v1");
@@ -741,10 +760,13 @@ static int stage9_input_valid(const cbm_edge_lifecycle_input_t *input) {
 }
 
 static char *stage9_read_file(const char *path, size_t *out_size) {
-    if (out_size) *out_size = 0;
-    if (!path || !path[0]) return NULL;
+    if (out_size)
+        *out_size = 0;
+    if (!path || !path[0])
+        return NULL;
     FILE *file = fopen(path, "rb");
-    if (!file) return NULL;
+    if (!file)
+        return NULL;
     if (fseek(file, 0, SEEK_END) != 0) {
         fclose(file);
         return NULL;
@@ -766,34 +788,35 @@ static char *stage9_read_file(const char *path, size_t *out_size) {
         return NULL;
     }
     buffer[read] = '\0';
-    if (out_size) *out_size = read;
+    if (out_size)
+        *out_size = read;
     return buffer;
 }
 
-static bool stage9_manifest_verify(const cbm_edge_lifecycle_input_t *input,
-                                   const char *operation, stage9_decision_t *decisions,
-                                   int count, const char *decision_hash,
-                                   bool stage14_parent_authorized) {
+static bool stage9_manifest_verify(const cbm_edge_lifecycle_input_t *input, const char *operation,
+                                   stage9_decision_t *decisions, int count,
+                                   const char *decision_hash, bool stage14_parent_authorized) {
     char path[1024] = {0};
     char expected_hash[80] = {0};
     bool stage14_fixture =
         strncmp(input->project, STAGE14_FIXTURE_PREFIX, strlen(STAGE14_FIXTURE_PREFIX)) == 0;
     bool fixture = strcmp(input->project, STAGE9_FIXTURE_PROJECT) == 0 || stage14_fixture;
     if (stage14_parent_authorized) {
-        if (!input->manifest_path || !input->manifest_sha256) return false;
+        if (!input->manifest_path || !input->manifest_sha256)
+            return false;
         snprintf(path, sizeof(path), "%s", input->manifest_path);
         snprintf(expected_hash, sizeof(expected_hash), "%s", input->manifest_sha256);
     } else if (fixture) {
-        const char *guard = stage14_fixture ? "CBM_STAGE14_ACTIVE_FIXTURE"
-                                            : "CBM_STAGE9_ACTIVE_FIXTURE";
-        if (stage9_env_int(guard) != 1 || !input->manifest_path ||
-            !input->manifest_sha256) {
+        const char *guard =
+            stage14_fixture ? "CBM_STAGE14_ACTIVE_FIXTURE" : "CBM_STAGE9_ACTIVE_FIXTURE";
+        if (stage9_env_int(guard) != 1 || !input->manifest_path || !input->manifest_sha256) {
             return false;
         }
         snprintf(path, sizeof(path), "%s", input->manifest_path);
         snprintf(expected_hash, sizeof(expected_hash), "%s", input->manifest_sha256);
     } else if (strcmp(input->project, STAGE9_PRODUCTION_PROJECT) == 0) {
-        if (stage9_env_int("CBM_STAGE9_PRODUCTION_CANARY") != 1) return false;
+        if (stage9_env_int("CBM_STAGE9_PRODUCTION_CANARY") != 1)
+            return false;
         cbm_safe_getenv("CBM_STAGE9_PRODUCTION_CANARY_MANIFEST", path, sizeof(path), NULL);
         cbm_safe_getenv("CBM_STAGE9_PRODUCTION_CANARY_MANIFEST_SHA256", expected_hash,
                         sizeof(expected_hash), NULL);
@@ -802,7 +825,8 @@ static bool stage9_manifest_verify(const cbm_edge_lifecycle_input_t *input,
     }
     size_t size = 0;
     char *payload = stage9_read_file(path, &size);
-    if (!payload) return false;
+    if (!payload)
+        return false;
     char actual_hash[65];
     bool ok = cbm_stage7_sha256_hex(payload, size, actual_hash) == CBM_STORE_OK &&
               strcmp(actual_hash, expected_hash) == 0;
@@ -822,13 +846,15 @@ static bool stage9_manifest_verify(const cbm_edge_lifecycle_input_t *input,
     ok = ok && root && yyjson_is_obj(root) && schema && yyjson_is_str(schema) &&
          strcmp(yyjson_get_str(schema), STAGE9_MANIFEST_SCHEMA) == 0 && project &&
          yyjson_is_str(project) && strcmp(yyjson_get_str(project), input->project) == 0 && run_id &&
-         yyjson_is_str(run_id) && input->run_id && strcmp(yyjson_get_str(run_id), input->run_id) == 0 &&
-         as_of && yyjson_is_int(as_of) && yyjson_get_sint(as_of) == input->as_of_ms && algorithm &&
-         yyjson_is_str(algorithm) && strcmp(yyjson_get_str(algorithm), input->algorithm_version) == 0 &&
-         policy_hash && yyjson_is_str(policy_hash) &&
+         yyjson_is_str(run_id) && input->run_id &&
+         strcmp(yyjson_get_str(run_id), input->run_id) == 0 && as_of && yyjson_is_int(as_of) &&
+         yyjson_get_sint(as_of) == input->as_of_ms && algorithm && yyjson_is_str(algorithm) &&
+         strcmp(yyjson_get_str(algorithm), input->algorithm_version) == 0 && policy_hash &&
+         yyjson_is_str(policy_hash) &&
          strcmp(yyjson_get_str(policy_hash), input->policy_sha256) == 0 && policy_version &&
-         yyjson_is_int(policy_version) && yyjson_get_sint(policy_version) == input->policy_version &&
-         config_version && yyjson_is_int(config_version) &&
+         yyjson_is_int(policy_version) &&
+         yyjson_get_sint(policy_version) == input->policy_version && config_version &&
+         yyjson_is_int(config_version) &&
          yyjson_get_sint(config_version) == input->config_version && decision_set &&
          yyjson_is_str(decision_set) && strcmp(yyjson_get_str(decision_set), decision_hash) == 0 &&
          manifest_operation && yyjson_is_str(manifest_operation) &&
@@ -852,10 +878,9 @@ static bool stage9_manifest_verify(const cbm_edge_lifecycle_input_t *input,
     return ok;
 }
 
-static int stage9_request_hash(const cbm_edge_lifecycle_input_t *input,
-                               const char *operation, stage9_decision_t *decisions, int count,
-                               const char *decision_hash, bool stage14_parent_authorized,
-                               char out[65]) {
+static int stage9_request_hash(const cbm_edge_lifecycle_input_t *input, const char *operation,
+                               stage9_decision_t *decisions, int count, const char *decision_hash,
+                               bool stage14_parent_authorized, char out[65]) {
     yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
     yyjson_mut_val *root = doc ? yyjson_mut_obj(doc) : NULL;
     yyjson_mut_val *edges = doc ? yyjson_mut_arr(doc) : NULL;
@@ -864,7 +889,8 @@ static int stage9_request_hash(const cbm_edge_lifecycle_input_t *input,
         return CBM_STORE_ERR;
     }
     yyjson_mut_doc_set_root(doc, root);
-    for (int i = 0; i < count; i++) yyjson_mut_arr_add_strcpy(doc, edges, decisions[i].edge_id);
+    for (int i = 0; i < count; i++)
+        yyjson_mut_arr_add_strcpy(doc, edges, decisions[i].edge_id);
     yyjson_mut_obj_add_str(doc, root, "algorithm_version", input->algorithm_version);
     yyjson_mut_obj_add_sint(doc, root, "as_of_ms", input->as_of_ms);
     yyjson_mut_obj_add_int(doc, root, "config_version", input->config_version);
@@ -872,10 +898,9 @@ static int stage9_request_hash(const cbm_edge_lifecycle_input_t *input,
     yyjson_mut_obj_add_val(doc, root, "edge_ids", edges);
     char production_manifest_sha256[80] = {0};
     const char *manifest_sha256 = input->manifest_sha256 ? input->manifest_sha256 : "";
-    if (strcmp(input->project, STAGE9_PRODUCTION_PROJECT) == 0 &&
-        !stage14_parent_authorized) {
-        cbm_safe_getenv("CBM_STAGE9_PRODUCTION_CANARY_MANIFEST_SHA256",
-                        production_manifest_sha256, sizeof(production_manifest_sha256), NULL);
+    if (strcmp(input->project, STAGE9_PRODUCTION_PROJECT) == 0 && !stage14_parent_authorized) {
+        cbm_safe_getenv("CBM_STAGE9_PRODUCTION_CANARY_MANIFEST_SHA256", production_manifest_sha256,
+                        sizeof(production_manifest_sha256), NULL);
         manifest_sha256 = production_manifest_sha256;
     }
     yyjson_mut_obj_add_str(doc, root, "manifest_sha256", manifest_sha256);
@@ -886,7 +911,8 @@ static int stage9_request_hash(const cbm_edge_lifecycle_input_t *input,
     yyjson_mut_obj_add_str(doc, root, "run_id", input->run_id);
     char *json = yyjson_mut_write(doc, 0, NULL);
     yyjson_mut_doc_free(doc);
-    if (!json) return CBM_STORE_ERR;
+    if (!json)
+        return CBM_STORE_ERR;
     int rc = stage9_hash_text(json, out);
     free(json);
     return rc;
@@ -933,7 +959,8 @@ static int stage9_load_existing_run(sqlite3 *db, const char *run_id,
 
     stage9_decision_t *decisions =
         calloc((size_t)(expected_count > 0 ? expected_count : 1), sizeof(*decisions));
-    if (!decisions) return CBM_STORE_ERR;
+    if (!decisions)
+        return CBM_STORE_ERR;
     sqlite3_stmt *stmt = NULL;
     const char *sql =
         "SELECT edge_id,relation_type,from_state,to_state,reason_code,protected,conductance_ppm,"
@@ -985,9 +1012,8 @@ static int stage9_load_existing_run(sqlite3 *db, const char *run_id,
 }
 
 static int stage9_state_hash(const stage9_decision_t *decision,
-                             const cbm_edge_lifecycle_input_t *input,
-                             int64_t state_changed_at_ms, int version,
-                             const char *protection_reason, char out[65]) {
+                             const cbm_edge_lifecycle_input_t *input, int64_t state_changed_at_ms,
+                             int version, const char *protection_reason, char out[65]) {
     yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
     yyjson_mut_val *root = doc ? yyjson_mut_obj(doc) : NULL;
     if (!doc || !root) {
@@ -1009,7 +1035,8 @@ static int stage9_state_hash(const stage9_decision_t *decision,
     yyjson_mut_obj_add_int(doc, root, "version", version);
     char *json = yyjson_mut_write(doc, 0, NULL);
     yyjson_mut_doc_free(doc);
-    if (!json) return CBM_STORE_ERR;
+    if (!json)
+        return CBM_STORE_ERR;
     int rc = stage9_hash_text(json, out);
     free(json);
     return rc;
@@ -1043,7 +1070,8 @@ static int stage9_event_hash(const char *event_id, const char *run_id,
     yyjson_mut_obj_add_str(doc, root, "to_state", decision->to_state);
     char *json = yyjson_mut_write(doc, 0, NULL);
     yyjson_mut_doc_free(doc);
-    if (!json) return CBM_STORE_ERR;
+    if (!json)
+        return CBM_STORE_ERR;
     int rc = stage9_hash_text(json, out);
     free(json);
     return rc;
@@ -1051,16 +1079,17 @@ static int stage9_event_hash(const char *event_id, const char *run_id,
 
 static int stage9_insert_run(sqlite3 *db, const cbm_edge_lifecycle_input_t *input,
                              const char *operation, const char *request_hash,
-                             const char *decision_hash, const char *report_hash,
-                             int decision_count, int transition_count,
-                             const char *created_at) {
+                             const char *decision_hash, const char *report_hash, int decision_count,
+                             int transition_count, const char *created_at) {
     sqlite3_stmt *stmt = NULL;
     const char *sql =
         "INSERT INTO edge_maintenance_run(run_id,canonical_request_sha256,operation,mode,project,"
-        "as_of_ms,algorithm_version,policy_version,config_version,policy_sha256,decision_set_sha256,"
+        "as_of_ms,algorithm_version,policy_version,config_version,policy_sha256,decision_set_"
+        "sha256,"
         "report_sha256,decision_count,transition_count,created_at) VALUES(?1,?2,?3,'active',?4,?5,"
         "?6,?7,?8,?9,?10,?11,?12,?13,?14);";
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     sqlite3_bind_text(stmt, 1, input->run_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, request_hash, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 3, operation, -1, SQLITE_STATIC);
@@ -1082,9 +1111,8 @@ static int stage9_insert_run(sqlite3 *db, const cbm_edge_lifecycle_input_t *inpu
 
 static int stage9_persist(cbm_store_t *store, const cbm_edge_lifecycle_input_t *input,
                           const char *operation, stage9_decision_t *decisions, int count,
-                          const char *decision_hash, const char *report_hash,
-                          bool owns_transaction, bool stage14_parent_authorized,
-                          int *out_recorded, int *out_replayed) {
+                          const char *decision_hash, const char *report_hash, bool owns_transaction,
+                          bool stage14_parent_authorized, int *out_recorded, int *out_replayed) {
     sqlite3 *db = cbm_store_get_db(store);
     char request_hash[65];
     if (!input->run_id || !input->run_id[0] ||
@@ -1097,19 +1125,23 @@ static int stage9_persist(cbm_store_t *store, const cbm_edge_lifecycle_input_t *
         *out_replayed = 1;
         return CBM_STORE_OK;
     }
-    if (existing != CBM_STORE_NOT_FOUND) return existing;
-    if (owns_transaction && cbm_store_begin(store) != CBM_STORE_OK) return CBM_STORE_ERR;
+    if (existing != CBM_STORE_NOT_FOUND)
+        return existing;
+    if (owns_transaction && cbm_store_begin(store) != CBM_STORE_OK)
+        return CBM_STORE_ERR;
     char created_at[40];
     stage9_iso_from_ms(input->as_of_ms, created_at);
     int transitions = 0;
     for (int i = 0; i < count; i++) {
-        if (strcmp(decisions[i].from_state, decisions[i].to_state) != 0) transitions++;
+        if (strcmp(decisions[i].from_state, decisions[i].to_state) != 0)
+            transitions++;
     }
     int rc = stage9_insert_run(db, input, operation, request_hash, decision_hash, report_hash,
                                count, transitions, created_at);
     int fail_after = stage9_env_int("CBM_STAGE9_ACTIVE_FAIL_AFTER");
     int step = rc == CBM_STORE_OK ? 1 : 0;
-    if (rc == CBM_STORE_OK && fail_after == step) rc = CBM_STORE_ERR;
+    if (rc == CBM_STORE_OK && fail_after == step)
+        rc = CBM_STORE_ERR;
     for (int i = 0; i < count && rc == CBM_STORE_OK; i++) {
         stage9_decision_t *decision = &decisions[i];
         char *decision_id = stage9_hash_id("decision-", input->run_id, decision->edge_id, "");
@@ -1140,12 +1172,15 @@ static int stage9_persist(cbm_store_t *store, const cbm_edge_lifecycle_input_t *
         sqlite3_bind_int(stmt, 14, decision->failure_count);
         sqlite3_bind_text(stmt, 15, decision->decision_sha256, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 16, created_at, -1, SQLITE_TRANSIENT);
-        if (sqlite3_step(stmt) != SQLITE_DONE) rc = CBM_STORE_ERR;
+        if (sqlite3_step(stmt) != SQLITE_DONE)
+            rc = CBM_STORE_ERR;
         sqlite3_finalize(stmt);
         free(decision_id);
         step++;
-        if (rc == CBM_STORE_OK && fail_after == step) rc = CBM_STORE_ERR;
-        if (rc != CBM_STORE_OK) break;
+        if (rc == CBM_STORE_OK && fail_after == step)
+            rc = CBM_STORE_ERR;
+        if (rc != CBM_STORE_OK)
+            break;
 
         const char *state_sql =
             "SELECT lifecycle_state,state_sha256,version,state_changed_at_ms FROM edge_lifecycle_"
@@ -1173,8 +1208,10 @@ static int stage9_persist(cbm_store_t *store, const cbm_edge_lifecycle_input_t *
         }
         sqlite3_finalize(state_stmt);
         bool transition = strcmp(decision->from_state, decision->to_state) != 0;
-        if (has_state && !transition) continue;
-        if (transition) changed_at = input->as_of_ms;
+        if (has_state && !transition)
+            continue;
+        if (transition)
+            changed_at = input->as_of_ms;
         const char *protection = decision->protected_edge ? decision->reason_code : "normal";
         char after_hash[65];
         if (stage9_state_hash(decision, input, changed_at, version, protection, after_hash) !=
@@ -1192,15 +1229,16 @@ static int stage9_persist(cbm_store_t *store, const cbm_edge_lifecycle_input_t *
             snprintf(prev_hash, sizeof(prev_hash), "%s", stage9_col_text(prev_stmt, 0));
         }
         sqlite3_finalize(prev_stmt);
-        const char *audit_operation = strcmp(operation, "restore") == 0
-                                          ? "restore"
-                                          : (!has_state && !transition ? "initialize" : "transition");
+        const char *audit_operation =
+            strcmp(operation, "restore") == 0
+                ? "restore"
+                : (!has_state && !transition ? "initialize" : "transition");
         char *event_id =
             stage9_hash_id("lifecycle-", input->run_id, decision->edge_id, audit_operation);
         char event_hash[65];
         if (!event_id || stage9_event_hash(event_id, input->run_id, decision, audit_operation,
-                                            before_hash, after_hash, input, prev_hash, created_at,
-                                            event_hash) != CBM_STORE_OK) {
+                                           before_hash, after_hash, input, prev_hash, created_at,
+                                           event_hash) != CBM_STORE_OK) {
             free(event_id);
             rc = CBM_STORE_ERR;
             break;
@@ -1231,10 +1269,12 @@ static int stage9_persist(cbm_store_t *store, const cbm_edge_lifecycle_input_t *
         sqlite3_bind_text(audit_stmt, 13, prev_hash, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(audit_stmt, 14, event_hash, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(audit_stmt, 15, created_at, -1, SQLITE_TRANSIENT);
-        if (sqlite3_step(audit_stmt) != SQLITE_DONE) rc = CBM_STORE_ERR;
+        if (sqlite3_step(audit_stmt) != SQLITE_DONE)
+            rc = CBM_STORE_ERR;
         sqlite3_finalize(audit_stmt);
         step++;
-        if (rc == CBM_STORE_OK && fail_after == step) rc = CBM_STORE_ERR;
+        if (rc == CBM_STORE_OK && fail_after == step)
+            rc = CBM_STORE_ERR;
         if (rc != CBM_STORE_OK) {
             free(event_id);
             break;
@@ -1242,12 +1282,15 @@ static int stage9_persist(cbm_store_t *store, const cbm_edge_lifecycle_input_t *
         sqlite3_stmt *write_state = NULL;
         const char *insert_sql =
             "INSERT INTO edge_lifecycle_state(edge_id,lifecycle_state,conductance_ppm,effective_"
-            "success_flow_ppm,last_evaluated_as_of_ms,state_changed_at_ms,protection_reason,version,"
-            "last_audit_event_id,algorithm_version,policy_version,config_version,policy_sha256,state_"
+            "success_flow_ppm,last_evaluated_as_of_ms,state_changed_at_ms,protection_reason,"
+            "version,"
+            "last_audit_event_id,algorithm_version,policy_version,config_version,policy_sha256,"
+            "state_"
             "sha256,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15);";
         const char *update_sql =
             "UPDATE edge_lifecycle_state SET lifecycle_state=?2,conductance_ppm=?3,effective_"
-            "success_flow_ppm=?4,last_evaluated_as_of_ms=?5,state_changed_at_ms=?6,protection_reason"
+            "success_flow_ppm=?4,last_evaluated_as_of_ms=?5,state_changed_at_ms=?6,protection_"
+            "reason"
             "=?7,version=?8,last_audit_event_id=?9,algorithm_version=?10,policy_version=?11,config_"
             "version=?12,policy_sha256=?13,state_sha256=?14,updated_at=?15 WHERE edge_id=?1;";
         if (sqlite3_prepare_v2(db, has_state ? update_sql : insert_sql, -1, &write_state, NULL) !=
@@ -1271,15 +1314,19 @@ static int stage9_persist(cbm_store_t *store, const cbm_edge_lifecycle_input_t *
         sqlite3_bind_text(write_state, 13, input->policy_sha256, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(write_state, 14, after_hash, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(write_state, 15, created_at, -1, SQLITE_TRANSIENT);
-        if (sqlite3_step(write_state) != SQLITE_DONE) rc = CBM_STORE_ERR;
+        if (sqlite3_step(write_state) != SQLITE_DONE)
+            rc = CBM_STORE_ERR;
         sqlite3_finalize(write_state);
         free(event_id);
         step++;
-        if (rc == CBM_STORE_OK && fail_after == step) rc = CBM_STORE_ERR;
+        if (rc == CBM_STORE_OK && fail_after == step)
+            rc = CBM_STORE_ERR;
     }
-    if (rc == CBM_STORE_OK && owns_transaction) rc = cbm_store_commit(store);
+    if (rc == CBM_STORE_OK && owns_transaction)
+        rc = cbm_store_commit(store);
     if (rc != CBM_STORE_OK) {
-        if (owns_transaction) cbm_store_rollback(store);
+        if (owns_transaction)
+            cbm_store_rollback(store);
         return rc;
     }
     *out_recorded = 1;
@@ -1291,9 +1338,10 @@ static int stage9_build_maintenance(sqlite3 *db, const cbm_edge_lifecycle_input_
     stage9_edge_t *edges = NULL;
     int edge_count = 0;
     int rc = stage9_load_edges(db, &edges, &edge_count);
-    if (rc != CBM_STORE_OK) return rc;
-    stage9_decision_t *decisions = calloc((size_t)(edge_count > 0 ? edge_count : 1),
-                                          sizeof(*decisions));
+    if (rc != CBM_STORE_OK)
+        return rc;
+    stage9_decision_t *decisions =
+        calloc((size_t)(edge_count > 0 ? edge_count : 1), sizeof(*decisions));
     if (!decisions) {
         stage9_edges_free(edges, edge_count);
         return CBM_STORE_ERR;
@@ -1316,30 +1364,32 @@ static int stage9_build_maintenance(sqlite3 *db, const cbm_edge_lifecycle_input_
 static bool stage9_edge_requested(const cbm_edge_lifecycle_restore_input_t *input,
                                   const char *edge_id) {
     for (int i = 0; i < input->edge_count; i++) {
-        if (input->edge_ids[i] && strcmp(input->edge_ids[i], edge_id) == 0) return true;
+        if (input->edge_ids[i] && strcmp(input->edge_ids[i], edge_id) == 0)
+            return true;
     }
     return false;
 }
 
-static int stage9_build_restore(sqlite3 *db,
-                                const cbm_edge_lifecycle_restore_input_t *restore,
+static int stage9_build_restore(sqlite3 *db, const cbm_edge_lifecycle_restore_input_t *restore,
                                 stage9_decision_t **out_decisions, int *out_count) {
     stage9_edge_t *edges = NULL;
     int edge_count = 0;
     int rc = stage9_load_edges(db, &edges, &edge_count);
-    if (rc != CBM_STORE_OK) return rc;
-    stage9_decision_t *decisions = calloc((size_t)(restore->edge_count > 0 ? restore->edge_count : 1),
-                                          sizeof(*decisions));
+    if (rc != CBM_STORE_OK)
+        return rc;
+    stage9_decision_t *decisions =
+        calloc((size_t)(restore->edge_count > 0 ? restore->edge_count : 1), sizeof(*decisions));
     if (!decisions) {
         stage9_edges_free(edges, edge_count);
         return CBM_STORE_ERR;
     }
     int count = 0;
     for (int i = 0; i < edge_count; i++) {
-        if (!stage9_edge_requested(restore, edges[i].edge_id)) continue;
+        if (!stage9_edge_requested(restore, edges[i].edge_id))
+            continue;
         stage9_decision_t *decision = &decisions[count];
-        if (stage9_decide(&edges[i], restore->lifecycle.project,
-                          restore->lifecycle.as_of_ms, decision) != CBM_STORE_OK) {
+        if (stage9_decide(&edges[i], restore->lifecycle.project, restore->lifecycle.as_of_ms,
+                          decision) != CBM_STORE_OK) {
             rc = CBM_STORE_ERR;
             break;
         }
@@ -1370,7 +1420,8 @@ static int stage9_build_restore(sqlite3 *db,
         }
         count++;
     }
-    if (rc == CBM_STORE_OK && count != restore->edge_count) rc = CBM_STORE_NOT_FOUND;
+    if (rc == CBM_STORE_OK && count != restore->edge_count)
+        rc = CBM_STORE_NOT_FOUND;
     stage9_edges_free(edges, edge_count);
     if (rc != CBM_STORE_OK) {
         stage9_decisions_free(decisions, count + (count < restore->edge_count ? 1 : 0));
@@ -1393,21 +1444,21 @@ static int stage9_run(cbm_store_t *store, const cbm_edge_lifecycle_input_t *inpu
         int stored_count = 0;
         char stored_request_hash[65] = {0};
         char stored_report_hash[65] = {0};
-        int existing = stage9_load_existing_run(db, input->run_id, &stored_decisions,
-                                                &stored_count, stored_request_hash,
-                                                stored_report_hash);
+        int existing = stage9_load_existing_run(db, input->run_id, &stored_decisions, &stored_count,
+                                                stored_request_hash, stored_report_hash);
         if (existing != CBM_STORE_NOT_FOUND) {
-            if (existing != CBM_STORE_OK) return existing;
+            if (existing != CBM_STORE_OK)
+                return existing;
             char stored_decision_hash[65];
             char actual_request_hash[65];
             int transitions = 0;
             int protected_count = 0;
-            int rc = stage9_decision_set_hash(stored_decisions, stored_count,
-                                              stored_decision_hash);
+            int rc = stage9_decision_set_hash(stored_decisions, stored_count, stored_decision_hash);
             for (int i = 0; i < stored_count; i++) {
                 if (strcmp(stored_decisions[i].from_state, stored_decisions[i].to_state) != 0)
                     transitions++;
-                if (stored_decisions[i].protected_edge) protected_count++;
+                if (stored_decisions[i].protected_edge)
+                    protected_count++;
             }
             char actual_report_hash[65];
             if (rc == CBM_STORE_OK)
@@ -1420,17 +1471,16 @@ static int stage9_run(cbm_store_t *store, const cbm_edge_lifecycle_input_t *inpu
             if (rc != CBM_STORE_OK || strcmp(actual_request_hash, stored_request_hash) != 0 ||
                 strcmp(actual_report_hash, stored_report_hash) != 0 ||
                 !stage9_manifest_verify(input, operation, stored_decisions, stored_count,
-                                        stored_decision_hash,
-                                        stage14_parent_authorized)) {
+                                        stored_decision_hash, stage14_parent_authorized)) {
                 stage9_decisions_free(stored_decisions, stored_count);
                 return CBM_STORE_IDEMPOTENCY_CONFLICT;
             }
             out->decision_count = stored_count;
             out->transition_count = transitions;
             out->replayed_count = 1;
-            out->report_json = stage9_report_json(input, operation, stored_decisions,
-                                                   stored_count, stored_decision_hash,
-                                                   stored_report_hash, false, true);
+            out->report_json =
+                stage9_report_json(input, operation, stored_decisions, stored_count,
+                                   stored_decision_hash, stored_report_hash, false, true);
             stage9_decisions_free(stored_decisions, stored_count);
             return out->report_json ? CBM_STORE_OK : CBM_STORE_ERR;
         }
@@ -1441,8 +1491,10 @@ static int stage9_run(cbm_store_t *store, const cbm_edge_lifecycle_input_t *inpu
     int transitions = 0;
     int protected_count = 0;
     for (int i = 0; i < count; i++) {
-        if (strcmp(decisions[i].from_state, decisions[i].to_state) != 0) transitions++;
-        if (decisions[i].protected_edge) protected_count++;
+        if (strcmp(decisions[i].from_state, decisions[i].to_state) != 0)
+            transitions++;
+        if (decisions[i].protected_edge)
+            protected_count++;
     }
     char report_hash[65];
     if (stage9_report_hash(input, operation, decision_hash, count, transitions, protected_count,
@@ -1469,14 +1521,16 @@ static int stage9_run(cbm_store_t *store, const cbm_edge_lifecycle_input_t *inpu
         out->decision_count = count;
         out->transition_count = transitions;
         out->report_json = stage9_report_json(input, operation, decisions, count, decision_hash,
-                                               report_hash, wrote, replayed);
-        if (!out->report_json) rc = CBM_STORE_ERR;
+                                              report_hash, wrote, replayed);
+        if (!out->report_json)
+            rc = CBM_STORE_ERR;
     }
     return rc;
 }
 
 void cbm_store_memory_edge_lifecycle_result_free(cbm_edge_lifecycle_result_t *result) {
-    if (!result) return;
+    if (!result)
+        return;
     free(result->report_json);
     memset(result, 0, sizeof(*result));
 }
@@ -1499,14 +1553,13 @@ static bool stage9_controller_transaction(sqlite3 *db, const char *controller_ru
 
 static int stage9_maintenance(cbm_store_t *store, const cbm_edge_lifecycle_input_t *input,
                               const char *controller_run_id, bool owns_transaction,
-                              bool stage14_parent_authorized,
-                              cbm_edge_lifecycle_result_t *out) {
+                              bool stage14_parent_authorized, cbm_edge_lifecycle_result_t *out) {
     sqlite3 *db = store ? cbm_store_get_db(store) : NULL;
-    if (out) memset(out, 0, sizeof(*out));
+    if (out)
+        memset(out, 0, sizeof(*out));
     if (!db || !out || !stage9_input_valid(input) ||
-        (!owns_transaction &&
-         (strcmp(input->mode, "active") != 0 ||
-          !stage9_controller_transaction(db, controller_run_id))))
+        (!owns_transaction && (strcmp(input->mode, "active") != 0 ||
+                               !stage9_controller_transaction(db, controller_run_id))))
         return CBM_STORE_ERR;
     if (strcmp(input->mode, "off") == 0) {
         char empty_hash[65];
@@ -1514,7 +1567,7 @@ static int stage9_maintenance(cbm_store_t *store, const cbm_edge_lifecycle_input
         char report_hash[65];
         stage9_report_hash(input, "maintenance", empty_hash, 0, 0, 0, report_hash);
         out->report_json = stage9_report_json(input, "maintenance", NULL, 0, empty_hash,
-                                               report_hash, false, false);
+                                              report_hash, false, false);
         return out->report_json ? CBM_STORE_OK : CBM_STORE_ERR;
     }
     stage9_decision_t *decisions = NULL;
@@ -1527,25 +1580,26 @@ static int stage9_maintenance(cbm_store_t *store, const cbm_edge_lifecycle_input
     return rc;
 }
 
-int cbm_store_memory_edge_maintenance(cbm_store_t *store,
-                                      const cbm_edge_lifecycle_input_t *input,
+int cbm_store_memory_edge_maintenance(cbm_store_t *store, const cbm_edge_lifecycle_input_t *input,
                                       cbm_edge_lifecycle_result_t *out) {
     return stage9_maintenance(store, input, NULL, true, false, out);
 }
 
-int cbm_store_memory_edge_maintenance_in_transaction(
-    cbm_store_t *store, const cbm_edge_lifecycle_input_t *input,
-    const char *controller_run_id, bool stage14_parent_authorized,
-    cbm_edge_lifecycle_result_t *out) {
-    return stage9_maintenance(store, input, controller_run_id, false,
-                              stage14_parent_authorized, out);
+int cbm_store_memory_edge_maintenance_in_transaction(cbm_store_t *store,
+                                                     const cbm_edge_lifecycle_input_t *input,
+                                                     const char *controller_run_id,
+                                                     bool stage14_parent_authorized,
+                                                     cbm_edge_lifecycle_result_t *out) {
+    return stage9_maintenance(store, input, controller_run_id, false, stage14_parent_authorized,
+                              out);
 }
 
 int cbm_store_memory_edge_restore(cbm_store_t *store,
                                   const cbm_edge_lifecycle_restore_input_t *input,
                                   cbm_edge_lifecycle_result_t *out) {
     sqlite3 *db = store ? cbm_store_get_db(store) : NULL;
-    if (out) memset(out, 0, sizeof(*out));
+    if (out)
+        memset(out, 0, sizeof(*out));
     if (!db || !out || !input || input->edge_count <= 0 || !input->edge_ids ||
         !stage9_input_valid(&input->lifecycle) || strcmp(input->lifecycle.mode, "off") == 0) {
         return CBM_STORE_ERR;
@@ -1554,8 +1608,7 @@ int cbm_store_memory_edge_restore(cbm_store_t *store,
     int count = 0;
     int rc = stage9_build_restore(db, input, &decisions, &count);
     if (rc == CBM_STORE_OK)
-        rc = stage9_run(store, &input->lifecycle, "restore", decisions, count, true, false,
-                        out);
+        rc = stage9_run(store, &input->lifecycle, "restore", decisions, count, true, false, out);
     stage9_decisions_free(decisions, count);
     return rc;
 }
@@ -1566,8 +1619,7 @@ bool cbm_store_memory_edge_allows_propagation(cbm_store_t *store, const char *ed
         return true;
     sqlite3_stmt *stmt = NULL;
     bool allowed = true;
-    if (sqlite3_prepare_v2(db,
-                           "SELECT lifecycle_state FROM edge_lifecycle_state WHERE edge_id=?1;",
+    if (sqlite3_prepare_v2(db, "SELECT lifecycle_state FROM edge_lifecycle_state WHERE edge_id=?1;",
                            -1, &stmt, NULL) == SQLITE_OK) {
         sqlite3_bind_text(stmt, 1, edge_id, -1, SQLITE_TRANSIENT);
         if (sqlite3_step(stmt) == SQLITE_ROW)
@@ -1579,14 +1631,17 @@ bool cbm_store_memory_edge_allows_propagation(cbm_store_t *store, const char *ed
 
 int cbm_store_memory_stage9_audit_verify(cbm_store_t *store, int *out_count) {
     sqlite3 *db = store ? cbm_store_get_db(store) : NULL;
-    if (out_count) *out_count = 0;
-    if (!db || !stage9_ledger_valid(db)) return CBM_STORE_ERR;
+    if (out_count)
+        *out_count = 0;
+    if (!db || !stage9_ledger_valid(db))
+        return CBM_STORE_ERR;
     sqlite3_stmt *stmt = NULL;
     const char *sql =
         "SELECT event_id,run_id,edge_id,operation,from_state,to_state,before_state_sha256,after_"
         "state_sha256,decision_sha256,algorithm_version,policy_version,config_version,prev_hash,"
         "event_hash,created_at FROM edge_lifecycle_audit_event ORDER BY sequence_no;";
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     char expected_prev[65] = "GENESIS";
     int count = 0;
     int rc = CBM_STORE_OK;
@@ -1617,6 +1672,7 @@ int cbm_store_memory_stage9_audit_verify(cbm_store_t *store, int *out_count) {
         count++;
     }
     sqlite3_finalize(stmt);
-    if (rc == CBM_STORE_OK && out_count) *out_count = count;
+    if (rc == CBM_STORE_OK && out_count)
+        *out_count = count;
     return rc;
 }

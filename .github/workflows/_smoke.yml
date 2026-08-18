@@ -1,4 +1,4 @@
-# Reusable: smoke test every binary (standard + UI, all platforms)
+# Reusable: smoke test every binary (Windows only)
 name: Smoke
 
 on:
@@ -86,98 +86,9 @@ jobs:
           echo "windows=$WIN_M" >> "$GITHUB_OUTPUT"
           echo "portable=$PORTABLE_M" >> "$GITHUB_OUTPUT"
 
-  smoke-unix:
-    needs: setup-matrix
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.setup-matrix.outputs.unix) }}
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: binaries-${{ matrix.goos }}-${{ matrix.goarch }}
-
-      - name: Extract binary
-        run: |
-          SUFFIX=${{ matrix.variant == 'ui' && '-ui' || '' }}
-          tar -xzf semantic-memory-mcp${SUFFIX}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
-          chmod +x semantic-memory-mcp
-
-      - name: Start artifact server
-        run: |
-          mkdir -p /tmp/smoke-server
-          cp semantic-memory-mcp /tmp/smoke-server/
-          OS=${{ matrix.goos }}; ARCH=${{ matrix.goarch }}
-          SUFFIX=${{ matrix.variant == 'ui' && '-ui' || '' }}
-          tar -czf "/tmp/smoke-server/semantic-memory-mcp${SUFFIX}-${OS}-${ARCH}.tar.gz" \
-            -C /tmp/smoke-server semantic-memory-mcp
-          if [ -n "$SUFFIX" ]; then
-            cp "/tmp/smoke-server/semantic-memory-mcp${SUFFIX}-${OS}-${ARCH}.tar.gz" \
-               "/tmp/smoke-server/semantic-memory-mcp-${OS}-${ARCH}.tar.gz"
-          fi
-          # The linux binary self-updates from the fully-static "-portable" asset
-          # (build_update_url in src/cli/cli.c appends -portable on linux; _build.yml's
-          # build-linux-portable job ships it), so the smoke server must serve that name
-          # too -- otherwise `update` 404s and Phase 14 fails. Mirror the tarball(s) under
-          # the -portable name on linux only.
-          if [ "$OS" = "linux" ]; then
-            cp "/tmp/smoke-server/semantic-memory-mcp${SUFFIX}-${OS}-${ARCH}.tar.gz" \
-               "/tmp/smoke-server/semantic-memory-mcp${SUFFIX}-${OS}-${ARCH}-portable.tar.gz"
-            if [ -n "$SUFFIX" ]; then
-              cp "/tmp/smoke-server/semantic-memory-mcp${SUFFIX}-${OS}-${ARCH}-portable.tar.gz" \
-                 "/tmp/smoke-server/semantic-memory-mcp-${OS}-${ARCH}-portable.tar.gz"
-            fi
-          fi
-          cd /tmp/smoke-server
-          sha256sum *.tar.gz > checksums.txt 2>/dev/null || shasum -a 256 *.tar.gz > checksums.txt
-          python3 -m http.server 18080 -d /tmp/smoke-server &
-
-      - name: Smoke test
-        run: scripts/smoke-test.sh ./semantic-memory-mcp
-        env:
-          SMOKE_DOWNLOAD_URL: http://localhost:18080
-
-      - name: Security audits
-        run: |
-          scripts/security-strings.sh ./semantic-memory-mcp
-          scripts/security-install.sh ./semantic-memory-mcp
-          scripts/security-network.sh ./semantic-memory-mcp
-
-      - name: MCP robustness test (linux-amd64 standard only)
-        if: matrix.variant == 'standard' && matrix.goos == 'linux' && matrix.goarch == 'amd64'
-        run: |
-          scripts/security-fuzz.sh ./semantic-memory-mcp
-          scripts/security-fuzz-random.sh ./semantic-memory-mcp 60
-
-      - name: ClamAV scan (Linux)
-        if: startsWith(matrix.os, 'ubuntu')
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq clamav > /dev/null 2>&1
-          # apt auto-starts the clamav-freshclam daemon, which holds a lock on
-          # freshclam's log/db; stop it so the manual freshclam below can run
-          # (else: "Failed to lock the log file ... Resource temporarily unavailable").
-          sudo systemctl stop clamav-freshclam 2>/dev/null || true
-          sudo sed -i 's/^Example/#Example/' /etc/clamav/freshclam.conf 2>/dev/null || true
-          grep -q "DatabaseMirror" /etc/clamav/freshclam.conf 2>/dev/null || \
-            echo "DatabaseMirror database.clamav.net" | sudo tee -a /etc/clamav/freshclam.conf > /dev/null
-          sudo freshclam --quiet
-          clamscan --no-summary ./semantic-memory-mcp
-
-      - name: ClamAV scan (macOS)
-        if: startsWith(matrix.os, 'macos')
-        run: |
-          brew install clamav > /dev/null 2>&1
-          CLAMAV_ETC=$(brew --prefix)/etc/clamav
-          if [ ! -f "$CLAMAV_ETC/freshclam.conf" ]; then
-            cp "$CLAMAV_ETC/freshclam.conf.sample" "$CLAMAV_ETC/freshclam.conf" 2>/dev/null || true
-            sed -i '' 's/^Example/#Example/' "$CLAMAV_ETC/freshclam.conf" 2>/dev/null || true
-            echo "DatabaseMirror database.clamav.net" >> "$CLAMAV_ETC/freshclam.conf"
-          fi
-          freshclam --quiet --no-warnings 2>/dev/null || freshclam --quiet 2>/dev/null || echo "WARNING: freshclam update failed"
-          clamscan --no-summary ./semantic-memory-mcp
+  # POSIX smoke tests removed per Windows-only strategy
+  # smoke-unix:
+  #   ... (commented out)
 
   smoke-windows:
     needs: setup-matrix
@@ -252,66 +163,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { Write-Host "BLOCKED: Windows Defender flagged binary!"; exit 1 }
           Write-Host "=== Windows Defender: clean ==="
 
-  smoke-linux-portable:
-    needs: setup-matrix
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.setup-matrix.outputs.portable) }}
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: binaries-linux-${{ matrix.arch }}-portable
-
-      - name: Extract and smoke test
-        run: |
-          SUFFIX=${{ matrix.variant == 'ui' && '-ui' || '' }}
-          tar -xzf semantic-memory-mcp${SUFFIX}-linux-${{ matrix.arch }}-portable.tar.gz
-          chmod +x semantic-memory-mcp
-          scripts/smoke-test.sh ./semantic-memory-mcp
-
-      # The -portable binary is what all linux install/update paths now deliver;
-      # it MUST start on old glibc (Debian 11 / RHEL 8 / Ubuntu 20.04). Runs it
-      # in debian:bullseye (glibc 2.31) — the standard dynamic binary would fail
-      # here with `GLIBC_2.38 not found`.
-      - name: Old-glibc compatibility
-        run: scripts/ci/check-glibc-compat.sh ./semantic-memory-mcp
-
-      - name: Security audits
-        run: |
-          scripts/security-strings.sh ./semantic-memory-mcp
-          scripts/security-install.sh ./semantic-memory-mcp
-          scripts/security-network.sh ./semantic-memory-mcp
-
-  # ── Packaging check (non-gating) ──────────────────────────────────
-  # Builds pkg/glama/Dockerfile — the image Glama builds to score the
-  # server — and runs an MCP initialize + tools/list handshake to confirm the
-  # containerized stdio server still starts and introspects. Guards the Glama
-  # listing integration against drift (Dockerfile breakage, release-asset
-  # renames, introspection regressions).
-  #
-  # Also tests the brew tap/install flow.
-  #
-  # continue-on-error: a broken *directory* image must never block a release —
-  # the shipped product binaries are unaffected. The red X is the signal to fix
-  # the integration, not a release gate.
-  smoke-packages:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - name: Build Glama image and verify MCP introspection
-        run: bash pkg/glama/verify.sh
-      - name: Test homebrew installation
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: 1
-        run: |
-          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-          brew tap deusdata/codebase-memory-mcp "$GITHUB_WORKSPACE"
-          brew trust deusdata/codebase-memory-mcp
-          brew install codebase-memory-mcp
-          semantic-memory-mcp --version
+  # Linux portable and packaging checks removed per Windows-only strategy
+  # smoke-linux-portable:
+  #   ... (commented out)
+  # smoke-packages:
+  #   ... (commented out)

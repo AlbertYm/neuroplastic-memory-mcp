@@ -25,10 +25,10 @@
 enum {
     MAIN_MIN_ARGC = 1,
     MAIN_CLI_ARGC = 2,
-    MAIN_FLAG_OFF = 5,        /* strlen("--ui=") */
-    MAIN_PORT_OFF = 7,        /* strlen("--port=") */
+    MAIN_FLAG_OFF = 5, /* strlen("--ui=") */
+    MAIN_PORT_OFF = 7, /* strlen("--port=") */
     MAIN_MAX_PORT = 65536,
-    MAIN_CLI_FLAG_LEN = 2,    /* strlen("--") — CLI flag prefix */
+    MAIN_CLI_FLAG_LEN = 2,                       /* strlen("--") — CLI flag prefix */
     PARENT_WATCHDOG_STACK_SIZE = 64 * CBM_SZ_1K, /* watchdog only polls — tiny stack suffices */
 };
 #define MAIN_RAM_FRACTION 0.5
@@ -1370,7 +1370,10 @@ static int watcher_index_fn(const char *project_name, const char *root_path, voi
 
 /* ── CLI mode ───────────────────────────────────────────────────── */
 
-#define CLI_USAGE "Usage: semantic-memory-mcp cli [--progress] [--json] <tool_name> [--flag value... | --args-file <path> | '<raw-json>']\n"
+#define CLI_USAGE                                                                          \
+    "Usage: semantic-memory-mcp cli [--progress] [--json] <tool_name> [--flag value... | " \
+    "--args-file "                                                                         \
+    "<path> | '<raw-json>']\n"
 
 /* Extract text content from MCP tool result envelope and print it.
  * MCP results: {"content":[{"type":"text","text":"..."}],"isError":...}
@@ -1567,8 +1570,8 @@ static int run_cli(int argc, char **argv) {
      * With zero args and no piped stdin, it defaults to {} (an empty tool call).
      * Legacy `--progress` / `--json` are stripped above. */
 
-    char *json_owned = NULL;  /* heap args JSON we allocate and must free */
-    const char *json = NULL;  /* effective args JSON passed to the tool */
+    char *json_owned = NULL; /* heap args JSON we allocate and must free */
+    const char *json = NULL; /* effective args JSON passed to the tool */
 
     /* B6: --help / -h anywhere after the tool name. Must be handled before
      * flag parsing so unknown tools error cleanly (B6c). */
@@ -1650,37 +1653,36 @@ static int run_cli(int argc, char **argv) {
     }
     json = "{}";
 
-handled:
-    {
-        cbm_mcp_server_t *srv = cbm_mcp_server_new(NULL);
-        if (!srv) {
-            (void)fprintf(stderr, "error: failed to create server\n");
-            free(json_owned);
-            if (progress) {
-                cbm_progress_sink_fini();
-            }
-            return SKIP_ONE;
-        }
-
-        char *result = cbm_mcp_handle_tool(srv, tool_name, json);
-        int exit_code = 0;
-
-        if (result) {
-            if (raw_json) {
-                printf("%s\n", result);
-            } else {
-                exit_code = cli_print_mcp_result(result);
-            }
-            free(result);
-        }
-
+handled: {
+    cbm_mcp_server_t *srv = cbm_mcp_server_new(NULL);
+    if (!srv) {
+        (void)fprintf(stderr, "error: failed to create server\n");
         free(json_owned);
-        cbm_mcp_server_free(srv);
         if (progress) {
             cbm_progress_sink_fini();
         }
-        return exit_code;
+        return SKIP_ONE;
     }
+
+    char *result = cbm_mcp_handle_tool(srv, tool_name, json);
+    int exit_code = 0;
+
+    if (result) {
+        if (raw_json) {
+            printf("%s\n", result);
+        } else {
+            exit_code = cli_print_mcp_result(result);
+        }
+        free(result);
+    }
+
+    free(json_owned);
+    cbm_mcp_server_free(srv);
+    if (progress) {
+        cbm_progress_sink_fini();
+    }
+    return exit_code;
+}
 }
 
 /* ── Help ───────────────────────────────────────────────────────── */

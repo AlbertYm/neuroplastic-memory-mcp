@@ -91,8 +91,8 @@ typedef struct {
 } cbm_memory_activation_candidate_t;
 
 typedef struct {
-    char *mode;               /* shadow | active */
-    char *status;             /* completed | failed */
+    char *mode;   /* shadow | active */
+    char *status; /* completed | failed */
     char *session_id;
     char *termination_reason; /* completed | *_budget | timeout | failpoint | guard */
     cbm_memory_activation_candidate_t *candidates;
@@ -388,17 +388,14 @@ int cbm_store_memory_observe_session_begin(cbm_store_t *s,
                                            bool *out_replayed);
 int cbm_store_memory_observe_session_complete(cbm_store_t *s, const char *session_id,
                                               const char *status, const char *error_code);
-int cbm_store_memory_observe_candidates(
-    cbm_store_t *s, const char *session_id,
-    const cbm_retrieval_candidate_observation_t *candidates, int count,
-    cbm_retrieval_observation_ref_t *out_refs);
+int cbm_store_memory_observe_candidates(cbm_store_t *s, const char *session_id,
+                                        const cbm_retrieval_candidate_observation_t *candidates,
+                                        int count, cbm_retrieval_observation_ref_t *out_refs);
 void cbm_store_memory_observation_refs_free(cbm_retrieval_observation_ref_t *refs, int count);
-int cbm_store_memory_observe_injection(cbm_store_t *s,
-                                       const cbm_observe_injection_input_t *input);
+int cbm_store_memory_observe_injection(cbm_store_t *s, const cbm_observe_injection_input_t *input);
 int cbm_store_memory_observe_usage(cbm_store_t *s, const cbm_observe_usage_input_t *input);
 int cbm_stage7_sha256_hex(const void *data, size_t size, char out_hex[65]);
-int cbm_store_memory_feedback_observe(cbm_store_t *s,
-                                      const cbm_feedback_observe_input_t *input,
+int cbm_store_memory_feedback_observe(cbm_store_t *s, const cbm_feedback_observe_input_t *input,
                                       cbm_feedback_observe_result_t *out);
 void cbm_store_memory_feedback_observe_result_free(cbm_feedback_observe_result_t *result);
 int cbm_store_memory_stage7_audit_verify(cbm_store_t *s, int *out_count);
@@ -415,9 +412,8 @@ int cbm_store_memory_update_status(cbm_store_t *s, const char *id, const char *p
  * side effects; reuse with a different payload returns
  * CBM_STORE_IDEMPOTENCY_CONFLICT. */
 int cbm_store_memory_feedback_idempotent(cbm_store_t *s, const char *id, const char *project,
-                                          const char *feedback, const char *note,
-                                          const char *user, const char *requested_event_id,
-                                          char **out_event_id);
+                                         const char *feedback, const char *note, const char *user,
+                                         const char *requested_event_id, char **out_event_id);
 /* Backward-compatible wrapper that auto-generates an event id. */
 int cbm_store_memory_feedback(cbm_store_t *s, const char *id, const char *project,
                               const char *feedback, const char *note, const char *user,
@@ -474,22 +470,20 @@ void cbm_store_memory_result_free(cbm_memory_result_t *out);
  * supersedes, created_at, updated_at). Filters by scope_project, kind,
  * status, and entity_key. Caller must free the returned string. */
 int cbm_store_memory_adr_list(cbm_store_t *s, const char *project, const char *kind_filter,
-                              const char *status_filter, const char *entity_key_filter,
-                              int limit, char **out_json);
+                              const char *status_filter, const char *entity_key_filter, int limit,
+                              char **out_json);
 
 /* Same as cbm_store_memory_adr_list but queries the global (cross-project)
  * store where scope_project IS NULL. project label in output is "__global__". */
 int cbm_store_memory_adr_list_global(cbm_store_t *s, const char *kind_filter,
-                                     const char *status_filter,
-                                     const char *entity_key_filter,
+                                     const char *status_filter, const char *entity_key_filter,
                                      int limit, char **out_json);
 
 /* Walk the supersedes chain for an ADR. Start from item_id (walk backward to
  * root then forward to newest) or entity_key (find root at version=1). Returns
  * JSON with items in version order (oldest first) plus generation ordinal.
  * Cycle detection caps at max_depth. Caller frees *out_json. */
-int cbm_store_memory_adr_chain(cbm_store_t *s, const char *project,
-                               const char *entity_key, const char *item_id,
-                               int max_depth, char **out_json);
+int cbm_store_memory_adr_chain(cbm_store_t *s, const char *project, const char *entity_key,
+                               const char *item_id, int max_depth, char **out_json);
 
 #endif /* CBM_MEMORY_STORE_H */

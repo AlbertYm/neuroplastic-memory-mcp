@@ -457,44 +457,56 @@ static const memory_stage5_object_t MEMORY_STAGE5_OBJECTS[] = {
      "query_hash TEXT NOT NULL,started_at TEXT NOT NULL,completed_at TEXT,error_code TEXT)"},
     {"table", "retrieval_candidate",
      "CREATE TABLE IF NOT EXISTS retrieval_candidate("
-     "id TEXT PRIMARY KEY,session_id TEXT NOT NULL REFERENCES retrieval_session(id) ON DELETE RESTRICT,"
+     "id TEXT PRIMARY KEY,session_id TEXT NOT NULL REFERENCES retrieval_session(id) ON DELETE "
+     "RESTRICT,"
      "source_store_kind TEXT NOT NULL CHECK(source_store_kind IN ('project','global')),"
-     "source_store_id TEXT NOT NULL,memory_item_id TEXT NOT NULL REFERENCES memory_item(id) ON DELETE RESTRICT,"
+     "source_store_id TEXT NOT NULL,memory_item_id TEXT NOT NULL REFERENCES memory_item(id) ON "
+     "DELETE RESTRICT,"
      "content_hash TEXT NOT NULL,aggregate_score REAL,"
      "aggregate_rank INTEGER CHECK(aggregate_rank IS NULL OR aggregate_rank > 0),"
-     "decision_status TEXT NOT NULL CHECK(decision_status IN ('retrieved','selected','rejected','contradicted')),"
+     "decision_status TEXT NOT NULL CHECK(decision_status IN "
+     "('retrieved','selected','rejected','contradicted')),"
      "decision_reason TEXT,created_at TEXT NOT NULL,"
      "UNIQUE(session_id,source_store_kind,source_store_id,memory_item_id))"},
     {"table", "retrieval_candidate_source",
      "CREATE TABLE IF NOT EXISTS retrieval_candidate_source("
-     "id TEXT PRIMARY KEY,candidate_id TEXT NOT NULL REFERENCES retrieval_candidate(id) ON DELETE RESTRICT,"
-     "source_type TEXT NOT NULL CHECK(source_type IN ('fts','vector','code_anchor','graph','manual')),"
+     "id TEXT PRIMARY KEY,candidate_id TEXT NOT NULL REFERENCES retrieval_candidate(id) ON DELETE "
+     "RESTRICT,"
+     "source_type TEXT NOT NULL CHECK(source_type IN "
+     "('fts','vector','code_anchor','graph','manual')),"
      "source_rank INTEGER CHECK(source_rank IS NULL OR source_rank > 0),raw_score REAL,"
      "normalized_score REAL,source_detail_json TEXT,UNIQUE(candidate_id,source_type,source_rank))"},
     {"table", "retrieval_edge_visit",
      "CREATE TABLE IF NOT EXISTS retrieval_edge_visit("
-     "id TEXT PRIMARY KEY,session_id TEXT NOT NULL REFERENCES retrieval_session(id) ON DELETE RESTRICT,"
+     "id TEXT PRIMARY KEY,session_id TEXT NOT NULL REFERENCES retrieval_session(id) ON DELETE "
+     "RESTRICT,"
      "from_candidate_id TEXT REFERENCES retrieval_candidate(id) ON DELETE RESTRICT,"
      "to_candidate_id TEXT NOT NULL REFERENCES retrieval_candidate(id) ON DELETE RESTRICT,"
-     "memory_edge_id TEXT REFERENCES memory_edge(id) ON DELETE RESTRICT,relation_type TEXT NOT NULL,"
+     "memory_edge_id TEXT REFERENCES memory_edge(id) ON DELETE RESTRICT,relation_type TEXT NOT "
+     "NULL,"
      "hop_depth INTEGER NOT NULL CHECK(hop_depth BETWEEN 0 AND 3),"
      "activation_in REAL NOT NULL,activation_out REAL NOT NULL,"
-     "visit_status TEXT NOT NULL CHECK(visit_status IN ('visited','accepted','filtered','cycle_blocked','budget_blocked')),"
+     "visit_status TEXT NOT NULL CHECK(visit_status IN "
+     "('visited','accepted','filtered','cycle_blocked','budget_blocked')),"
      "created_at TEXT NOT NULL)"},
     {"table", "context_injection",
      "CREATE TABLE IF NOT EXISTS context_injection("
-     "id TEXT PRIMARY KEY,session_id TEXT NOT NULL REFERENCES retrieval_session(id) ON DELETE RESTRICT,"
+     "id TEXT PRIMARY KEY,session_id TEXT NOT NULL REFERENCES retrieval_session(id) ON DELETE "
+     "RESTRICT,"
      "candidate_id TEXT NOT NULL REFERENCES retrieval_candidate(id) ON DELETE RESTRICT,"
      "injection_index INTEGER NOT NULL CHECK(injection_index >= 0),target TEXT NOT NULL,"
      "content_hash TEXT NOT NULL,token_count INTEGER NOT NULL CHECK(token_count >= 0),"
      "injected_at TEXT NOT NULL,UNIQUE(session_id,injection_index),UNIQUE(id,candidate_id))"},
     {"table", "memory_usage_attribution",
      "CREATE TABLE IF NOT EXISTS memory_usage_attribution("
-     "id TEXT PRIMARY KEY,session_id TEXT NOT NULL REFERENCES retrieval_session(id) ON DELETE RESTRICT,"
+     "id TEXT PRIMARY KEY,session_id TEXT NOT NULL REFERENCES retrieval_session(id) ON DELETE "
+     "RESTRICT,"
      "candidate_id TEXT NOT NULL REFERENCES retrieval_candidate(id) ON DELETE RESTRICT,"
      "injection_id TEXT REFERENCES context_injection(id) ON DELETE RESTRICT,"
-     "outcome TEXT NOT NULL CHECK(outcome IN ('used','ignored','rejected','contradicted','uncertain')),"
-     "evidence_type TEXT NOT NULL,evidence_ref TEXT NOT NULL,evidence_hash TEXT,recorded_at TEXT NOT NULL)"},
+     "outcome TEXT NOT NULL CHECK(outcome IN "
+     "('used','ignored','rejected','contradicted','uncertain')),"
+     "evidence_type TEXT NOT NULL,evidence_ref TEXT NOT NULL,evidence_hash TEXT,recorded_at TEXT "
+     "NOT NULL)"},
     {"index", "retrieval_candidate_session_idx",
      "CREATE INDEX IF NOT EXISTS retrieval_candidate_session_idx "
      "ON retrieval_candidate(session_id,aggregate_rank)"},
@@ -695,9 +707,9 @@ static int memory_migrate_v6(cbm_store_t *s) {
         }
     }
     sqlite3_stmt *stmt = NULL;
-    const char *ledger_sql =
-        "INSERT OR IGNORE INTO stage5_schema_migrations(component,version,name,checksum,applied_at) "
-        "VALUES(?1,1,?2,?3,strftime('%Y-%m-%dT%H:%M:%fZ','now'));";
+    const char *ledger_sql = "INSERT OR IGNORE INTO "
+                             "stage5_schema_migrations(component,version,name,checksum,applied_at) "
+                             "VALUES(?1,1,?2,?3,strftime('%Y-%m-%dT%H:%M:%fZ','now'));";
     if (sqlite3_prepare_v2(s->db, ledger_sql, -1, &stmt, NULL) != SQLITE_OK) {
         cbm_store_rollback(s);
         return CBM_STORE_ERR;
@@ -741,7 +753,8 @@ static const memory_stage7_object_t MEMORY_STAGE7_OBJECTS[] = {
     {"table", "memory_task",
      "CREATE TABLE IF NOT EXISTS memory_task("
      "task_id TEXT PRIMARY KEY,project TEXT NOT NULL,task_type TEXT NOT NULL CHECK(task_type IN "
-     "('build','test','static_check','runtime','user_task','health_check')),created_at TEXT NOT NULL)"},
+     "('build','test','static_check','runtime','user_task','health_check')),created_at TEXT NOT "
+     "NULL)"},
     {"table", "memory_task_session",
      "CREATE TABLE IF NOT EXISTS memory_task_session("
      "task_id TEXT NOT NULL REFERENCES memory_task(task_id) ON DELETE RESTRICT,"
@@ -772,11 +785,14 @@ static const memory_stage7_object_t MEMORY_STAGE7_OBJECTS[] = {
      "RESTRICT,session_id TEXT NOT NULL REFERENCES retrieval_session(id) ON DELETE RESTRICT,"
      "candidate_id TEXT NOT NULL REFERENCES retrieval_candidate(id) ON DELETE RESTRICT,"
      "injection_id TEXT REFERENCES context_injection(id) ON DELETE RESTRICT,usage_id TEXT NOT NULL "
-     "REFERENCES memory_usage_attribution(id) ON DELETE RESTRICT,result_id TEXT NOT NULL REFERENCES "
+     "REFERENCES memory_usage_attribution(id) ON DELETE RESTRICT,result_id TEXT NOT NULL "
+     "REFERENCES "
      "memory_task_result(result_id) ON DELETE RESTRICT,evidence_id TEXT NOT NULL REFERENCES "
      "memory_evidence(evidence_id) ON DELETE RESTRICT,action TEXT NOT NULL CHECK(action IN "
-     "('confirm','reject','correct','withdraw')),processing_mode TEXT NOT NULL CHECK(processing_mode="
-     "'observe_only'),canonical_payload_sha256 TEXT NOT NULL CHECK(length(canonical_payload_sha256)="
+     "('confirm','reject','correct','withdraw')),processing_mode TEXT NOT NULL "
+     "CHECK(processing_mode="
+     "'observe_only'),canonical_payload_sha256 TEXT NOT NULL "
+     "CHECK(length(canonical_payload_sha256)="
      "64 AND canonical_payload_sha256 NOT GLOB '*[^0-9a-f]*'),payload_json TEXT NOT NULL,"
      "result_json TEXT NOT NULL,supersedes_event_id TEXT REFERENCES feedback_event(event_id) ON "
      "DELETE RESTRICT,algorithm_version TEXT NOT NULL,config_version INTEGER NOT NULL CHECK("
@@ -790,7 +806,8 @@ static const memory_stage7_object_t MEMORY_STAGE7_OBJECTS[] = {
      "memory_task(task_id) ON DELETE RESTRICT,session_id TEXT NOT NULL REFERENCES "
      "retrieval_session(id) ON DELETE RESTRICT,candidate_id TEXT NOT NULL REFERENCES "
      "retrieval_candidate(id) ON DELETE RESTRICT,memory_item_id TEXT NOT NULL REFERENCES "
-     "memory_item(id) ON DELETE RESTRICT,edge_id TEXT REFERENCES memory_edge(id) ON DELETE RESTRICT,"
+     "memory_item(id) ON DELETE RESTRICT,edge_id TEXT REFERENCES memory_edge(id) ON DELETE "
+     "RESTRICT,"
      "evidence_id TEXT NOT NULL REFERENCES memory_evidence(evidence_id) ON DELETE RESTRICT,"
      "node_contribution REAL NOT NULL,edge_contribution REAL NOT NULL,cap_min REAL NOT NULL,"
      "cap_max REAL NOT NULL,uncapped_reward REAL NOT NULL,final_reward REAL NOT NULL,"
@@ -1389,29 +1406,31 @@ void cbm_store_memory_result_free(cbm_memory_result_t *out) {
 
 static int memory_security_fields_allowed(const char *const *fields, size_t count) {
     for (size_t i = 0; i < count; i++) {
-        if (!fields[i]) continue;
+        if (!fields[i])
+            continue;
         cbm_memory_security_result_t security = {0};
         if (cbm_memory_security_scan(fields[i], strlen(fields[i]), &security) != 0) {
             return CBM_STORE_ERR;
         }
-        if (!security.allowed) return CBM_STORE_REJECTED;
+        if (!security.allowed)
+            return CBM_STORE_REJECTED;
     }
     return CBM_STORE_OK;
 }
 
 int cbm_store_memory_append_event(cbm_store_t *s, const cbm_memory_event_t *event,
-                                   char **out_event_id) {
+                                  char **out_event_id) {
     if (out_event_id) {
         *out_event_id = NULL;
     }
     if (!s || !s->db || !event || !event->payload) {
         return CBM_STORE_ERR;
     }
-    const char *fields[] = {event->id,      event->type,    event->source,
-                            event->project, event->user,    event->payload,
-                            event->context_json};
+    const char *fields[] = {event->id,   event->type,    event->source,      event->project,
+                            event->user, event->payload, event->context_json};
     int security_rc = memory_security_fields_allowed(fields, sizeof(fields) / sizeof(fields[0]));
-    if (security_rc != CBM_STORE_OK) return security_rc;
+    if (security_rc != CBM_STORE_OK)
+        return security_rc;
     char idbuf[CBM_SZ_128];
     const char *id = event->id;
     if (!id || !id[0]) {
@@ -1449,13 +1468,14 @@ int cbm_store_memory_append_event(cbm_store_t *s, const cbm_memory_event_t *even
 }
 
 static int memory_fts_upsert(cbm_store_t *s, const cbm_memory_item_t *item, const char *id,
-                              const char *failure_point) {
+                             const char *failure_point) {
     if (!s || !s->db || !item || !id || !id[0] || !item->content) {
         return CBM_STORE_ERR;
     }
     const char *fields[] = {item->title, item->summary, item->content};
     int security_rc = memory_security_fields_allowed(fields, sizeof(fields) / sizeof(fields[0]));
-    if (security_rc != CBM_STORE_OK) return security_rc;
+    if (security_rc != CBM_STORE_OK)
+        return security_rc;
     sqlite3_stmt *stmt = NULL;
     const char *del_sql = "DELETE FROM memory_fts WHERE item_id=?1;";
     if (failure_point && strcmp(failure_point, "prepare") == 0) {
@@ -1528,7 +1548,7 @@ int cbm_store_memory_index_candidate(cbm_store_t *s, const cbm_memory_item_t *it
 }
 
 int cbm_store_memory_append_candidate(cbm_store_t *s, const cbm_memory_item_t *item,
-                                       char **out_item_id) {
+                                      char **out_item_id) {
     if (out_item_id) {
         *out_item_id = NULL;
     }
@@ -1536,13 +1556,17 @@ int cbm_store_memory_append_candidate(cbm_store_t *s, const cbm_memory_item_t *i
         return CBM_STORE_ERR;
     }
     const char *fields[] = {
-        item->id,          item->kind,          item->layer,       item->title,
-        item->summary,     item->content,       item->scope_user,  item->scope_project,
-        item->scope_task,  item->entity_key,    item->predicate,   item->status,
-        item->supersedes,  item->source_event_ids,
+        item->id,         item->kind,
+        item->layer,      item->title,
+        item->summary,    item->content,
+        item->scope_user, item->scope_project,
+        item->scope_task, item->entity_key,
+        item->predicate,  item->status,
+        item->supersedes, item->source_event_ids,
     };
     int security_rc = memory_security_fields_allowed(fields, sizeof(fields) / sizeof(fields[0]));
-    if (security_rc != CBM_STORE_OK) return security_rc;
+    if (security_rc != CBM_STORE_OK)
+        return security_rc;
     char idbuf[CBM_SZ_128];
     const char *id = item->id;
     if (!id || !id[0]) {
@@ -1733,15 +1757,13 @@ static int memory_negative_evidence_score(cbm_store_t *s, const char *id) {
     return score;
 }
 
-static bool memory_items_share_negative_evidence(cbm_store_t *s, const char *a,
-                                                 const char *b) {
+static bool memory_items_share_negative_evidence(cbm_store_t *s, const char *a, const char *b) {
     if (!s || !s->db || !a || !b) {
         return false;
     }
-    const char *sql =
-        "SELECT 1 FROM memory_edge c JOIN memory_edge p ON p.src_id=c.src_id "
-        "WHERE c.type='contradicts' AND p.type='supports' AND "
-        "((c.dst_id=?1 AND p.dst_id=?2) OR (c.dst_id=?2 AND p.dst_id=?1)) LIMIT 1;";
+    const char *sql = "SELECT 1 FROM memory_edge c JOIN memory_edge p ON p.src_id=c.src_id "
+                      "WHERE c.type='contradicts' AND p.type='supports' AND "
+                      "((c.dst_id=?1 AND p.dst_id=?2) OR (c.dst_id=?2 AND p.dst_id=?1)) LIMIT 1;";
     sqlite3_stmt *stmt = NULL;
     if (sqlite3_prepare_v2(s->db, sql, CBM_NOT_FOUND, &stmt, NULL) != SQLITE_OK) {
         return false;
@@ -1901,7 +1923,8 @@ static void memory_fill_evidence(cbm_store_t *s, cbm_memory_item_t *item) {
         "  FROM memory_edge e JOIN walk ON (e.src_id = walk.id OR e.dst_id = walk.id) "
         "  WHERE walk.depth < 2 AND e.type IN "
         "('supports','derived_from','used_in','contradicts','supersedes') AND "
-        "  instr(walk.path,',' || CASE WHEN e.src_id=walk.id THEN e.dst_id ELSE e.src_id END || ',')=0"
+        "  instr(walk.path,',' || CASE WHEN e.src_id=walk.id THEN e.dst_id ELSE e.src_id END || "
+        "',')=0"
         ") "
         "SELECT DISTINCT e.src_id,e.dst_id,e.type,e.origin,e.confidence,MIN(w.depth)+1 AS hop "
         "FROM memory_edge e JOIN walk w ON (e.src_id = w.id OR e.dst_id = w.id) "
@@ -1929,9 +1952,8 @@ static void memory_fill_evidence(cbm_store_t *s, cbm_memory_item_t *item) {
         "GROUP BY e.src_id,e.dst_id,e.type,e.origin,e.confidence "
         "ORDER BY hop, CASE e.type WHEN 'derived_from' THEN 0 WHEN 'supports' THEN 1 WHEN "
         "'used_in' THEN 2 WHEN 'supersedes' THEN 3 ELSE 4 END LIMIT 24;";
-    const char *sql = cbm_store_memory_stage9_object_count(s) == 22
-                          ? sql_with_lifecycle
-                          : sql_without_lifecycle;
+    const char *sql =
+        cbm_store_memory_stage9_object_count(s) == 22 ? sql_with_lifecycle : sql_without_lifecycle;
     sqlite3_stmt *stmt = NULL;
     if (sqlite3_prepare_v2(s->db, sql, CBM_NOT_FOUND, &stmt, NULL) != SQLITE_OK) {
         return;
@@ -2127,8 +2149,8 @@ int cbm_store_memory_score_from_anchors(cbm_store_t *s, sqlite3 *graph_db, const
 #define MEMORY_L2_REUSE_REFERENCE 0.6
 #define MEMORY_L2_REUSE_LESSON 0.55
 #define MEMORY_L2_REUSE_FACT 0.5
-#define MEMORY_L2_REUSE_EVENT 0.4    /* episodic: least reusable */
-#define MEMORY_L2_REUSE_DEFAULT 0.5  /* unknown kind: neutral, no opinion */
+#define MEMORY_L2_REUSE_EVENT 0.4   /* episodic: least reusable */
+#define MEMORY_L2_REUSE_DEFAULT 0.5 /* unknown kind: neutral, no opinion */
 #define MEMORY_L3_DECLARED_OFFSET_WEIGHT 1.0
 
 static double memory_kind_reuse_prior(const char *kind) {
@@ -2346,8 +2368,7 @@ static void memory_resolve_conflicts(cbm_store_t *s, const cbm_memory_query_t *q
     for (int i = 0; i < n; i++) {
         for (int j = i + 1; j < n; j++) {
             if (!memory_items_contradict(s, out->items[i].id, out->items[j].id) &&
-                !memory_items_share_negative_evidence(s, out->items[i].id,
-                                                      out->items[j].id)) {
+                !memory_items_share_negative_evidence(s, out->items[i].id, out->items[j].id)) {
                 continue;
             }
             int ri = i;
@@ -2664,7 +2685,8 @@ static int memory_append_graph_candidates(cbm_store_t *s, const cbm_memory_query
         " FROM memory_edge e JOIN walk ON (e.src_id=walk.id OR e.dst_id=walk.id) "
         " WHERE walk.depth<?2 AND e.type IN "
         " ('supports','derived_from','used_in','contradicts','supersedes') AND "
-        " instr(walk.path,',' || CASE WHEN e.src_id=walk.id THEN e.dst_id ELSE e.src_id END || ',')=0"
+        " instr(walk.path,',' || CASE WHEN e.src_id=walk.id THEN e.dst_id ELSE e.src_id END || "
+        "',')=0"
         "), nearest AS ("
         " SELECT id,MIN(depth) AS hop FROM walk WHERE depth BETWEEN 1 AND ?2 GROUP BY id"
         ") SELECT " MEMORY_SELECT_RAW ",nearest.hop FROM nearest "
@@ -2683,7 +2705,8 @@ static int memory_append_graph_candidates(cbm_store_t *s, const cbm_memory_query
         " LEFT JOIN edge_lifecycle_state ls ON ls.edge_id=e.id "
         " WHERE walk.depth<?2 AND COALESCE(ls.lifecycle_state,'active')='active' AND e.type IN "
         " ('supports','derived_from','used_in','contradicts','supersedes') AND "
-        " instr(walk.path,',' || CASE WHEN e.src_id=walk.id THEN e.dst_id ELSE e.src_id END || ',')=0"
+        " instr(walk.path,',' || CASE WHEN e.src_id=walk.id THEN e.dst_id ELSE e.src_id END || "
+        "',')=0"
         "), nearest AS ("
         " SELECT id,MIN(depth) AS hop FROM walk WHERE depth BETWEEN 1 AND ?2 GROUP BY id"
         ") SELECT " MEMORY_SELECT_RAW ",nearest.hop FROM nearest "
@@ -2693,9 +2716,8 @@ static int memory_append_graph_candidates(cbm_store_t *s, const cbm_memory_query
         "(?5 IS NULL OR m.scope_task=?5 OR m.scope_task IS NULL) AND "
         "(?6!=0 OR m.status IN ('active','candidate')) AND m.deleted_at IS NULL "
         "ORDER BY nearest.hop,m.id LIMIT ?7;";
-    const char *sql = cbm_store_memory_stage9_object_count(s) == 22
-                          ? sql_with_lifecycle
-                          : sql_without_lifecycle;
+    const char *sql =
+        cbm_store_memory_stage9_object_count(s) == 22 ? sql_with_lifecycle : sql_without_lifecycle;
     int seed_count = out->count;
     int appended = 0;
     for (int seed = 0; seed < seed_count && appended < graph_budget; seed++) {
@@ -2769,8 +2791,7 @@ static bool memory_safety_fixture_relevant(const cbm_memory_item_t *item,
     if (query->kind && strcmp(query->kind, "safety_fixture") == 0) {
         return true;
     }
-    if (query->entity_key && item->entity_key &&
-        strcmp(query->entity_key, item->entity_key) == 0) {
+    if (query->entity_key && item->entity_key && strcmp(query->entity_key, item->entity_key) == 0) {
         return true;
     }
     if (!query->query || !query->query[0] || !item->entity_key) {
@@ -2935,8 +2956,8 @@ static char *memory_stage6_stable_id(const char *prefix, const char *const *part
     XXH128_hash_t hash = XXH3_128bits_digest(state);
     XXH3_freeState(state);
     char value[96];
-    snprintf(value, sizeof(value), "%s-%016llx%016llx", prefix,
-             (unsigned long long)hash.high64, (unsigned long long)hash.low64);
+    snprintf(value, sizeof(value), "%s-%016llx%016llx", prefix, (unsigned long long)hash.high64,
+             (unsigned long long)hash.low64);
     return heap_strdup(value);
 }
 
@@ -2944,11 +2965,10 @@ static char *memory_stage6_session_id(const cbm_memory_query_t *query) {
     if (query && query->activation_session_id && query->activation_session_id[0]) {
         return heap_strdup(query->activation_session_id);
     }
-    const char *parts[] = {query ? query->project : NULL, query ? query->user : NULL,
-                           query ? query->task : NULL, query ? query->entity_key : NULL,
-                           query ? query->kind : NULL, query ? query->query : NULL,
-                           query ? query->code_context : NULL,
-                           "stage6-bounded-activation-v1"};
+    const char *parts[] = {query ? query->project : NULL,      query ? query->user : NULL,
+                           query ? query->task : NULL,         query ? query->entity_key : NULL,
+                           query ? query->kind : NULL,         query ? query->query : NULL,
+                           query ? query->code_context : NULL, "stage6-bounded-activation-v1"};
     return memory_stage6_stable_id("act", parts, 8);
 }
 
@@ -3001,8 +3021,10 @@ static bool memory_stage6_unsafe(const cbm_memory_item_t *item) {
     if (item->kind && strcmp(item->kind, "safety_fixture") == 0) {
         return true;
     }
-    static const char *blocked[] = {"prompt-injection", "prompt_injection", "rule-override",
-                                    "rule_override", "secret", "pii", "canary", "unsafe"};
+    static const char *blocked[] = {"prompt-injection", "prompt_injection",
+                                    "rule-override",    "rule_override",
+                                    "secret",           "pii",
+                                    "canary",           "unsafe"};
     for (size_t i = 0; i < sizeof(blocked) / sizeof(blocked[0]); i++) {
         if (memory_stage6_contains_i(item->entity_key, blocked[i])) {
             return true;
@@ -3011,8 +3033,7 @@ static bool memory_stage6_unsafe(const cbm_memory_item_t *item) {
     return false;
 }
 
-static bool memory_stage6_scope_ok(const cbm_memory_item_t *item,
-                                   const cbm_memory_query_t *query) {
+static bool memory_stage6_scope_ok(const cbm_memory_item_t *item, const cbm_memory_query_t *query) {
     if (!item || !query || !query->project || !item->scope_project ||
         strcmp(item->scope_project, query->project) != 0) {
         return false;
@@ -3032,13 +3053,12 @@ static bool memory_stage6_wrong_version(cbm_store_t *s, const cbm_memory_item_t 
         return false;
     }
     sqlite3_stmt *stmt = NULL;
-    const char *sql =
-        "SELECT 1 FROM memory_item newer WHERE newer.entity_key=?1 "
-        "AND newer.scope_project=?2 AND "
-        "(?3 IS NULL OR newer.scope_user=?3 OR newer.scope_user IS NULL) AND "
-        "(?4 IS NULL OR newer.scope_task=?4 OR newer.scope_task IS NULL) AND "
-        "newer.version>?5 AND newer.status IN ('active','candidate') "
-        "AND newer.deleted_at IS NULL LIMIT 1;";
+    const char *sql = "SELECT 1 FROM memory_item newer WHERE newer.entity_key=?1 "
+                      "AND newer.scope_project=?2 AND "
+                      "(?3 IS NULL OR newer.scope_user=?3 OR newer.scope_user IS NULL) AND "
+                      "(?4 IS NULL OR newer.scope_task=?4 OR newer.scope_task IS NULL) AND "
+                      "newer.version>?5 AND newer.status IN ('active','candidate') "
+                      "AND newer.deleted_at IS NULL LIMIT 1;";
     if (sqlite3_prepare_v2(s->db, sql, CBM_NOT_FOUND, &stmt, NULL) != SQLITE_OK) {
         return true;
     }
@@ -3155,8 +3175,7 @@ static char *memory_stage6_explanation(const memory_stage6_node_t *node) {
     yyjson_mut_obj_add_str(doc, root, "reason", "bounded_graph_activation");
     yyjson_mut_obj_add_str(doc, root, "seed_id", node->seed_id ? node->seed_id : "");
     yyjson_mut_obj_add_str(doc, root, "path", node->path_text ? node->path_text : "");
-    yyjson_mut_obj_add_str(doc, root, "last_edge_id",
-                           node->last_edge_id ? node->last_edge_id : "");
+    yyjson_mut_obj_add_str(doc, root, "last_edge_id", node->last_edge_id ? node->last_edge_id : "");
     yyjson_mut_obj_add_str(doc, root, "last_relation",
                            node->last_relation ? node->last_relation : "");
     yyjson_mut_obj_add_real(doc, root, "relation_weight", node->relation_weight);
@@ -3217,15 +3236,18 @@ static bool memory_stage8_fixture_active(const cbm_memory_query_t *query) {
 
 static double memory_stage8_edge_multiplier(cbm_store_t *s, const cbm_memory_query_t *query,
                                             const char *edge_id) {
-    if (!s || !s->db || !edge_id || !memory_stage8_fixture_active(query)) return 1.0;
+    if (!s || !s->db || !edge_id || !memory_stage8_fixture_active(query))
+        return 1.0;
     sqlite3_stmt *stmt = NULL;
     const char *sql = "SELECT pheromone_ppm FROM plastic_edge_state WHERE edge_id=?1;";
-    if (sqlite3_prepare_v2(s->db, sql, CBM_NOT_FOUND, &stmt, NULL) != SQLITE_OK) return 1.0;
+    if (sqlite3_prepare_v2(s->db, sql, CBM_NOT_FOUND, &stmt, NULL) != SQLITE_OK)
+        return 1.0;
     bind_text(stmt, 1, edge_id);
     double multiplier = 1.0;
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         int64_t ppm = sqlite3_column_int64(stmt, 0);
-        if (ppm >= 750000 && ppm <= 1250000) multiplier = (double)ppm / 1000000.0;
+        if (ppm >= 750000 && ppm <= 1250000)
+            multiplier = (double)ppm / 1000000.0;
     }
     sqlite3_finalize(stmt);
     return multiplier;
@@ -3246,15 +3268,15 @@ static int memory_stage6_compute(cbm_store_t *s, const cbm_memory_query_t *query
         return CBM_STORE_ERR;
     }
     int max_hops = query->activation_max_hops > 0 ? query->activation_max_hops
-                                                   : MEMORY_STAGE6_DEFAULT_MAX_HOPS;
+                                                  : MEMORY_STAGE6_DEFAULT_MAX_HOPS;
     int max_nodes = query->activation_max_nodes > 0 ? query->activation_max_nodes
-                                                     : MEMORY_STAGE6_DEFAULT_MAX_NODES;
+                                                    : MEMORY_STAGE6_DEFAULT_MAX_NODES;
     int max_visits = query->activation_max_visits > 0 ? query->activation_max_visits
-                                                       : MEMORY_STAGE6_DEFAULT_MAX_VISITS;
+                                                      : MEMORY_STAGE6_DEFAULT_MAX_VISITS;
     int token_budget = query->activation_token_budget > 0 ? query->activation_token_budget
-                                                           : MEMORY_STAGE6_DEFAULT_TOKEN_BUDGET;
+                                                          : MEMORY_STAGE6_DEFAULT_TOKEN_BUDGET;
     int latency_ms = query->activation_latency_ms > 0 ? query->activation_latency_ms
-                                                       : MEMORY_STAGE6_DEFAULT_LATENCY_MS;
+                                                      : MEMORY_STAGE6_DEFAULT_LATENCY_MS;
     if (max_hops > MEMORY_STAGE6_DEFAULT_MAX_HOPS) {
         max_hops = MEMORY_STAGE6_DEFAULT_MAX_HOPS;
     }
@@ -3280,8 +3302,7 @@ static int memory_stage6_compute(cbm_store_t *s, const cbm_memory_query_t *query
     bool structured_scope = query->user || query->task || query->entity_key || query->kind;
     for (int i = 0; i < stage5->count && node_count < max_nodes; i++) {
         const cbm_memory_item_t *item = &stage5->items[i];
-        if (!item->id || !item->retrieval_source ||
-            strcmp(item->retrieval_source, "graph") == 0) {
+        if (!item->id || !item->retrieval_source || strcmp(item->retrieval_source, "graph") == 0) {
             continue;
         }
         bool anchor = memory_stage6_code_anchor_seed(s, query, item);
@@ -3363,9 +3384,8 @@ static int memory_stage6_compute(cbm_store_t *s, const cbm_memory_query_t *query
         memory_stage6_node_t *current = &nodes[current_index];
         current->expanded = true;
         sqlite3_stmt *edges = NULL;
-        const char *edge_sql =
-            "SELECT id,src_id,dst_id,type FROM memory_edge "
-            "WHERE src_id=?1 OR dst_id=?1 ORDER BY type,id;";
+        const char *edge_sql = "SELECT id,src_id,dst_id,type FROM memory_edge "
+                               "WHERE src_id=?1 OR dst_id=?1 ORDER BY type,id;";
         if (sqlite3_prepare_v2(s->db, edge_sql, CBM_NOT_FOUND, &edges, NULL) != SQLITE_OK) {
             failed = true;
             termination = "edge_prepare_failed";
@@ -3465,12 +3485,14 @@ static int memory_stage6_compute(cbm_store_t *s, const cbm_memory_query_t *query
                     free(existing->last_edge_id);
                     free(existing->last_relation);
                     existing->seed_id = heap_strdup(current->seed_id);
-                    existing->path_nodes = memory_stage6_join(current->path_nodes, target_id, ",", "");
-                    existing->path_text = memory_stage6_join(current->path_text, " --", relation_name,
-                                                             "--> ");
-                    char *with_target = existing->path_text
-                                            ? memory_stage6_join(existing->path_text, target_id, "", "")
-                                            : NULL;
+                    existing->path_nodes =
+                        memory_stage6_join(current->path_nodes, target_id, ",", "");
+                    existing->path_text =
+                        memory_stage6_join(current->path_text, " --", relation_name, "--> ");
+                    char *with_target =
+                        existing->path_text
+                            ? memory_stage6_join(existing->path_text, target_id, "", "")
+                            : NULL;
                     free(existing->path_text);
                     existing->path_text = with_target;
                     existing->last_edge_id = heap_strdup(edge_id);
@@ -3994,12 +4016,11 @@ int cbm_store_memory_mark_hits(cbm_store_t *s, const char **ids, int count, int6
      * of -0.10). ADRs encode "why" knowledge whose half-life is inherently longer than general
      * episodic entries, so a recall should not erase as much accumulated decay. The hit is
      * still registered — only the decay-recovery gradient differs. */
-    const char *sql_adr =
-        "UPDATE memory_item SET hit_count=hit_count+1,last_hit_at=?1,"
-        "decay=MAX(0.0,decay-0.07),updated_at=?1 WHERE id=?2 AND kind IN ('decision','constraint');";
-    const char *sql_gen =
-        "UPDATE memory_item SET hit_count=hit_count+1,last_hit_at=?1,"
-        "decay=MAX(0.0,decay-0.10),updated_at=?1 WHERE id=?2;";
+    const char *sql_adr = "UPDATE memory_item SET hit_count=hit_count+1,last_hit_at=?1,"
+                          "decay=MAX(0.0,decay-0.07),updated_at=?1 WHERE id=?2 AND kind IN "
+                          "('decision','constraint');";
+    const char *sql_gen = "UPDATE memory_item SET hit_count=hit_count+1,last_hit_at=?1,"
+                          "decay=MAX(0.0,decay-0.10),updated_at=?1 WHERE id=?2;";
     sqlite3_stmt *stmt_adr = NULL;
     sqlite3_stmt *stmt_gen = NULL;
     if (sqlite3_prepare_v2(s->db, sql_adr, CBM_NOT_FOUND, &stmt_adr, NULL) != SQLITE_OK) {
@@ -4140,9 +4161,8 @@ static int memory_feedback_find_event(cbm_store_t *s, const char *event_id, cons
 }
 
 int cbm_store_memory_feedback_idempotent(cbm_store_t *s, const char *id, const char *project,
-                                          const char *feedback, const char *note,
-                                          const char *user, const char *requested_event_id,
-                                          char **out_event_id) {
+                                         const char *feedback, const char *note, const char *user,
+                                         const char *requested_event_id, char **out_event_id) {
     if (out_event_id)
         *out_event_id = NULL;
     if (!s || !s->db || !id || !id[0] || !memory_feedback_allowed(feedback)) {
@@ -4153,8 +4173,7 @@ int cbm_store_memory_feedback_idempotent(cbm_store_t *s, const char *id, const c
     snprintf(payload, sizeof(payload), "feedback=%s item_id=%s note=%s", feedback, id,
              note ? note : "");
     char context[CBM_SZ_512];
-    snprintf(context, sizeof(context), "{\"item_id\":\"%s\",\"feedback\":\"%s\"}", id,
-             feedback);
+    snprintf(context, sizeof(context), "{\"item_id\":\"%s\",\"feedback\":\"%s\"}", id, feedback);
 
     /* Serialize the idempotency lookup, item mutation, and audit insert. */
     if (cbm_store_begin(s) != CBM_STORE_OK) {
@@ -4768,8 +4787,8 @@ static int memory_edge_insert_internal(cbm_store_t *s, const char *src, const ch
     char idbuf[CBM_SZ_128];
     if (deterministic_id) {
         char seed[CBM_SZ_1K], hash[65];
-        int used = snprintf(seed, sizeof(seed), "stage14-consolidation-edge/v1\n%s\n%s\n%s",
-                            src, dst, type);
+        int used = snprintf(seed, sizeof(seed), "stage14-consolidation-edge/v1\n%s\n%s\n%s", src,
+                            dst, type);
         if (used < 0 || used >= (int)sizeof(seed) ||
             cbm_stage7_sha256_hex(seed, (size_t)used, hash) != CBM_STORE_OK)
             return CBM_STORE_ERR;
@@ -4824,10 +4843,11 @@ int cbm_store_memory_link_code(cbm_store_t *s, const char *item_id, const char *
 int cbm_store_memory_link_derived_from(cbm_store_t *s, const char *source_item_id,
                                        const char *target_item_id, const char *project,
                                        const char *source_event_id, char **out_edge_id) {
-    if (out_edge_id) *out_edge_id = NULL;
+    if (out_edge_id)
+        *out_edge_id = NULL;
     if (!s || !s->db || !source_item_id || !source_item_id[0] || !target_item_id ||
-        !target_item_id[0] || !project || !project[0] || !source_event_id ||
-        !source_event_id[0] || strcmp(source_item_id, target_item_id) == 0) {
+        !target_item_id[0] || !project || !project[0] || !source_event_id || !source_event_id[0] ||
+        strcmp(source_item_id, target_item_id) == 0) {
         return CBM_STORE_ERR;
     }
 
@@ -4852,11 +4872,11 @@ int cbm_store_memory_link_derived_from(cbm_store_t *s, const char *source_item_i
     bind_text(stmt, 4, source_ids);
     bool source_valid = sqlite3_step(stmt) == SQLITE_ROW;
     sqlite3_finalize(stmt);
-    if (!source_valid) return CBM_STORE_ERR;
+    if (!source_valid)
+        return CBM_STORE_ERR;
 
-    const char *target_sql =
-        "SELECT 1 FROM memory_item WHERE id=?1 AND scope_project=?2 "
-        "AND deleted_at IS NULL AND status IN ('active','candidate') LIMIT 1;";
+    const char *target_sql = "SELECT 1 FROM memory_item WHERE id=?1 AND scope_project=?2 "
+                             "AND deleted_at IS NULL AND status IN ('active','candidate') LIMIT 1;";
     if (sqlite3_prepare_v2(s->db, target_sql, CBM_NOT_FOUND, &stmt, NULL) != SQLITE_OK) {
         store_set_error_sqlite(s, "memory_derived_target_prepare");
         return CBM_STORE_ERR;
@@ -4865,7 +4885,8 @@ int cbm_store_memory_link_derived_from(cbm_store_t *s, const char *source_item_i
     bind_text(stmt, 2, project);
     bool target_valid = sqlite3_step(stmt) == SQLITE_ROW;
     sqlite3_finalize(stmt);
-    if (!target_valid) return CBM_STORE_NOT_FOUND;
+    if (!target_valid)
+        return CBM_STORE_NOT_FOUND;
 
     char edge_id[CBM_SZ_128];
     memory_make_id(edge_id, sizeof(edge_id), "medge");
@@ -4887,7 +4908,8 @@ int cbm_store_memory_link_derived_from(cbm_store_t *s, const char *source_item_i
         store_set_error_sqlite(s, "memory_derived_edge_insert");
         return CBM_STORE_ERR;
     }
-    if (out_edge_id) *out_edge_id = heap_strdup(edge_id);
+    if (out_edge_id)
+        *out_edge_id = heap_strdup(edge_id);
     return CBM_STORE_OK;
 }
 
@@ -4929,8 +4951,7 @@ static int memory_vec_upsert(cbm_store_t *s, const char *item_id, const char *co
     return CBM_STORE_OK;
 }
 
-static bool memory_stage14_controller_transaction(cbm_store_t *s,
-                                                  const char *controller_run_id) {
+static bool memory_stage14_controller_transaction(cbm_store_t *s, const char *controller_run_id) {
     if (!s || !s->db || !controller_run_id || !controller_run_id[0] ||
         sqlite3_get_autocommit(s->db) != 0) {
         return false;
@@ -4976,7 +4997,8 @@ static int memory_consolidate_impl(cbm_store_t *s, const char *project, int limi
     sqlite3_stmt *stmt = NULL;
     if (sqlite3_prepare_v2(s->db, sql, CBM_NOT_FOUND, &stmt, NULL) != SQLITE_OK) {
         store_set_error_sqlite(s, "memory_consolidate_select");
-        if (owns_transaction) cbm_store_rollback(s);
+        if (owns_transaction)
+            cbm_store_rollback(s);
         return CBM_STORE_ERR;
     }
     memory_bind_nullable(stmt, 1, project);
@@ -5097,9 +5119,8 @@ static int memory_consolidate_impl(cbm_store_t *s, const char *project, int limi
             (void)memory_edge_insert_for_controller(s, id, merge_id, "similar_to", "post",
                                                     confidence, controller_run_id);
             if (source_event_id[0])
-                (void)memory_edge_insert_for_controller(s, merge_id, source_event_id,
-                                                        "derived_from", "merge", 1.0,
-                                                        controller_run_id);
+                (void)memory_edge_insert_for_controller(
+                    s, merge_id, source_event_id, "derived_from", "merge", 1.0, controller_run_id);
         } else {
             sqlite3_stmt *up = NULL;
             const char *up_sql =
@@ -5120,8 +5141,8 @@ static int memory_consolidate_impl(cbm_store_t *s, const char *project, int limi
                 (void)memory_edge_insert_for_controller(s, id, source_event_id, "derived_from",
                                                         "rule", 1.0, controller_run_id);
             if (scope_project && scope_project[0])
-                (void)memory_edge_insert_for_controller(s, id, scope_project, "belongs_to",
-                                                        "rule", 1.0, controller_run_id);
+                (void)memory_edge_insert_for_controller(s, id, scope_project, "belongs_to", "rule",
+                                                        1.0, controller_run_id);
             (void)memory_vec_upsert(s, id, content);
             /* P1: build FTS index now that the item is active (deferred from hot path). */
             {
@@ -5154,14 +5175,12 @@ static int memory_consolidate_impl(cbm_store_t *s, const char *project, int limi
     return CBM_STORE_OK;
 }
 
-int cbm_store_memory_consolidate(cbm_store_t *s, const char *project, int limit,
-                                 int *processed) {
+int cbm_store_memory_consolidate(cbm_store_t *s, const char *project, int limit, int *processed) {
     return memory_consolidate_impl(s, project, limit, NULL, true, processed);
 }
 
 int cbm_store_memory_consolidate_in_transaction(cbm_store_t *s, const char *project, int limit,
-                                                const char *controller_run_id,
-                                                int *processed) {
+                                                const char *controller_run_id, int *processed) {
     return memory_consolidate_impl(s, project, limit, controller_run_id, false, processed);
 }
 
@@ -5212,9 +5231,9 @@ int cbm_store_memory_decay(cbm_store_t *s, const char *project, int limit, int *
         return CBM_STORE_ERR;
     int lim = limit > 0 ? limit : 100;
     int64_t now = memory_now_ms();
-    const char *sql =
-        "SELECT id,last_hit_at,confidence,reusability,importance,decay FROM memory_item WHERE status='active' "
-        "AND deleted_at IS NULL AND (?1 IS NULL OR scope_project=?1) LIMIT ?2;";
+    const char *sql = "SELECT id,last_hit_at,confidence,reusability,importance,decay FROM "
+                      "memory_item WHERE status='active' "
+                      "AND deleted_at IS NULL AND (?1 IS NULL OR scope_project=?1) LIMIT ?2;";
     sqlite3_stmt *stmt = NULL;
     if (sqlite3_prepare_v2(s->db, sql, CBM_NOT_FOUND, &stmt, NULL) != SQLITE_OK)
         return CBM_STORE_ERR;
@@ -5241,8 +5260,8 @@ int cbm_store_memory_decay(cbm_store_t *s, const char *project, int limit, int *
         if (age_ms < 0)
             age_ms = 0;
         double age_days = (double)age_ms / (1000.0 * 60.0 * 60.0 * 24.0);
-        double next_decay =
-            old_decay + (age_days / 30.0) * (1.0 - confidence) * (1.0 - reusability) * (1.0 - importance);
+        double next_decay = old_decay + (age_days / 30.0) * (1.0 - confidence) *
+                                            (1.0 - reusability) * (1.0 - importance);
         const char *status = next_decay >= 1.0 ? "archived" : "active";
         sqlite3_stmt *up = NULL;
         if (sqlite3_prepare_v2(
@@ -5387,9 +5406,9 @@ int cbm_store_memory_maintain_if_due(cbm_store_t *s, const char *project,
 }
 
 /* P1: ADR list — structured query for decision/constraint-class memories. */
-#define ADR_LIST_COLUMNS                                                                    \
-    "id,kind,layer,COALESCE(title,summary) AS title,summary,entity_key,status,"             \
-    "importance,confidence,reusability,specificity,hit_count,decay,version,"                 \
+#define ADR_LIST_COLUMNS                                                        \
+    "id,kind,layer,COALESCE(title,summary) AS title,summary,entity_key,status," \
+    "importance,confidence,reusability,specificity,hit_count,decay,version,"    \
     "supersedes,created_at,updated_at"
 #define ADR_LIST_COL_COUNT 17
 
@@ -5414,8 +5433,7 @@ int cbm_store_memory_adr_list(cbm_store_t *s, const char *project, const char *k
     if (kind_filter && kind_filter[0]) {
         pos += snprintf(sql + pos, sizeof(sql) - pos, " AND kind=?%d", param_idx++);
     } else {
-        pos += snprintf(sql + pos, sizeof(sql) - pos,
-                        " AND kind IN ('decision','constraint')");
+        pos += snprintf(sql + pos, sizeof(sql) - pos, " AND kind IN ('decision','constraint')");
     }
     if (status_filter && status_filter[0]) {
         pos += snprintf(sql + pos, sizeof(sql) - pos, " AND status=?%d", param_idx++);
@@ -5461,14 +5479,11 @@ int cbm_store_memory_adr_list(cbm_store_t *s, const char *project, const char *k
         yyjson_mut_obj_add_strcpy(doc, obj, "id", (const char *)sqlite3_column_text(stmt, 0));
         yyjson_mut_obj_add_strcpy(doc, obj, "kind", (const char *)sqlite3_column_text(stmt, 1));
         yyjson_mut_obj_add_strcpy(doc, obj, "layer", (const char *)sqlite3_column_text(stmt, 2));
-        yyjson_mut_obj_add_strcpy(doc, obj, "title",
-                                   (const char *)sqlite3_column_text(stmt, 3));
-        yyjson_mut_obj_add_strcpy(doc, obj, "summary",
-                                   (const char *)sqlite3_column_text(stmt, 4));
+        yyjson_mut_obj_add_strcpy(doc, obj, "title", (const char *)sqlite3_column_text(stmt, 3));
+        yyjson_mut_obj_add_strcpy(doc, obj, "summary", (const char *)sqlite3_column_text(stmt, 4));
         yyjson_mut_obj_add_strcpy(doc, obj, "entity_key",
-                                   (const char *)sqlite3_column_text(stmt, 5));
-        yyjson_mut_obj_add_strcpy(doc, obj, "status",
-                                   (const char *)sqlite3_column_text(stmt, 6));
+                                  (const char *)sqlite3_column_text(stmt, 5));
+        yyjson_mut_obj_add_strcpy(doc, obj, "status", (const char *)sqlite3_column_text(stmt, 6));
         yyjson_mut_obj_add_real(doc, obj, "importance", sqlite3_column_double(stmt, 7));
         yyjson_mut_obj_add_real(doc, obj, "confidence", sqlite3_column_double(stmt, 8));
         yyjson_mut_obj_add_real(doc, obj, "reusability", sqlite3_column_double(stmt, 9));
@@ -5504,8 +5519,7 @@ int cbm_store_memory_adr_list(cbm_store_t *s, const char *project, const char *k
  * scope_project IS NULL instead of matching a project name.
  * Otherwise identical to cbm_store_memory_adr_list. */
 int cbm_store_memory_adr_list_global(cbm_store_t *s, const char *kind_filter,
-                                     const char *status_filter,
-                                     const char *entity_key_filter,
+                                     const char *status_filter, const char *entity_key_filter,
                                      int limit, char **out_json) {
     if (!s || !s->db || !out_json) {
         return CBM_STORE_ERR;
@@ -5523,8 +5537,7 @@ int cbm_store_memory_adr_list_global(cbm_store_t *s, const char *kind_filter,
     if (kind_filter && kind_filter[0]) {
         pos += snprintf(sql + pos, sizeof(sql) - pos, " AND kind=?%d", param_idx++);
     } else {
-        pos += snprintf(sql + pos, sizeof(sql) - pos,
-                        " AND kind IN ('decision','constraint')");
+        pos += snprintf(sql + pos, sizeof(sql) - pos, " AND kind IN ('decision','constraint')");
     }
     if (status_filter && status_filter[0]) {
         pos += snprintf(sql + pos, sizeof(sql) - pos, " AND status=?%d", param_idx++);
@@ -5568,14 +5581,11 @@ int cbm_store_memory_adr_list_global(cbm_store_t *s, const char *kind_filter,
         yyjson_mut_obj_add_strcpy(doc, obj, "id", (const char *)sqlite3_column_text(stmt, 0));
         yyjson_mut_obj_add_strcpy(doc, obj, "kind", (const char *)sqlite3_column_text(stmt, 1));
         yyjson_mut_obj_add_strcpy(doc, obj, "layer", (const char *)sqlite3_column_text(stmt, 2));
-        yyjson_mut_obj_add_strcpy(doc, obj, "title",
-                                   (const char *)sqlite3_column_text(stmt, 3));
-        yyjson_mut_obj_add_strcpy(doc, obj, "summary",
-                                   (const char *)sqlite3_column_text(stmt, 4));
+        yyjson_mut_obj_add_strcpy(doc, obj, "title", (const char *)sqlite3_column_text(stmt, 3));
+        yyjson_mut_obj_add_strcpy(doc, obj, "summary", (const char *)sqlite3_column_text(stmt, 4));
         yyjson_mut_obj_add_strcpy(doc, obj, "entity_key",
-                                   (const char *)sqlite3_column_text(stmt, 5));
-        yyjson_mut_obj_add_strcpy(doc, obj, "status",
-                                   (const char *)sqlite3_column_text(stmt, 6));
+                                  (const char *)sqlite3_column_text(stmt, 5));
+        yyjson_mut_obj_add_strcpy(doc, obj, "status", (const char *)sqlite3_column_text(stmt, 6));
         yyjson_mut_obj_add_real(doc, obj, "importance", sqlite3_column_double(stmt, 7));
         yyjson_mut_obj_add_real(doc, obj, "confidence", sqlite3_column_double(stmt, 8));
         yyjson_mut_obj_add_real(doc, obj, "reusability", sqlite3_column_double(stmt, 9));
@@ -5622,17 +5632,19 @@ int cbm_store_memory_adr_list_global(cbm_store_t *s, const char *kind_filter,
  * Warning flags: multiple_roots (entity_key mode), cycle_detected,
  *   truncated (max_depth reached), orphan_link (supersedes pointer dangling). */
 
-#define ADR_CHAIN_COLS \
+#define ADR_CHAIN_COLS                                                   \
     "id,kind,layer,COALESCE(title,summary) AS title,summary,entity_key," \
     "status,version,supersedes,created_at,updated_at"
 #define ADR_CHAIN_COL_COUNT 11
 
-int cbm_store_memory_adr_chain(cbm_store_t *s, const char *project,
-                               const char *entity_key, const char *item_id,
-                               int max_depth, char **out_json) {
-    if (!s || !s->db || !project || !out_json) return CBM_STORE_ERR;
-    if (!entity_key && !item_id) return CBM_STORE_ERR;
-    if (max_depth <= 0 || max_depth > 200) max_depth = 50;
+int cbm_store_memory_adr_chain(cbm_store_t *s, const char *project, const char *entity_key,
+                               const char *item_id, int max_depth, char **out_json) {
+    if (!s || !s->db || !project || !out_json)
+        return CBM_STORE_ERR;
+    if (!entity_key && !item_id)
+        return CBM_STORE_ERR;
+    if (max_depth <= 0 || max_depth > 200)
+        max_depth = 50;
 
     /* Track warnings during traversal. */
     char warnings[3][256];
@@ -5660,13 +5672,14 @@ int cbm_store_memory_adr_chain(cbm_store_t *s, const char *project,
                     goto chain_forward;
                 }
             }
-            if (nvis < 64) visited[nvis++] = cursor;
+            if (nvis < 64)
+                visited[nvis++] = cursor;
 
             sqlite3_stmt *st = NULL;
             if (sqlite3_prepare_v2(s->db,
-                    "SELECT " ADR_CHAIN_COLS ",supersedes FROM memory_item "
-                    "WHERE id=?1 AND scope_project=?2 AND deleted_at IS NULL;",
-                    -1, &st, NULL) != SQLITE_OK) {
+                                   "SELECT " ADR_CHAIN_COLS ",supersedes FROM memory_item "
+                                   "WHERE id=?1 AND scope_project=?2 AND deleted_at IS NULL;",
+                                   -1, &st, NULL) != SQLITE_OK) {
                 break;
             }
             bind_text(st, 1, cursor);
@@ -5678,12 +5691,14 @@ int cbm_store_memory_adr_chain(cbm_store_t *s, const char *project,
             /* Capture entity_key from the first backward stop if not provided. */
             if (!ekey && !resolved_ekey) {
                 const char *ek = (const char *)sqlite3_column_text(st, 6);
-                if (ek && ek[0]) resolved_ekey = heap_strdup(ek);
+                if (ek && ek[0])
+                    resolved_ekey = heap_strdup(ek);
                 ekey = resolved_ekey;
             }
             /* Record current as potential root. */
             const char *rid = (const char *)sqlite3_column_text(st, 0);
-            if (rid) snprintf(root_id, sizeof(root_id), "%s", rid);
+            if (rid)
+                snprintf(root_id, sizeof(root_id), "%s", rid);
             /* The supersedes pointer tells us where to go next (backward). */
             const char *sup = (const char *)sqlite3_column_text(st, 8);
             sqlite3_finalize(st);
@@ -5697,25 +5712,26 @@ int cbm_store_memory_adr_chain(cbm_store_t *s, const char *project,
         /* Find root by entity_key: version=1, oldest created_at. */
         sqlite3_stmt *rs = NULL;
         if (sqlite3_prepare_v2(s->db,
-                "SELECT id FROM memory_item "
-                "WHERE entity_key=?1 AND scope_project=?2 AND version=1 "
-                "AND deleted_at IS NULL ORDER BY created_at ASC LIMIT 1;",
-                -1, &rs, NULL) == SQLITE_OK) {
+                               "SELECT id FROM memory_item "
+                               "WHERE entity_key=?1 AND scope_project=?2 AND version=1 "
+                               "AND deleted_at IS NULL ORDER BY created_at ASC LIMIT 1;",
+                               -1, &rs, NULL) == SQLITE_OK) {
             bind_text(rs, 1, ekey);
             bind_text(rs, 2, project);
             if (sqlite3_step(rs) == SQLITE_ROW) {
                 const char *rid = (const char *)sqlite3_column_text(rs, 0);
-                if (rid) snprintf(root_id, sizeof(root_id), "%s", rid);
+                if (rid)
+                    snprintf(root_id, sizeof(root_id), "%s", rid);
             }
             sqlite3_finalize(rs);
         }
         /* Check for multiple roots. */
         sqlite3_stmt *mc = NULL;
         if (sqlite3_prepare_v2(s->db,
-                "SELECT COUNT(*) FROM memory_item "
-                "WHERE entity_key=?1 AND scope_project=?2 AND version=1 "
-                "AND deleted_at IS NULL;",
-                -1, &mc, NULL) == SQLITE_OK) {
+                               "SELECT COUNT(*) FROM memory_item "
+                               "WHERE entity_key=?1 AND scope_project=?2 AND version=1 "
+                               "AND deleted_at IS NULL;",
+                               -1, &mc, NULL) == SQLITE_OK) {
             bind_text(mc, 1, ekey);
             bind_text(mc, 2, project);
             if (sqlite3_step(mc) == SQLITE_ROW) {
@@ -5723,7 +5739,8 @@ int cbm_store_memory_adr_chain(cbm_store_t *s, const char *project,
                 if (cnt > 1) {
                     snprintf(warnings[nwarns++], sizeof(warnings[0]),
                              "multiple_roots: %d version=1 items for entity_key "
-                             "%s, using oldest by created_at", cnt, ekey);
+                             "%s, using oldest by created_at",
+                             cnt, ekey);
                 }
             }
             sqlite3_finalize(mc);
@@ -5735,10 +5752,12 @@ chain_forward:
     if (!root_id[0]) {
         free(resolved_ekey);
         /* No root found — return empty chain. */
-        *out_json = heap_strdup("{\"project\":\"\",\"entity_key\":\"\",\"total_items\":0,\"items\":[]}");
+        *out_json =
+            heap_strdup("{\"project\":\"\",\"entity_key\":\"\",\"total_items\":0,\"items\":[]}");
         return *out_json ? CBM_STORE_OK : CBM_STORE_ERR;
     }
-    if (!ekey) ekey = "";
+    if (!ekey)
+        ekey = "";
 
     yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
     yyjson_mut_val *root = yyjson_mut_obj(doc);
@@ -5768,14 +5787,16 @@ chain_forward:
                 break;
             }
         }
-        if (cycle) break;
-        if (nvseen < 64) vseen[nvseen++] = cursor;
+        if (cycle)
+            break;
+        if (nvseen < 64)
+            vseen[nvseen++] = cursor;
 
         sqlite3_stmt *st = NULL;
         if (sqlite3_prepare_v2(s->db,
-                "SELECT " ADR_CHAIN_COLS " FROM memory_item "
-                "WHERE id=?1 AND scope_project=?2 AND deleted_at IS NULL;",
-                -1, &st, NULL) != SQLITE_OK) {
+                               "SELECT " ADR_CHAIN_COLS " FROM memory_item "
+                               "WHERE id=?1 AND scope_project=?2 AND deleted_at IS NULL;",
+                               -1, &st, NULL) != SQLITE_OK) {
             break;
         }
         bind_text(st, 1, cursor);
@@ -5787,31 +5808,21 @@ chain_forward:
 
         generation++;
         yyjson_mut_val *obj = yyjson_mut_obj(doc);
-        yyjson_mut_obj_add_strcpy(doc, obj, "id",
-            (const char *)sqlite3_column_text(st, 0));
-        yyjson_mut_obj_add_strcpy(doc, obj, "kind",
-            (const char *)sqlite3_column_text(st, 1));
-        yyjson_mut_obj_add_strcpy(doc, obj, "layer",
-            (const char *)sqlite3_column_text(st, 2));
-        yyjson_mut_obj_add_strcpy(doc, obj, "title",
-            (const char *)sqlite3_column_text(st, 3));
-        yyjson_mut_obj_add_strcpy(doc, obj, "summary",
-            (const char *)sqlite3_column_text(st, 4));
-        yyjson_mut_obj_add_strcpy(doc, obj, "entity_key",
-            (const char *)sqlite3_column_text(st, 5));
-        yyjson_mut_obj_add_strcpy(doc, obj, "status",
-            (const char *)sqlite3_column_text(st, 6));
-        yyjson_mut_obj_add_int(doc, obj, "version",
-            sqlite3_column_int(st, 7));
+        yyjson_mut_obj_add_strcpy(doc, obj, "id", (const char *)sqlite3_column_text(st, 0));
+        yyjson_mut_obj_add_strcpy(doc, obj, "kind", (const char *)sqlite3_column_text(st, 1));
+        yyjson_mut_obj_add_strcpy(doc, obj, "layer", (const char *)sqlite3_column_text(st, 2));
+        yyjson_mut_obj_add_strcpy(doc, obj, "title", (const char *)sqlite3_column_text(st, 3));
+        yyjson_mut_obj_add_strcpy(doc, obj, "summary", (const char *)sqlite3_column_text(st, 4));
+        yyjson_mut_obj_add_strcpy(doc, obj, "entity_key", (const char *)sqlite3_column_text(st, 5));
+        yyjson_mut_obj_add_strcpy(doc, obj, "status", (const char *)sqlite3_column_text(st, 6));
+        yyjson_mut_obj_add_int(doc, obj, "version", sqlite3_column_int(st, 7));
         {
             const char *sup = (const char *)sqlite3_column_text(st, 8);
             if (sup && sup[0])
                 yyjson_mut_obj_add_strcpy(doc, obj, "supersedes", sup);
         }
-        yyjson_mut_obj_add_int(doc, obj, "created_at",
-            (int64_t)sqlite3_column_int64(st, 9));
-        yyjson_mut_obj_add_int(doc, obj, "updated_at",
-            (int64_t)sqlite3_column_int64(st, 10));
+        yyjson_mut_obj_add_int(doc, obj, "created_at", (int64_t)sqlite3_column_int64(st, 9));
+        yyjson_mut_obj_add_int(doc, obj, "updated_at", (int64_t)sqlite3_column_int64(st, 10));
         yyjson_mut_obj_add_int(doc, obj, "generation", generation);
         yyjson_mut_arr_add_val(items, obj);
 
@@ -5820,7 +5831,8 @@ chain_forward:
         sqlite3_finalize(st);
 
         sqlite3_stmt *ns = NULL;
-        if (sqlite3_prepare_v2(s->db,
+        if (sqlite3_prepare_v2(
+                s->db,
                 "SELECT id FROM memory_item "
                 "WHERE supersedes=?1 AND scope_project=?2 AND deleted_at IS NULL LIMIT 1;",
                 -1, &ns, NULL) == SQLITE_OK) {
@@ -5838,8 +5850,8 @@ chain_forward:
     }
 
     if (hop >= max_depth) {
-        snprintf(warnings[nwarns++], sizeof(warnings[0]),
-                 "truncated: chain exceeded max_depth=%d", max_depth);
+        snprintf(warnings[nwarns++], sizeof(warnings[0]), "truncated: chain exceeded max_depth=%d",
+                 max_depth);
     }
 
     yyjson_mut_obj_add_int(doc, root, "total_items", generation);

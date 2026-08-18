@@ -19,17 +19,16 @@ static uint32_t rotr32(uint32_t value, unsigned int shift) {
 
 static void sha256_transform(security_sha256_t *ctx, const unsigned char block[64]) {
     static const uint32_t constants[64] = {
-        0x428a2f98U, 0x71374491U, 0xb5c0fbcfU, 0xe9b5dba5U, 0x3956c25bU, 0x59f111f1U,
-        0x923f82a4U, 0xab1c5ed5U, 0xd807aa98U, 0x12835b01U, 0x243185beU, 0x550c7dc3U,
-        0x72be5d74U, 0x80deb1feU, 0x9bdc06a7U, 0xc19bf174U, 0xe49b69c1U, 0xefbe4786U,
-        0x0fc19dc6U, 0x240ca1ccU, 0x2de92c6fU, 0x4a7484aaU, 0x5cb0a9dcU, 0x76f988daU,
-        0x983e5152U, 0xa831c66dU, 0xb00327c8U, 0xbf597fc7U, 0xc6e00bf3U, 0xd5a79147U,
-        0x06ca6351U, 0x14292967U, 0x27b70a85U, 0x2e1b2138U, 0x4d2c6dfcU, 0x53380d13U,
-        0x650a7354U, 0x766a0abbU, 0x81c2c92eU, 0x92722c85U, 0xa2bfe8a1U, 0xa81a664bU,
-        0xc24b8b70U, 0xc76c51a3U, 0xd192e819U, 0xd6990624U, 0xf40e3585U, 0x106aa070U,
-        0x19a4c116U, 0x1e376c08U, 0x2748774cU, 0x34b0bcb5U, 0x391c0cb3U, 0x4ed8aa4aU,
-        0x5b9cca4fU, 0x682e6ff3U, 0x748f82eeU, 0x78a5636fU, 0x84c87814U, 0x8cc70208U,
-        0x90befffaU, 0xa4506cebU, 0xbef9a3f7U, 0xc67178f2U,
+        0x428a2f98U, 0x71374491U, 0xb5c0fbcfU, 0xe9b5dba5U, 0x3956c25bU, 0x59f111f1U, 0x923f82a4U,
+        0xab1c5ed5U, 0xd807aa98U, 0x12835b01U, 0x243185beU, 0x550c7dc3U, 0x72be5d74U, 0x80deb1feU,
+        0x9bdc06a7U, 0xc19bf174U, 0xe49b69c1U, 0xefbe4786U, 0x0fc19dc6U, 0x240ca1ccU, 0x2de92c6fU,
+        0x4a7484aaU, 0x5cb0a9dcU, 0x76f988daU, 0x983e5152U, 0xa831c66dU, 0xb00327c8U, 0xbf597fc7U,
+        0xc6e00bf3U, 0xd5a79147U, 0x06ca6351U, 0x14292967U, 0x27b70a85U, 0x2e1b2138U, 0x4d2c6dfcU,
+        0x53380d13U, 0x650a7354U, 0x766a0abbU, 0x81c2c92eU, 0x92722c85U, 0xa2bfe8a1U, 0xa81a664bU,
+        0xc24b8b70U, 0xc76c51a3U, 0xd192e819U, 0xd6990624U, 0xf40e3585U, 0x106aa070U, 0x19a4c116U,
+        0x1e376c08U, 0x2748774cU, 0x34b0bcb5U, 0x391c0cb3U, 0x4ed8aa4aU, 0x5b9cca4fU, 0x682e6ff3U,
+        0x748f82eeU, 0x78a5636fU, 0x84c87814U, 0x8cc70208U, 0x90befffaU, 0xa4506cebU, 0xbef9a3f7U,
+        0xc67178f2U,
     };
     uint32_t words[64];
     for (size_t i = 0; i < 16; i++) {
@@ -38,10 +37,9 @@ static void sha256_transform(security_sha256_t *ctx, const unsigned char block[6
                    ((uint32_t)block[offset + 2] << 8U) | (uint32_t)block[offset + 3];
     }
     for (size_t i = 16; i < 64; i++) {
-        uint32_t s0 = rotr32(words[i - 15], 7U) ^ rotr32(words[i - 15], 18U) ^
-                      (words[i - 15] >> 3U);
-        uint32_t s1 = rotr32(words[i - 2], 17U) ^ rotr32(words[i - 2], 19U) ^
-                      (words[i - 2] >> 10U);
+        uint32_t s0 =
+            rotr32(words[i - 15], 7U) ^ rotr32(words[i - 15], 18U) ^ (words[i - 15] >> 3U);
+        uint32_t s1 = rotr32(words[i - 2], 17U) ^ rotr32(words[i - 2], 19U) ^ (words[i - 2] >> 10U);
         words[i] = words[i - 16] + s0 + words[i - 7] + s1;
     }
     uint32_t a = ctx->state[0];
@@ -107,11 +105,13 @@ static void sha256_update(security_sha256_t *ctx, const unsigned char *data, siz
 static void sha256_finish(security_sha256_t *ctx, unsigned char digest[32]) {
     ctx->buffer[ctx->buffer_length++] = 0x80U;
     if (ctx->buffer_length > 56) {
-        while (ctx->buffer_length < 64) ctx->buffer[ctx->buffer_length++] = 0;
+        while (ctx->buffer_length < 64)
+            ctx->buffer[ctx->buffer_length++] = 0;
         sha256_transform(ctx, ctx->buffer);
         ctx->buffer_length = 0;
     }
-    while (ctx->buffer_length < 56) ctx->buffer[ctx->buffer_length++] = 0;
+    while (ctx->buffer_length < 56)
+        ctx->buffer[ctx->buffer_length++] = 0;
     for (size_t i = 0; i < 8; i++) {
         ctx->buffer[63 - i] = (unsigned char)(ctx->bit_count >> (i * 8U));
     }
@@ -139,8 +139,8 @@ static void content_sha256(const char *content, size_t length,
     output[64] = '\0';
 }
 
-static bool utf8_at(const unsigned char *input, size_t length, size_t offset,
-                    unsigned char a, unsigned char b, unsigned char c) {
+static bool utf8_at(const unsigned char *input, size_t length, size_t offset, unsigned char a,
+                    unsigned char b, unsigned char c) {
     return offset + 2 < length && input[offset] == a && input[offset + 1] == b &&
            input[offset + 2] == c;
 }
@@ -148,7 +148,8 @@ static bool utf8_at(const unsigned char *input, size_t length, size_t offset,
 static char *normalize_for_detection(const char *content, size_t length) {
     const unsigned char *input = (const unsigned char *)content;
     char *output = malloc(length + 1);
-    if (!output) return NULL;
+    if (!output)
+        return NULL;
     size_t out = 0;
     for (size_t i = 0; i < length;) {
         if (utf8_at(input, length, i, 0xe2U, 0x80U, 0x8bU) ||
@@ -166,9 +167,8 @@ static char *normalize_for_detection(const char *content, size_t length) {
         }
         if (i + 2 < length && input[i] == 0xefU &&
             (input[i + 1] == 0xbcU || input[i + 1] == 0xbdU)) {
-            uint32_t codepoint = input[i + 1] == 0xbcU
-                                     ? 0xff00U + (uint32_t)(input[i + 2] - 0x80U)
-                                     : 0xff40U + (uint32_t)(input[i + 2] - 0x80U);
+            uint32_t codepoint = input[i + 1] == 0xbcU ? 0xff00U + (uint32_t)(input[i + 2] - 0x80U)
+                                                       : 0xff40U + (uint32_t)(input[i + 2] - 0x80U);
             if (codepoint >= 0xff01U && codepoint <= 0xff5eU) {
                 output[out++] = (char)(codepoint - 0xff01U + 0x21U);
                 i += 3;
@@ -184,7 +184,8 @@ static char *normalize_for_detection(const char *content, size_t length) {
 
 static bool contains_any(const char *text, const char *const *needles, size_t count) {
     for (size_t i = 0; i < count; i++) {
-        if (strstr(text, needles[i])) return true;
+        if (strstr(text, needles[i]))
+            return true;
     }
     return false;
 }
@@ -196,11 +197,12 @@ static bool has_digit_run(const char *text, size_t required, bool require_phone_
             continue;
         }
         size_t start = i;
-        while (isdigit((unsigned char)text[i])) i++;
+        while (isdigit((unsigned char)text[i]))
+            i++;
         size_t run = i - start;
-        if (run == required && (!require_phone_prefix ||
-                                (text[start] == '1' && text[start + 1] >= '3' &&
-                                 text[start + 1] <= '9'))) {
+        if (run == required &&
+            (!require_phone_prefix ||
+             (text[start] == '1' && text[start + 1] >= '3' && text[start + 1] <= '9'))) {
             return true;
         }
     }
@@ -212,11 +214,11 @@ static bool has_personal_email(const char *text) {
     while ((at = strchr(at, '@')) != NULL) {
         const char *domain = at + 1;
         const char *end = domain;
-        while (*end && (isalnum((unsigned char)*end) || *end == '.' || *end == '-')) end++;
+        while (*end && (isalnum((unsigned char)*end) || *end == '.' || *end == '-'))
+            end++;
         size_t domain_length = (size_t)(end - domain);
-        if (domain_length > 0 &&
-            !(domain_length == strlen("example.com") &&
-              strncmp(domain, "example.com", domain_length) == 0)) {
+        if (domain_length > 0 && !(domain_length == strlen("example.com") &&
+                                   strncmp(domain, "example.com", domain_length) == 0)) {
             return true;
         }
         at++;
@@ -225,39 +227,46 @@ static bool has_personal_email(const char *text) {
 }
 
 static int base64_value(unsigned char value) {
-    if (value >= 'A' && value <= 'Z') return (int)(value - 'A');
-    if (value >= 'a' && value <= 'z') return (int)(value - 'a') + 26;
-    if (value >= '0' && value <= '9') return (int)(value - '0') + 52;
-    if (value == '+') return 62;
-    if (value == '/') return 63;
+    if (value >= 'A' && value <= 'Z')
+        return (int)(value - 'A');
+    if (value >= 'a' && value <= 'z')
+        return (int)(value - 'a') + 26;
+    if (value >= '0' && value <= '9')
+        return (int)(value - '0') + 52;
+    if (value == '+')
+        return 62;
+    if (value == '/')
+        return 63;
     return -1;
 }
 
 static bool decoded_base64_has_prompt(const char *text, size_t length) {
     for (size_t start = 0; start < length;) {
-        while (start < length && base64_value((unsigned char)text[start]) < 0) start++;
+        while (start < length && base64_value((unsigned char)text[start]) < 0)
+            start++;
         size_t end = start;
-        while (end < length &&
-               (base64_value((unsigned char)text[end]) >= 0 || text[end] == '=')) end++;
+        while (end < length && (base64_value((unsigned char)text[end]) >= 0 || text[end] == '='))
+            end++;
         if (end - start >= 24) {
             size_t capacity = ((end - start) / 4 + 1) * 3 + 1;
             char *decoded = calloc(capacity, 1);
-            if (!decoded) return false;
+            if (!decoded)
+                return false;
             size_t out = 0;
             for (size_t i = start; i + 3 < end; i += 4) {
                 int a = base64_value((unsigned char)text[i]);
                 int b = base64_value((unsigned char)text[i + 1]);
                 int c = text[i + 2] == '=' ? 0 : base64_value((unsigned char)text[i + 2]);
                 int d = text[i + 3] == '=' ? 0 : base64_value((unsigned char)text[i + 3]);
-                if (a < 0 || b < 0 || c < 0 || d < 0) break;
+                if (a < 0 || b < 0 || c < 0 || d < 0)
+                    break;
                 decoded[out++] = (char)(((unsigned int)a << 2U) | ((unsigned int)b >> 4U));
                 if (text[i + 2] != '=') {
                     decoded[out++] =
                         (char)((((unsigned int)b & 0x0fU) << 4U) | ((unsigned int)c >> 2U));
                 }
                 if (text[i + 3] != '=') {
-                    decoded[out++] =
-                        (char)((((unsigned int)c & 0x03U) << 6U) | (unsigned int)d);
+                    decoded[out++] = (char)((((unsigned int)c & 0x03U) << 6U) | (unsigned int)d);
                 }
             }
             decoded[out] = '\0';
@@ -272,7 +281,8 @@ static bool decoded_base64_has_prompt(const char *text, size_t length) {
                          strstr(decoded, "execute tool") != NULL ||
                          strstr(decoded, "system prompt") != NULL;
             free(decoded);
-            if (found) return true;
+            if (found)
+                return true;
         }
         start = end > start ? end : start + 1;
     }
@@ -290,7 +300,8 @@ static void set_result(cbm_memory_security_result_t *out, bool allowed, const ch
 
 int cbm_memory_security_scan(const char *content, size_t content_length,
                              cbm_memory_security_result_t *out) {
-    if (!content || !out) return -1;
+    if (!content || !out)
+        return -1;
     memset(out, 0, sizeof(*out));
     out->content_length = content_length;
     content_sha256(content, content_length, out->content_sha256);
@@ -300,11 +311,12 @@ int cbm_memory_security_scan(const char *content, size_t content_length,
         return 0;
     }
     char *text = normalize_for_detection(content, content_length);
-    if (!text) return -1;
+    if (!text)
+        return -1;
 
     static const char *const credential_labels[] = {
-        "api_key=", "api_key:", "api-key=", "api-key:", "password=", "password:",
-        "passwd=", "passwd:", "access_token=", "access_token:",
+        "api_key=",  "api_key:", "api-key=", "api-key:",      "password=",
+        "password:", "passwd=",  "passwd:",  "access_token=", "access_token:",
     };
     if (strstr(text, "authorization:") && strstr(text, "bearer ")) {
         set_result(out, false, "SECURITY_SECRET_REJECTED", "credential_secret", "reject",
@@ -347,22 +359,22 @@ int cbm_memory_security_scan(const char *content, size_t content_length,
         bool override = strstr(text, "ignore previous") || strstr(text, "ignore all previous") ||
                         strstr(text, "忽略以前") || strstr(text, "忽略之前");
         if (tool_directive) {
-            set_result(out, false, "SECURITY_PROMPT_INJECTION_REJECTED",
-                       "prompt_control_injection", "reject", "tool_execution_directive");
+            set_result(out, false, "SECURITY_PROMPT_INJECTION_REJECTED", "prompt_control_injection",
+                       "reject", "tool_execution_directive");
         } else if (data_exfiltration) {
-            set_result(out, false, "SECURITY_PROMPT_INJECTION_REJECTED",
-                       "prompt_control_injection", "reject", "data_exfiltration");
+            set_result(out, false, "SECURITY_PROMPT_INJECTION_REJECTED", "prompt_control_injection",
+                       "reject", "data_exfiltration");
         } else if (system_exfiltration) {
-            set_result(out, false, "SECURITY_PROMPT_INJECTION_REJECTED",
-                       "prompt_control_injection", "reject", "system_prompt_exfiltration");
+            set_result(out, false, "SECURITY_PROMPT_INJECTION_REJECTED", "prompt_control_injection",
+                       "reject", "system_prompt_exfiltration");
         } else if (override) {
-            set_result(out, false, "SECURITY_PROMPT_INJECTION_REJECTED",
-                       "prompt_control_injection", "reject",
+            set_result(out, false, "SECURITY_PROMPT_INJECTION_REJECTED", "prompt_control_injection",
+                       "reject",
                        (strstr(text, "system") || strstr(text, "系统")) ? "rule_override"
-                                                                       : "prompt_injection");
+                                                                        : "prompt_injection");
         } else if (decoded_base64_has_prompt(content, content_length)) {
-            set_result(out, false, "SECURITY_PROMPT_INJECTION_REJECTED",
-                       "prompt_control_injection", "reject", "prompt_injection");
+            set_result(out, false, "SECURITY_PROMPT_INJECTION_REJECTED", "prompt_control_injection",
+                       "reject", "prompt_injection");
         } else if (strstr(text, "named_person=")) {
             set_result(out, false, "SECURITY_PII_CONFIRMATION_REQUIRED", "indirect_pii",
                        "needs_confirmation", "named_person");
@@ -382,13 +394,13 @@ int cbm_memory_security_scan(const char *content, size_t content_length,
 }
 
 bool cbm_memory_security_scope_allowed(const char *project, const char *store) {
-    if (!project || !project[0] || !store || strcmp(store, "project-memory") != 0) return false;
+    if (!project || !project[0] || !store || strcmp(store, "project-memory") != 0)
+        return false;
     if (strstr(project, "..") || strchr(project, '/') || strchr(project, '\\') ||
         strchr(project, ':')) {
         return false;
     }
-    return strcmp(project, "H-Codex_H") == 0 ||
-           strcmp(project, "H-Codex_H-neuroplastic-main") == 0;
+    return strcmp(project, "H-Codex_H") == 0 || strcmp(project, "H-Codex_H-neuroplastic-main") == 0;
 }
 
 bool cbm_memory_security_injection_allowed(const char *classifier_status,

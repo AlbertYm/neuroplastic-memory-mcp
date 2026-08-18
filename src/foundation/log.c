@@ -185,26 +185,31 @@ static void append_json_string(char *buf, size_t bufsz, size_t *pos, const char 
 }
 
 static bool log_key_equals(const char *key, const char *expected) {
-    if (!key || !expected) return false;
+    if (!key || !expected)
+        return false;
     while (*key && *expected) {
-        if (tolower((unsigned char)*key++) != tolower((unsigned char)*expected++)) return false;
+        if (tolower((unsigned char)*key++) != tolower((unsigned char)*expected++))
+            return false;
     }
     return *key == '\0' && *expected == '\0';
 }
 
 static bool log_key_forbidden(const char *key) {
     static const char *const forbidden[] = {
-        "content", "query", "payload", "prompt", "auth", "authorization", "api_key",
-        "password", "token", "secret", "environment_value", "env_value",
+        "content", "query",         "payload",           "prompt",
+        "auth",    "authorization", "api_key",           "password",
+        "token",   "secret",        "environment_value", "env_value",
     };
     for (size_t i = 0; i < sizeof(forbidden) / sizeof(forbidden[0]); i++) {
-        if (log_key_equals(key, forbidden[i])) return true;
+        if (log_key_equals(key, forbidden[i]))
+            return true;
     }
     return false;
 }
 
 static bool log_value_is_windows_absolute_path(const char *value) {
-    if (!value) return false;
+    if (!value)
+        return false;
     if (isalpha((unsigned char)value[0]) && value[1] == ':' &&
         (value[2] == '\\' || value[2] == '/')) {
         return true;
@@ -368,9 +373,9 @@ void cbm_log_security_event(const char *code, const char *operation, const char 
     char duration_buf[CBM_SZ_32];
     snprintf(length_buf, sizeof(length_buf), "%zu", content_length);
     snprintf(duration_buf, sizeof(duration_buf), "%" PRId64, duration_ms);
-    cbm_log_warn("memory.security", "code", code ? code : "SECURITY_POLICY_MISMATCH",
-                 "component", "memory", "operation", operation ? operation : "scan",
-                 "scope_sha256", scope_sha256 ? scope_sha256 : "", "content_sha256",
-                 content_sha256 ? content_sha256 : "", "content_length", length_buf,
-                 "duration_ms", duration_buf);
+    cbm_log_warn("memory.security", "code", code ? code : "SECURITY_POLICY_MISMATCH", "component",
+                 "memory", "operation", operation ? operation : "scan", "scope_sha256",
+                 scope_sha256 ? scope_sha256 : "", "content_sha256",
+                 content_sha256 ? content_sha256 : "", "content_length", length_buf, "duration_ms",
+                 duration_buf);
 }

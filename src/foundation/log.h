@@ -86,8 +86,7 @@ void cbm_log_http_request(const char *component, const char *method, const char 
 /* Fixed-field Stage 11 security event. Content is represented only by SHA256
  * and byte length; callers cannot pass raw payload through this API. */
 void cbm_log_security_event(const char *code, const char *operation, const char *scope_sha256,
-                            const char *content_sha256, size_t content_length,
-                            int64_t duration_ms);
+                            const char *content_sha256, size_t content_length, int64_t duration_ms);
 
 /* Optional log sink callback — called with the formatted log line. */
 typedef void (*cbm_log_sink_fn)(const char *line);

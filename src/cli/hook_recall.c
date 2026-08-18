@@ -48,7 +48,7 @@
 #define HR_DEADLINE_MS 600 /* hard in-process budget; memories_retrieve is     */
                            /* heavier than search_graph (vector + maybe        */
                            /* maintenance), so a touch above hook_augment's.   */
-#define HR_CTX_CAP 8192 /* bounded below the frozen 2,000-token context budget */
+#define HR_CTX_CAP 8192    /* bounded below the frozen 2,000-token context budget */
 
 /* ── Hard deadline ────────────────────────────────────────────────
  * A slow SQLite open, query, or lazy-maintenance pass must never stall the
@@ -284,11 +284,10 @@ static void hr_emit_degraded(const char *code) {
     hr_emit(text);
 }
 
-static char *hr_begin_task(cbm_global_memory_t *global,
-                           const cbm_project_resolution_t *project,
-                           const char *hook_session, const char *turn_id,
-                           const char *prompt_hash, size_t prompt_length,
-                           const char *retrieval_session, const char *idempotency_key) {
+static char *hr_begin_task(cbm_global_memory_t *global, const cbm_project_resolution_t *project,
+                           const char *hook_session, const char *turn_id, const char *prompt_hash,
+                           size_t prompt_length, const char *retrieval_session,
+                           const char *idempotency_key) {
     cbm_task_begin_input_t input = {
         .project = project->project_uuid,
         .session_id = hook_session,
@@ -325,10 +324,14 @@ static char *hr_global_envelope(const cbm_global_retrieval_result_t *result) {
     for (int i = 0; i < result->count; i++) {
         const cbm_global_candidate_t *candidate = &result->items[i];
         yyjson_mut_val *item = yyjson_mut_obj(doc);
-        if (candidate->item.kind) yyjson_mut_obj_add_str(doc, item, "kind", candidate->item.kind);
-        if (candidate->item.title) yyjson_mut_obj_add_str(doc, item, "title", candidate->item.title);
-        if (candidate->item.summary) yyjson_mut_obj_add_str(doc, item, "summary", candidate->item.summary);
-        if (candidate->item.content) yyjson_mut_obj_add_str(doc, item, "content", candidate->item.content);
+        if (candidate->item.kind)
+            yyjson_mut_obj_add_str(doc, item, "kind", candidate->item.kind);
+        if (candidate->item.title)
+            yyjson_mut_obj_add_str(doc, item, "title", candidate->item.title);
+        if (candidate->item.summary)
+            yyjson_mut_obj_add_str(doc, item, "summary", candidate->item.summary);
+        if (candidate->item.content)
+            yyjson_mut_obj_add_str(doc, item, "content", candidate->item.content);
         if (candidate->item.scope_project)
             yyjson_mut_obj_add_str(doc, item, "scope_project", candidate->item.scope_project);
         if (candidate->project_uuid)
@@ -340,20 +343,22 @@ static char *hr_global_envelope(const cbm_global_retrieval_result_t *result) {
     yyjson_mut_obj_add_val(doc, root, "memories", memories);
     char *inner = yyjson_mut_write(doc, 0, NULL);
     yyjson_mut_doc_free(doc);
-    if (!inner) return NULL;
+    if (!inner)
+        return NULL;
     char *envelope = cbm_mcp_text_result(inner, false);
     free(inner);
     return envelope;
 }
 
-static char *hr_resolve_and_query(const char *start, const char *prompt,
-                                  const char *hook_session, const char *turn_id,
-                                  const char *prompt_hash, const char *request_id,
-                                  const char *idempotency_key) {
+static char *hr_resolve_and_query(const char *start, const char *prompt, const char *hook_session,
+                                  const char *turn_id, const char *prompt_hash,
+                                  const char *request_id, const char *idempotency_key) {
     cbm_project_resolution_t project = {0};
-    if (cbm_project_resolve(start, NULL, NULL, &project) != 0) return NULL;
+    if (cbm_project_resolve(start, NULL, NULL, &project) != 0)
+        return NULL;
     cbm_global_memory_t *global = cbm_global_memory_open_default();
-    if (!global) return NULL;
+    if (!global)
+        return NULL;
     char ensure_key[96], *ensure_report = NULL;
     snprintf(ensure_key, sizeof(ensure_key), "stage14-project-%.64s", project.path_hash);
     int ensure_rc = cbm_global_ensure_project(global, &project, ensure_key, &ensure_report);
@@ -366,8 +371,8 @@ static char *hr_resolve_and_query(const char *start, const char *prompt,
     snprintf(query_text, sizeof(query_text), "%s", prompt);
     cbm_memory_query_t query = {.query = query_text, .limit = HR_RESULT_LIMIT};
     cbm_global_retrieval_result_t result = {0};
-    int retrieve_rc = cbm_global_memory_retrieve(global, request_id, project.project_uuid,
-                                                  100000, &query, &result);
+    int retrieve_rc = cbm_global_memory_retrieve(global, request_id, project.project_uuid, 100000,
+                                                 &query, &result);
     char *ctx = NULL;
     if (retrieve_rc == CBM_STORE_OK || retrieve_rc == CBM_STORE_REPLAYED) {
         char *envelope = hr_global_envelope(&result);
@@ -384,12 +389,17 @@ static char *hr_resolve_and_query(const char *start, const char *prompt,
     cbm_global_retrieval_result_free(&result);
     cbm_global_memory_close(global);
     if (!ctx)
-        ctx = strdup("[semantic-memory-mcp] recall degraded; no positive feedback is permitted for this turn.");
-    if (!ctx) { free(task_id); return NULL; }
+        ctx = strdup("[semantic-memory-mcp] recall degraded; no positive feedback is permitted for "
+                     "this turn.");
+    if (!ctx) {
+        free(task_id);
+        return NULL;
+    }
     size_t used = strlen(ctx);
-    const char *suffix = task_id
-                             ? "\n[semantic-memory-mcp] task lifecycle active: "
-                             : "\n[semantic-memory-mcp] task lifecycle degraded; do not claim feedback completion.";
+    const char *suffix =
+        task_id
+            ? "\n[semantic-memory-mcp] task lifecycle active: "
+            : "\n[semantic-memory-mcp] task lifecycle degraded; do not claim feedback completion.";
     size_t needed = used + strlen(suffix) + (task_id ? strlen(task_id) : 0) + 1;
     if (needed < HR_CTX_CAP) {
         char *grown = realloc(ctx, needed);
@@ -438,7 +448,8 @@ int cbm_cmd_hook_recall(void) {
 
     const char *cwd = hr_obj_str(root, "cwd");
     const char *root_uri = hr_obj_str(root, "rootUri");
-    if (!root_uri) root_uri = hr_obj_str(root, "root_uri");
+    if (!root_uri)
+        root_uri = hr_obj_str(root, "root_uri");
     const char *hook_session = hr_obj_str(root, "session_id");
     const char *turn_id = hr_obj_str(root, "turn_id");
     if (!hook_session || !turn_id) {
@@ -474,8 +485,7 @@ int cbm_cmd_hook_recall(void) {
         hr_emit_degraded("HASH_FAILED");
         return 0;
     }
-    snprintf(key_material, sizeof(key_material), "%s:%s:%s", hook_session, turn_id,
-             prompt_hash);
+    snprintf(key_material, sizeof(key_material), "%s:%s:%s", hook_session, turn_id, prompt_hash);
     if (cbm_stage7_sha256_hex(key_material, strlen(key_material), identity_hash) != CBM_STORE_OK) {
         yyjson_doc_free(doc);
         free(input);

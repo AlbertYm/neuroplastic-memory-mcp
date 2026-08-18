@@ -95,7 +95,8 @@ static const char STAGE10_SCHEMA_SQL[] =
     "sequence_no INTEGER PRIMARY KEY AUTOINCREMENT,event_id TEXT NOT NULL UNIQUE,run_id TEXT "
     "REFERENCES concept_growth_run(run_id) ON DELETE RESTRICT,candidate_id TEXT REFERENCES "
     "concept_candidate(candidate_id) ON DELETE RESTRICT,operation TEXT NOT NULL,payload_sha256 "
-    "TEXT NOT NULL,prev_hash TEXT NOT NULL,event_hash TEXT NOT NULL UNIQUE,created_at TEXT NOT NULL);"
+    "TEXT NOT NULL,prev_hash TEXT NOT NULL,event_hash TEXT NOT NULL UNIQUE,created_at TEXT NOT "
+    "NULL);"
     "CREATE INDEX IF NOT EXISTS concept_growth_run_scope_idx ON concept_growth_run("
     "scope_project,scope_store,created_at);"
     "CREATE INDEX IF NOT EXISTS concept_candidate_scope_idx ON concept_candidate("
@@ -226,7 +227,8 @@ static bool stage10_buffer_append(stage10_buffer_t *buffer, const char *format, 
     size_t required = buffer->length + (size_t)needed + 1;
     if (required > buffer->capacity) {
         size_t capacity = buffer->capacity ? buffer->capacity : 256;
-        while (capacity < required) capacity *= 2;
+        while (capacity < required)
+            capacity *= 2;
         char *grown = realloc(buffer->data, capacity);
         if (!grown) {
             va_end(args);
@@ -244,8 +246,7 @@ static bool stage10_buffer_append(stage10_buffer_t *buffer, const char *format, 
 static bool stage10_table_exists(sqlite3 *db, const char *name) {
     sqlite3_stmt *stmt = NULL;
     bool exists = false;
-    if (sqlite3_prepare_v2(db,
-                           "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1;",
+    if (sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1;",
                            -1, &stmt, NULL) == SQLITE_OK) {
         sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
         exists = sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_int(stmt, 0) == 1;
@@ -258,18 +259,21 @@ int cbm_store_memory_stage10_object_count(cbm_store_t *store) {
     sqlite3 *db = store ? cbm_store_get_db(store) : NULL;
     sqlite3_stmt *stmt = NULL;
     int count = -1;
-    if (!db || sqlite3_prepare_v2(
-                   db, "SELECT COUNT(*) FROM sqlite_master WHERE name LIKE 'concept_%' OR "
-                       "name LIKE 'stage10_%';",
-                   -1, &stmt, NULL) != SQLITE_OK)
+    if (!db ||
+        sqlite3_prepare_v2(db,
+                           "SELECT COUNT(*) FROM sqlite_master WHERE name LIKE 'concept_%' OR "
+                           "name LIKE 'stage10_%';",
+                           -1, &stmt, NULL) != SQLITE_OK)
         return -1;
-    if (sqlite3_step(stmt) == SQLITE_ROW) count = sqlite3_column_int(stmt, 0);
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+        count = sqlite3_column_int(stmt, 0);
     sqlite3_finalize(stmt);
     return count;
 }
 
 static bool stage10_ledger_matches(sqlite3 *db) {
-    if (!stage10_table_exists(db, "stage10_component_ledger")) return false;
+    if (!stage10_table_exists(db, "stage10_component_ledger"))
+        return false;
     sqlite3_stmt *stmt = NULL;
     const char *sql =
         "SELECT schema_version,schema_name,schema_sha256,policy_sha256,algorithm_version,"
@@ -297,13 +301,16 @@ static bool stage10_ledger_matches(sqlite3 *db) {
 
 int cbm_store_memory_stage10_migrate(cbm_store_t *store) {
     sqlite3 *db = store ? cbm_store_get_db(store) : NULL;
-    if (!db) return CBM_STORE_ERR;
+    if (!db)
+        return CBM_STORE_ERR;
     int before = cbm_store_memory_stage10_object_count(store);
     if (before > 0) {
-        return before == STAGE10_OBJECT_COUNT && stage10_ledger_matches(db) ? CBM_STORE_REPLAYED
-                                                                           : CBM_STORE_IDEMPOTENCY_CONFLICT;
+        return before == STAGE10_OBJECT_COUNT && stage10_ledger_matches(db)
+                   ? CBM_STORE_REPLAYED
+                   : CBM_STORE_IDEMPOTENCY_CONFLICT;
     }
-    if (sqlite3_exec(db, "BEGIN IMMEDIATE;", NULL, NULL, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+    if (sqlite3_exec(db, "BEGIN IMMEDIATE;", NULL, NULL, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     if (sqlite3_exec(db, STAGE10_SCHEMA_SQL, NULL, NULL, NULL) != SQLITE_OK) {
         sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
         return CBM_STORE_ERR;
@@ -340,7 +347,8 @@ int cbm_store_memory_stage10_migrate(cbm_store_t *store) {
 }
 
 static void stage10_candidates_free(stage10_candidates_t *set) {
-    if (!set) return;
+    if (!set)
+        return;
     for (int i = 0; i < set->count; i++) {
         stage10_candidate_t *candidate = &set->items[i];
         free(candidate->entity_key);
@@ -359,15 +367,15 @@ static void stage10_candidates_free(stage10_candidates_t *set) {
 }
 
 static stage10_candidate_t *stage10_candidate_get(stage10_candidates_t *set,
-                                                   const char *entity_key) {
+                                                  const char *entity_key) {
     if (set->count > 0 && strcmp(set->items[set->count - 1].entity_key, entity_key) == 0)
         return &set->items[set->count - 1];
     if (set->count == set->capacity) {
         int capacity = set->capacity ? set->capacity * 2 : 8;
         stage10_candidate_t *grown = realloc(set->items, (size_t)capacity * sizeof(*grown));
-        if (!grown) return NULL;
-        memset(grown + set->capacity, 0,
-               (size_t)(capacity - set->capacity) * sizeof(*grown));
+        if (!grown)
+            return NULL;
+        memset(grown + set->capacity, 0, (size_t)(capacity - set->capacity) * sizeof(*grown));
         set->items = grown;
         set->capacity = capacity;
     }
@@ -380,9 +388,9 @@ static stage10_candidate_t *stage10_candidate_get(stage10_candidates_t *set,
 static bool stage10_candidate_add_source(stage10_candidate_t *candidate, sqlite3_stmt *stmt) {
     if (candidate->source_count == candidate->source_capacity) {
         int capacity = candidate->source_capacity ? candidate->source_capacity * 2 : 4;
-        stage10_source_t *grown =
-            realloc(candidate->sources, (size_t)capacity * sizeof(*grown));
-        if (!grown) return false;
+        stage10_source_t *grown = realloc(candidate->sources, (size_t)capacity * sizeof(*grown));
+        if (!grown)
+            return false;
         memset(grown + candidate->source_capacity, 0,
                (size_t)(capacity - candidate->source_capacity) * sizeof(*grown));
         candidate->sources = grown;
@@ -407,7 +415,8 @@ static bool stage10_candidate_add_source(stage10_candidate_t *candidate, sqlite3
 static char *stage10_normalize(const char *text) {
     size_t length = text ? strlen(text) : 0;
     char *out = malloc(length + 1);
-    if (!out) return NULL;
+    if (!out)
+        return NULL;
     size_t used = 0;
     bool pending_space = false;
     for (size_t i = 0; i < length; i++) {
@@ -416,7 +425,8 @@ static char *stage10_normalize(const char *text) {
             pending_space = used > 0;
             continue;
         }
-        if (pending_space) out[used++] = ' ';
+        if (pending_space)
+            out[used++] = ' ';
         pending_space = false;
         out[used++] = ch < 128 ? (char)tolower(ch) : (char)ch;
     }
@@ -438,14 +448,16 @@ static int stage10_tokenize(const char *text, char tokens[64][64]) {
             token[used] = '\0';
             bool seen = false;
             for (int i = 0; i < count; i++) {
-                if (strcmp(tokens[i], token) == 0) seen = true;
+                if (strcmp(tokens[i], token) == 0)
+                    seen = true;
             }
             if (!seen && count < 64) {
                 memcpy(tokens[count++], token, used + 1);
             }
             used = 0;
         }
-        if (ch == '\0') break;
+        if (ch == '\0')
+            break;
     }
     return count;
 }
@@ -470,10 +482,11 @@ static int stage10_similarity_ppm(const char *left, const char *right) {
 
 static bool stage10_contains_prompt_control(const char *content) {
     char *normalized = stage10_normalize(content);
-    if (!normalized) return true;
-    const char *needles[] = {"ignore system", "ignore previous", "system prompt",
-                             "approve this candidate", "regardless of policy",
-                             "override policy", "developer message"};
+    if (!normalized)
+        return true;
+    const char *needles[] = {"ignore system",          "ignore previous",      "system prompt",
+                             "approve this candidate", "regardless of policy", "override policy",
+                             "developer message"};
     bool found = false;
     for (size_t i = 0; i < sizeof(needles) / sizeof(needles[0]); i++) {
         if (strstr(normalized, needles[i])) {
@@ -486,13 +499,15 @@ static bool stage10_contains_prompt_control(const char *content) {
 }
 
 static bool stage10_candidate_is_eligible(stage10_candidate_t *candidate) {
-    if (!candidate || candidate->source_count < 2) return false;
+    if (!candidate || candidate->source_count < 2)
+        return false;
     bool all_rule = true;
     for (int i = 0; i < candidate->source_count; i++) {
         stage10_source_t *source = &candidate->sources[i];
         if (strcmp(source->kind, "constraint") != 0 && strcmp(source->kind, "decision") != 0)
             all_rule = false;
-        if (!source->source_key[0] || stage10_contains_prompt_control(source->content)) return false;
+        if (!source->source_key[0] || stage10_contains_prompt_control(source->content))
+            return false;
         for (int j = 0; j < i; j++) {
             stage10_source_t *prior = &candidate->sources[j];
             if (strcmp(source->item_id, prior->item_id) == 0 ||
@@ -506,7 +521,8 @@ static bool stage10_candidate_is_eligible(stage10_candidate_t *candidate) {
                              stage10_similarity_ppm(source->content, prior->content) >= 800000;
             free(normalized);
             free(prior_normalized);
-            if (duplicate) return false;
+            if (duplicate)
+                return false;
         }
     }
     candidate->classification = cbm_strdup(all_rule ? "rule" : "semantic");
@@ -517,7 +533,8 @@ static bool stage10_candidate_is_eligible(stage10_candidate_t *candidate) {
 }
 
 static void stage10_candidate_release(stage10_candidate_t *candidate) {
-    if (!candidate) return;
+    if (!candidate)
+        return;
     free(candidate->entity_key);
     free(candidate->classification);
     for (int i = 0; i < candidate->source_count; i++) {
@@ -532,7 +549,8 @@ static void stage10_candidate_release(stage10_candidate_t *candidate) {
 }
 
 static bool stage10_candidate_finalize(stage10_candidate_t *candidate, const char *project) {
-    if (!stage10_candidate_is_eligible(candidate)) return false;
+    if (!stage10_candidate_is_eligible(candidate))
+        return false;
     stage10_buffer_t identity = {0};
     bool ok = stage10_buffer_append(&identity, "%s|%s|%s|%s|%s", project, STAGE10_STORE,
                                     candidate->classification, candidate->entity_key,
@@ -543,7 +561,8 @@ static bool stage10_candidate_finalize(stage10_candidate_t *candidate, const cha
     }
     ok = ok && stage10_hash(identity.data, identity.length, candidate->identity_sha256);
     free(identity.data);
-    if (!ok) return false;
+    if (!ok)
+        return false;
     snprintf(candidate->candidate_id, sizeof(candidate->candidate_id), "candidate-%.24s",
              candidate->identity_sha256);
     snprintf(candidate->content_text, sizeof(candidate->content_text), "%s candidate %.16s",
@@ -565,12 +584,12 @@ static bool stage10_candidate_finalize(stage10_candidate_t *candidate, const cha
     return ok;
 }
 
-static int stage10_collect_candidates(sqlite3 *db, const char *project,
-                                      stage10_candidates_t *out) {
+static int stage10_collect_candidates(sqlite3 *db, const char *project, stage10_candidates_t *out) {
     const char *required[] = {"memory_item", "feedback_attribution", "feedback_event",
                               "memory_evidence"};
     for (size_t i = 0; i < sizeof(required) / sizeof(required[0]); i++) {
-        if (!stage10_table_exists(db, required[i])) return CBM_STORE_ERR;
+        if (!stage10_table_exists(db, required[i]))
+            return CBM_STORE_ERR;
     }
     const char *sql =
         "SELECT m.entity_key,m.id,m.kind,m.content,m.source_event_ids,"
@@ -588,7 +607,8 @@ static int stage10_collect_candidates(sqlite3 *db, const char *project,
         "ON nfe.event_id=nfa.feedback_event_id WHERE nfa.memory_item_id=m.id "
         "AND nfe.action IN ('reject','correct','withdraw')) ORDER BY m.entity_key,m.id;";
     sqlite3_stmt *stmt = NULL;
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     sqlite3_bind_text(stmt, 1, project, -1, SQLITE_TRANSIENT);
     int rc = CBM_STORE_OK;
     while (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -600,7 +620,8 @@ static int stage10_collect_candidates(sqlite3 *db, const char *project,
         }
     }
     sqlite3_finalize(stmt);
-    if (rc != CBM_STORE_OK) return rc;
+    if (rc != CBM_STORE_OK)
+        return rc;
     int kept = 0;
     for (int i = 0; i < out->count; i++) {
         if (stage10_candidate_finalize(&out->items[i], project)) {
@@ -644,21 +665,19 @@ static bool stage10_contract_valid(const cbm_concept_generate_input_t *input) {
 
 static bool stage10_request_hash(const cbm_concept_generate_input_t *input, char out[65]) {
     stage10_buffer_t request = {0};
-    bool ok = stage10_buffer_append(&request, "%s|%s|%s|%s|%s|%s|%d|%d|%s",
-                                    input->operation, input->project, input->store,
-                                    input->run_id ? input->run_id : "",
-                                    input->idempotency_key ? input->idempotency_key : "",
-                                    input->algorithm_version, input->policy_version,
-                                    input->config_version, input->generator_version) &&
+    bool ok = stage10_buffer_append(
+                  &request, "%s|%s|%s|%s|%s|%s|%d|%d|%s", input->operation, input->project,
+                  input->store, input->run_id ? input->run_id : "",
+                  input->idempotency_key ? input->idempotency_key : "", input->algorithm_version,
+                  input->policy_version, input->config_version, input->generator_version) &&
               stage10_hash(request.data, request.length, out);
     free(request.data);
     return ok;
 }
 
 static char *stage10_report_json(const cbm_concept_generate_input_t *input,
-                                 const stage10_candidates_t *candidates,
-                                 const char *request_sha256, const char *status,
-                                 bool state_written) {
+                                 const stage10_candidates_t *candidates, const char *request_sha256,
+                                 const char *status, bool state_written) {
     yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
     yyjson_mut_val *root = yyjson_mut_obj(doc);
     yyjson_mut_doc_set_root(doc, root);
@@ -712,7 +731,8 @@ static bool stage10_read_file(const char *path, char **out, size_t *out_size) {
     *out = NULL;
     *out_size = 0;
     FILE *handle = fopen(path, "rb");
-    if (!handle) return false;
+    if (!handle)
+        return false;
     if (fseek(handle, 0, SEEK_END) != 0) {
         fclose(handle);
         return false;
@@ -746,11 +766,12 @@ static bool stage10_active_guard(const cbm_concept_generate_input_t *input,
         strncmp(input->project, STAGE14_FIXTURE_PREFIX, strlen(STAGE14_FIXTURE_PREFIX)) == 0;
     if (stage10_fixture || stage14_fixture) {
         cbm_safe_getenv(stage14_fixture ? "CBM_STAGE14_ACTIVE_FIXTURE"
-                                       : "CBM_STAGE10_ACTIVE_FIXTURE",
+                                        : "CBM_STAGE10_ACTIVE_FIXTURE",
                         enabled, sizeof(enabled), NULL);
         return strcmp(enabled, "1") == 0;
     }
-    if (strcmp(input->project, STAGE10_PRODUCTION_PROJECT) != 0) return false;
+    if (strcmp(input->project, STAGE10_PRODUCTION_PROJECT) != 0)
+        return false;
     char path[1024] = {0};
     char hash[80] = {0};
     cbm_safe_getenv("CBM_STAGE10_PRODUCTION_CANARY", enabled, sizeof(enabled), NULL);
@@ -760,8 +781,7 @@ static bool stage10_active_guard(const cbm_concept_generate_input_t *input,
            strcmp(path, input->manifest_path) == 0 && strcmp(hash, input->manifest_sha256) == 0;
 }
 
-static bool stage10_json_string_equals(yyjson_val *object, const char *key,
-                                       const char *expected) {
+static bool stage10_json_string_equals(yyjson_val *object, const char *key, const char *expected) {
     yyjson_val *value = object ? yyjson_obj_get(object, key) : NULL;
     return value && yyjson_is_str(value) && strcmp(yyjson_get_str(value), expected) == 0;
 }
@@ -769,32 +789,32 @@ static bool stage10_json_string_equals(yyjson_val *object, const char *key,
 static bool stage10_manifest_verify(const cbm_concept_generate_input_t *input,
                                     const stage10_candidates_t *candidates,
                                     const char *request_sha256) {
-    if (!input->manifest_path || !input->manifest_sha256 ||
-        strlen(input->manifest_sha256) != 64)
+    if (!input->manifest_path || !input->manifest_sha256 || strlen(input->manifest_sha256) != 64)
         return false;
     char *data = NULL;
     size_t size = 0;
     char actual_hash[65] = {0};
     if (!stage10_read_file(input->manifest_path, &data, &size) ||
-        !stage10_hash(data, size, actual_hash) || strcmp(actual_hash, input->manifest_sha256) != 0) {
+        !stage10_hash(data, size, actual_hash) ||
+        strcmp(actual_hash, input->manifest_sha256) != 0) {
         free(data);
         return false;
     }
     yyjson_doc *doc = yyjson_read(data, size, 0);
     free(data);
     yyjson_val *root = doc ? yyjson_doc_get_root(doc) : NULL;
-    bool ok = root && yyjson_is_obj(root) &&
-              stage10_json_string_equals(root, "schema", STAGE10_MANIFEST_SCHEMA) &&
-              stage10_json_string_equals(root, "project", input->project) &&
-              stage10_json_string_equals(root, "store", input->store) &&
-              stage10_json_string_equals(root, "run_id", input->run_id) &&
-              stage10_json_string_equals(root, "request_sha256", request_sha256) &&
-              stage10_json_string_equals(root, "algorithm_version", CBM_STAGE10_ALGORITHM_VERSION) &&
-              stage10_json_string_equals(root, "generator_version", CBM_STAGE10_GENERATOR_VERSION) &&
-              stage10_json_string_equals(root, "policy_sha256", CBM_STAGE10_POLICY_SHA256) &&
-              stage10_json_string_equals(root, "schema_sha256", CBM_STAGE10_MIGRATION_SHA256) &&
-              stage10_json_string_equals(root, "decision_set_sha256",
-                                         candidates->decision_set_sha256);
+    bool ok =
+        root && yyjson_is_obj(root) &&
+        stage10_json_string_equals(root, "schema", STAGE10_MANIFEST_SCHEMA) &&
+        stage10_json_string_equals(root, "project", input->project) &&
+        stage10_json_string_equals(root, "store", input->store) &&
+        stage10_json_string_equals(root, "run_id", input->run_id) &&
+        stage10_json_string_equals(root, "request_sha256", request_sha256) &&
+        stage10_json_string_equals(root, "algorithm_version", CBM_STAGE10_ALGORITHM_VERSION) &&
+        stage10_json_string_equals(root, "generator_version", CBM_STAGE10_GENERATOR_VERSION) &&
+        stage10_json_string_equals(root, "policy_sha256", CBM_STAGE10_POLICY_SHA256) &&
+        stage10_json_string_equals(root, "schema_sha256", CBM_STAGE10_MIGRATION_SHA256) &&
+        stage10_json_string_equals(root, "decision_set_sha256", candidates->decision_set_sha256);
     yyjson_val *eligible = root ? yyjson_obj_get(root, "eligible_count") : NULL;
     yyjson_val *policy = root ? yyjson_obj_get(root, "policy_version") : NULL;
     yyjson_val *config = root ? yyjson_obj_get(root, "config_version") : NULL;
@@ -811,10 +831,8 @@ static bool stage10_manifest_verify(const cbm_concept_generate_input_t *input,
         while ((entry = yyjson_arr_iter_next(&iterator)) && index < candidates->count) {
             stage10_candidate_t *candidate = &candidates->items[index++];
             if (!stage10_json_string_equals(entry, "candidate_id", candidate->candidate_id) ||
-                !stage10_json_string_equals(entry, "identity_sha256",
-                                            candidate->identity_sha256) ||
-                !stage10_json_string_equals(entry, "decision_sha256",
-                                            candidate->decision_sha256)) {
+                !stage10_json_string_equals(entry, "identity_sha256", candidate->identity_sha256) ||
+                !stage10_json_string_equals(entry, "decision_sha256", candidate->decision_sha256)) {
                 ok = false;
                 break;
             }
@@ -831,8 +849,7 @@ static bool stage10_manifest_verify(const cbm_concept_generate_input_t *input,
                 yyjson_val *hash = yyjson_arr_get(hashes, (size_t)source);
                 if (!id || !hash || !yyjson_is_str(id) || !yyjson_is_str(hash) ||
                     strcmp(yyjson_get_str(id), candidate->sources[source].item_id) != 0 ||
-                    strcmp(yyjson_get_str(hash),
-                           candidate->sources[source].content_sha256) != 0) {
+                    strcmp(yyjson_get_str(hash), candidate->sources[source].content_sha256) != 0) {
                     ok = false;
                     break;
                 }
@@ -854,7 +871,8 @@ static bool stage10_audit_insert(sqlite3 *db, const char *run_id, const char *ca
         return false;
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         const char *value = (const char *)sqlite3_column_text(stmt, 0);
-        if (value) snprintf(previous, sizeof(previous), "%s", value);
+        if (value)
+            snprintf(previous, sizeof(previous), "%s", value);
     }
     sqlite3_finalize(stmt);
     stage10_buffer_t seed = {0};
@@ -862,23 +880,24 @@ static bool stage10_audit_insert(sqlite3 *db, const char *run_id, const char *ca
     char event_id[80] = {0};
     char event_hash[65] = {0};
     bool ok = stage10_buffer_append(&seed, "%s|%s|%s|%s", run_id ? run_id : "",
-                                    candidate_id ? candidate_id : "", operation,
-                                    payload_sha256) &&
+                                    candidate_id ? candidate_id : "", operation, payload_sha256) &&
               stage10_hash(seed.data, seed.length, event_seed);
     free(seed.data);
-    if (!ok) return false;
+    if (!ok)
+        return false;
     snprintf(event_id, sizeof(event_id), "concept-audit-%.24s", event_seed);
     stage10_buffer_t event = {0};
-    ok = stage10_buffer_append(&event, "%s|%s|%s|%s|%s|%s", event_id,
-                               run_id ? run_id : "", candidate_id ? candidate_id : "",
-                               operation, payload_sha256, previous) &&
+    ok = stage10_buffer_append(&event, "%s|%s|%s|%s|%s|%s", event_id, run_id ? run_id : "",
+                               candidate_id ? candidate_id : "", operation, payload_sha256,
+                               previous) &&
          stage10_hash(event.data, event.length, event_hash);
     free(event.data);
-    if (!ok || sqlite3_prepare_v2(
-                   db, "INSERT INTO concept_growth_audit_event(event_id,run_id,candidate_id,"
-                       "operation,payload_sha256,prev_hash,event_hash,created_at) VALUES(?1,?2,"
-                       "?3,?4,?5,?6,?7,strftime('%Y-%m-%dT%H:%M:%fZ','now'));",
-                   -1, &stmt, NULL) != SQLITE_OK)
+    if (!ok ||
+        sqlite3_prepare_v2(db,
+                           "INSERT INTO concept_growth_audit_event(event_id,run_id,candidate_id,"
+                           "operation,payload_sha256,prev_hash,event_hash,created_at) VALUES(?1,?2,"
+                           "?3,?4,?5,?6,?7,strftime('%Y-%m-%dT%H:%M:%fZ','now'));",
+                           -1, &stmt, NULL) != SQLITE_OK)
         return false;
     sqlite3_bind_text(stmt, 1, event_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, run_id, -1, SQLITE_TRANSIENT);
@@ -896,8 +915,7 @@ static bool stage10_audit_insert(sqlite3 *db, const char *run_id, const char *ca
 }
 
 static bool stage10_insert_run(sqlite3 *db, const cbm_concept_generate_input_t *input,
-                               const stage10_candidates_t *candidates,
-                               const char *request_sha256) {
+                               const stage10_candidates_t *candidates, const char *request_sha256) {
     sqlite3_stmt *stmt = NULL;
     const char *sql =
         "INSERT INTO concept_growth_run(run_id,idempotency_key,request_sha256,scope_project,"
@@ -905,7 +923,8 @@ static bool stage10_insert_run(sqlite3 *db, const cbm_concept_generate_input_t *
         "policy_sha256,schema_sha256,manifest_sha256,decision_set_sha256,eligible_count,"
         "proposed_count,status,created_at) VALUES(?1,?2,?3,?4,?5,'active',?6,?7,?8,?9,?10,"
         "?11,?12,?13,?14,?14,'completed',strftime('%Y-%m-%dT%H:%M:%fZ','now'));";
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return false;
     sqlite3_bind_text(stmt, 1, input->run_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, input->idempotency_key, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 3, request_sha256, -1, SQLITE_TRANSIENT);
@@ -932,7 +951,8 @@ static bool stage10_insert_candidate(sqlite3 *db, const cbm_concept_generate_inp
         "INSERT INTO concept_candidate(candidate_id,identity_sha256,scope_project,scope_store,"
         "initial_state,created_run_id,created_at) VALUES(?1,?2,?3,?4,'proposed',?5,"
         "strftime('%Y-%m-%dT%H:%M:%fZ','now'));";
-    if (sqlite3_prepare_v2(db, candidate_sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+    if (sqlite3_prepare_v2(db, candidate_sql, -1, &stmt, NULL) != SQLITE_OK)
+        return false;
     sqlite3_bind_text(stmt, 1, candidate->candidate_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, candidate->identity_sha256, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 3, input->project, -1, SQLITE_TRANSIENT);
@@ -940,7 +960,8 @@ static bool stage10_insert_candidate(sqlite3 *db, const cbm_concept_generate_inp
     sqlite3_bind_text(stmt, 5, input->run_id, -1, SQLITE_TRANSIENT);
     bool ok = sqlite3_step(stmt) == SQLITE_DONE;
     sqlite3_finalize(stmt);
-    if (!ok) return false;
+    if (!ok)
+        return false;
     char scope_json[512];
     snprintf(scope_json, sizeof(scope_json),
              "{\"api\":\"none\",\"product\":\"generic\",\"project\":\"%s\","
@@ -952,7 +973,8 @@ static bool stage10_insert_candidate(sqlite3 *db, const cbm_concept_generate_inp
         "policy_version,policy_sha256,generator_version,previous_version,"
         "created_by_review_event_id,created_at) VALUES(?1,1,?2,'ELIGIBLE_NOVEL_CANDIDATE',?3,"
         "?4,?5,?6,?7,?8,?9,NULL,NULL,strftime('%Y-%m-%dT%H:%M:%fZ','now'));";
-    if (sqlite3_prepare_v2(db, version_sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+    if (sqlite3_prepare_v2(db, version_sql, -1, &stmt, NULL) != SQLITE_OK)
+        return false;
     sqlite3_bind_text(stmt, 1, candidate->candidate_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, candidate->classification, -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(stmt, 3, candidate->confidence_ppm);
@@ -964,7 +986,8 @@ static bool stage10_insert_candidate(sqlite3 *db, const cbm_concept_generate_inp
     sqlite3_bind_text(stmt, 9, CBM_STAGE10_GENERATOR_VERSION, -1, SQLITE_STATIC);
     ok = sqlite3_step(stmt) == SQLITE_DONE;
     sqlite3_finalize(stmt);
-    if (!ok) return false;
+    if (!ok)
+        return false;
     const char *source_sql =
         "INSERT INTO concept_candidate_source(candidate_id,source_item_id,source_content_sha256,"
         "independent_source_key,evidence_reason_code,shared_activation_id,shared_success_id,"
@@ -973,7 +996,8 @@ static bool stage10_insert_candidate(sqlite3 *db, const cbm_concept_generate_inp
         "'none','v1',0,strftime('%Y-%m-%dT%H:%M:%fZ','now'));";
     for (int i = 0; i < candidate->source_count; i++) {
         const stage10_source_t *source = &candidate->sources[i];
-        if (sqlite3_prepare_v2(db, source_sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+        if (sqlite3_prepare_v2(db, source_sql, -1, &stmt, NULL) != SQLITE_OK)
+            return false;
         sqlite3_bind_text(stmt, 1, candidate->candidate_id, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 2, source->item_id, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 3, source->content_sha256, -1, SQLITE_TRANSIENT);
@@ -983,7 +1007,8 @@ static bool stage10_insert_candidate(sqlite3 *db, const cbm_concept_generate_inp
         sqlite3_bind_text(stmt, 7, input->store, -1, SQLITE_TRANSIENT);
         ok = sqlite3_step(stmt) == SQLITE_DONE;
         sqlite3_finalize(stmt);
-        if (!ok) return false;
+        if (!ok)
+            return false;
     }
     const char *first_source = candidate->sources[0].item_id;
     const char *relation_sql =
@@ -997,13 +1022,15 @@ static bool stage10_insert_candidate(sqlite3 *db, const cbm_concept_generate_inp
         stage10_buffer_t relation = {0};
         char hash[65] = {0};
         char id[64] = {0};
-        ok = stage10_buffer_append(&relation, "%s|%s|%s|%s|%s", src, dst, types[i],
-                                   input->project, input->store) &&
+        ok = stage10_buffer_append(&relation, "%s|%s|%s|%s|%s", src, dst, types[i], input->project,
+                                   input->store) &&
              stage10_hash(relation.data, relation.length, hash);
         free(relation.data);
-        if (!ok) return false;
+        if (!ok)
+            return false;
         snprintf(id, sizeof(id), "candidate-relation-%.20s", hash);
-        if (sqlite3_prepare_v2(db, relation_sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+        if (sqlite3_prepare_v2(db, relation_sql, -1, &stmt, NULL) != SQLITE_OK)
+            return false;
         sqlite3_bind_text(stmt, 1, id, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 2, candidate->candidate_id, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 3, src, -1, SQLITE_TRANSIENT);
@@ -1014,7 +1041,8 @@ static bool stage10_insert_candidate(sqlite3 *db, const cbm_concept_generate_inp
         sqlite3_bind_text(stmt, 8, hash, -1, SQLITE_TRANSIENT);
         ok = sqlite3_step(stmt) == SQLITE_DONE;
         sqlite3_finalize(stmt);
-        if (!ok) return false;
+        if (!ok)
+            return false;
     }
     return stage10_audit_insert(db, input->run_id, candidate->candidate_id, "propose",
                                 candidate->decision_sha256);
@@ -1058,19 +1086,19 @@ static bool stage10_controller_transaction(sqlite3 *db, const char *controller_r
     return valid;
 }
 
-static int stage10_concept_generate(cbm_store_t *store,
-                                    const cbm_concept_generate_input_t *input,
+static int stage10_concept_generate(cbm_store_t *store, const cbm_concept_generate_input_t *input,
                                     const char *controller_run_id, bool owns_transaction,
-                                    bool stage14_parent_authorized,
-                                    cbm_concept_result_t *out) {
-    if (!out) return CBM_STORE_ERR;
+                                    bool stage14_parent_authorized, cbm_concept_result_t *out) {
+    if (!out)
+        return CBM_STORE_ERR;
     memset(out, 0, sizeof(*out));
     if (!store || !stage10_contract_valid(input)) {
         out->failure_code = "INVALID_STAGE10_CONTRACT";
         return CBM_STORE_ERR;
     }
     char request_sha256[65] = {0};
-    if (!stage10_request_hash(input, request_sha256)) return CBM_STORE_ERR;
+    if (!stage10_request_hash(input, request_sha256))
+        return CBM_STORE_ERR;
     stage10_candidates_t candidates = {0};
     if (strcmp(input->mode, "off") == 0) {
         stage10_hash("", 0, candidates.decision_set_sha256);
@@ -1080,9 +1108,8 @@ static int stage10_concept_generate(cbm_store_t *store,
         return out->report_json ? CBM_STORE_OK : CBM_STORE_ERR;
     }
     sqlite3 *db = cbm_store_get_db(store);
-    if (!owns_transaction &&
-        (strcmp(input->mode, "active") != 0 ||
-         !stage10_controller_transaction(db, controller_run_id))) {
+    if (!owns_transaction && (strcmp(input->mode, "active") != 0 ||
+                              !stage10_controller_transaction(db, controller_run_id))) {
         out->failure_code = "INVALID_STAGE14_CONTROLLER_TRANSACTION";
         return CBM_STORE_ERR;
     }
@@ -1102,8 +1129,8 @@ static int stage10_concept_generate(cbm_store_t *store,
         return out->report_json ? CBM_STORE_OK : CBM_STORE_ERR;
     }
     if (!input->run_id || !input->run_id[0] || !input->idempotency_key ||
-        !input->idempotency_key[0] || cbm_store_memory_stage10_object_count(store) !=
-                                          STAGE10_OBJECT_COUNT ||
+        !input->idempotency_key[0] ||
+        cbm_store_memory_stage10_object_count(store) != STAGE10_OBJECT_COUNT ||
         !stage10_ledger_matches(db)) {
         stage10_candidates_free(&candidates);
         out->failure_code = "SCHEMA_HASH_MISMATCH";
@@ -1133,8 +1160,7 @@ static int stage10_concept_generate(cbm_store_t *store,
         return out->report_json ? CBM_STORE_REPLAYED : CBM_STORE_ERR;
     }
     if (existing == CBM_STORE_ERR ||
-        (owns_transaction &&
-         sqlite3_exec(db, "BEGIN IMMEDIATE;", NULL, NULL, NULL) != SQLITE_OK)) {
+        (owns_transaction && sqlite3_exec(db, "BEGIN IMMEDIATE;", NULL, NULL, NULL) != SQLITE_OK)) {
         stage10_candidates_free(&candidates);
         return CBM_STORE_ERR;
     }
@@ -1142,35 +1168,36 @@ static int stage10_concept_generate(cbm_store_t *store,
               stage10_audit_insert(db, input->run_id, NULL, "generate", request_sha256);
     char failpoint[32] = {0};
     cbm_safe_getenv("CBM_STAGE10_GENERATE_FAIL_AFTER", failpoint, sizeof(failpoint), NULL);
-    if (strcmp(failpoint, "run") == 0) ok = false;
+    if (strcmp(failpoint, "run") == 0)
+        ok = false;
     for (int i = 0; ok && i < candidates.count; i++) {
         ok = stage10_insert_candidate(db, input, &candidates.items[i]);
-        if (strcmp(failpoint, "candidate") == 0) ok = false;
+        if (strcmp(failpoint, "candidate") == 0)
+            ok = false;
     }
-    if (!ok ||
-        (owns_transaction && sqlite3_exec(db, "COMMIT;", NULL, NULL, NULL) != SQLITE_OK)) {
-        if (owns_transaction) sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+    if (!ok || (owns_transaction && sqlite3_exec(db, "COMMIT;", NULL, NULL, NULL) != SQLITE_OK)) {
+        if (owns_transaction)
+            sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
         stage10_candidates_free(&candidates);
         out->failure_code = "CONCEPT_GENERATION_FAILED";
         return CBM_STORE_ERR;
     }
     out->production_state_written = true;
-    out->report_json =
-        stage10_report_json(input, &candidates, request_sha256, "recorded", true);
+    out->report_json = stage10_report_json(input, &candidates, request_sha256, "recorded", true);
     stage10_candidates_free(&candidates);
     return out->report_json ? CBM_STORE_OK : CBM_STORE_ERR;
 }
 
-int cbm_store_memory_concept_generate(cbm_store_t *store,
-                                      const cbm_concept_generate_input_t *input,
+int cbm_store_memory_concept_generate(cbm_store_t *store, const cbm_concept_generate_input_t *input,
                                       cbm_concept_result_t *out) {
     return stage10_concept_generate(store, input, NULL, true, false, out);
 }
 
-int cbm_store_memory_concept_generate_in_transaction(
-    cbm_store_t *store, const cbm_concept_generate_input_t *input,
-    const char *controller_run_id, bool stage14_parent_authorized,
-    cbm_concept_result_t *out) {
+int cbm_store_memory_concept_generate_in_transaction(cbm_store_t *store,
+                                                     const cbm_concept_generate_input_t *input,
+                                                     const char *controller_run_id,
+                                                     bool stage14_parent_authorized,
+                                                     cbm_concept_result_t *out) {
     return stage10_concept_generate(store, input, controller_run_id, false,
                                     stage14_parent_authorized, out);
 }
@@ -1202,13 +1229,13 @@ static const char *stage10_candidate_state(sqlite3 *db, const char *candidate_id
 
 static bool stage10_review_request_hash(const cbm_concept_review_input_t *input, char out[65]) {
     stage10_buffer_t buffer = {0};
-    bool ok = stage10_buffer_append(
-                  &buffer, "%s|%s|%s|%s|%s|%s|%s|%s", input->project, input->store,
-                  input->candidate_id, input->action, input->idempotency_key,
-                  input->content_text ? input->content_text : "",
-                  input->related_candidate_id ? input->related_candidate_id : "",
-                  input->reviewer_source) &&
-              stage10_hash(buffer.data, buffer.length, out);
+    bool ok =
+        stage10_buffer_append(&buffer, "%s|%s|%s|%s|%s|%s|%s|%s", input->project, input->store,
+                              input->candidate_id, input->action, input->idempotency_key,
+                              input->content_text ? input->content_text : "",
+                              input->related_candidate_id ? input->related_candidate_id : "",
+                              input->reviewer_source) &&
+        stage10_hash(buffer.data, buffer.length, out);
     free(buffer.data);
     return ok;
 }
@@ -1244,7 +1271,8 @@ static bool stage10_review_event_insert(sqlite3 *db, const cbm_concept_review_in
         return false;
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         const char *value = (const char *)sqlite3_column_text(stmt, 0);
-        if (value) snprintf(previous, sizeof(previous), "%s", value);
+        if (value)
+            snprintf(previous, sizeof(previous), "%s", value);
     }
     sqlite3_finalize(stmt);
     char id_hash[65] = {0};
@@ -1253,21 +1281,22 @@ static bool stage10_review_event_insert(sqlite3 *db, const cbm_concept_review_in
                                     input->idempotency_key) &&
               stage10_hash(id_seed.data, id_seed.length, id_hash);
     free(id_seed.data);
-    if (!ok) return false;
+    if (!ok)
+        return false;
     snprintf(event_id, 80, "concept-review-%.24s", id_hash);
     char event_hash[65] = {0};
     stage10_buffer_t event = {0};
-    ok = stage10_buffer_append(&event, "%s|%s|%s|%s|%s|%s|%d|%d|%s", event_id,
-                               input->candidate_id, input->idempotency_key, request_sha256,
-                               input->action, input->reviewer_source, from_version, to_version,
-                               previous) &&
+    ok = stage10_buffer_append(&event, "%s|%s|%s|%s|%s|%s|%d|%d|%s", event_id, input->candidate_id,
+                               input->idempotency_key, request_sha256, input->action,
+                               input->reviewer_source, from_version, to_version, previous) &&
          stage10_hash(event.data, event.length, event_hash);
     free(event.data);
     if (!ok || sqlite3_prepare_v2(
-                   db, "INSERT INTO concept_review_event(event_id,candidate_id,idempotency_key,"
-                       "request_sha256,action,reviewer_source,from_version,to_version,prev_hash,"
-                       "event_hash,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,"
-                       "strftime('%Y-%m-%dT%H:%M:%fZ','now'));",
+                   db,
+                   "INSERT INTO concept_review_event(event_id,candidate_id,idempotency_key,"
+                   "request_sha256,action,reviewer_source,from_version,to_version,prev_hash,"
+                   "event_hash,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,"
+                   "strftime('%Y-%m-%dT%H:%M:%fZ','now'));",
                    -1, &stmt, NULL) != SQLITE_OK)
         return false;
     sqlite3_bind_text(stmt, 1, event_id, -1, SQLITE_TRANSIENT);
@@ -1285,15 +1314,16 @@ static bool stage10_review_event_insert(sqlite3 *db, const cbm_concept_review_in
     return ok;
 }
 
-static bool stage10_review_insert_version(sqlite3 *db, const char *candidate_id,
-                                          int from_version, int to_version,
-                                          const char *content_text, const char *event_id) {
+static bool stage10_review_insert_version(sqlite3 *db, const char *candidate_id, int from_version,
+                                          int to_version, const char *content_text,
+                                          const char *event_id) {
     sqlite3_stmt *select = NULL;
     const char *sql =
         "SELECT classification,classification_reason_code,confidence_ppm,scope_json,"
         "policy_version,policy_sha256,generator_version FROM concept_candidate_version WHERE "
         "candidate_id=?1 AND version=?2;";
-    if (sqlite3_prepare_v2(db, sql, -1, &select, NULL) != SQLITE_OK) return false;
+    if (sqlite3_prepare_v2(db, sql, -1, &select, NULL) != SQLITE_OK)
+        return false;
     sqlite3_bind_text(select, 1, candidate_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(select, 2, from_version);
     if (sqlite3_step(select) != SQLITE_ROW) {
@@ -1318,7 +1348,8 @@ static bool stage10_review_insert_version(sqlite3 *db, const char *candidate_id,
         "policy_version,policy_sha256,generator_version,previous_version,"
         "created_by_review_event_id,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,"
         "?12,?13,strftime('%Y-%m-%dT%H:%M:%fZ','now'));";
-    if (ok) ok = sqlite3_prepare_v2(db, insert_sql, -1, &insert, NULL) == SQLITE_OK;
+    if (ok)
+        ok = sqlite3_prepare_v2(db, insert_sql, -1, &insert, NULL) == SQLITE_OK;
     if (ok) {
         sqlite3_bind_text(insert, 1, candidate_id, -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(insert, 2, to_version);
@@ -1344,19 +1375,21 @@ static bool stage10_review_insert_version(sqlite3 *db, const char *candidate_id,
     return ok;
 }
 
-static bool stage10_review_create_node(sqlite3 *db, const char *candidate_id,
-                                       const char *project, const char *store_name,
-                                       int candidate_version, const char *event_id) {
+static bool stage10_review_create_node(sqlite3 *db, const char *candidate_id, const char *project,
+                                       const char *store_name, int candidate_version,
+                                       const char *event_id) {
     char node_hash[65] = {0};
     char node_id[64] = {0};
-    if (!stage10_hash(candidate_id, strlen(candidate_id), node_hash)) return false;
+    if (!stage10_hash(candidate_id, strlen(candidate_id), node_hash))
+        return false;
     snprintf(node_id, sizeof(node_id), "concept-node-%.24s", node_hash);
     sqlite3_stmt *stmt = NULL;
     const char *node_sql =
         "INSERT INTO concept_node(node_id,candidate_id,scope_project,scope_store,"
         "created_review_event_id,created_at) VALUES(?1,?2,?3,?4,?5,"
         "strftime('%Y-%m-%dT%H:%M:%fZ','now'));";
-    if (sqlite3_prepare_v2(db, node_sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+    if (sqlite3_prepare_v2(db, node_sql, -1, &stmt, NULL) != SQLITE_OK)
+        return false;
     sqlite3_bind_text(stmt, 1, node_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, candidate_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 3, project, -1, SQLITE_TRANSIENT);
@@ -1364,13 +1397,15 @@ static bool stage10_review_create_node(sqlite3 *db, const char *candidate_id,
     sqlite3_bind_text(stmt, 5, event_id, -1, SQLITE_TRANSIENT);
     bool ok = sqlite3_step(stmt) == SQLITE_DONE;
     sqlite3_finalize(stmt);
-    if (!ok) return false;
+    if (!ok)
+        return false;
     const char *version_sql =
         "INSERT INTO concept_node_version(node_id,version,candidate_version,content_text,"
         "content_sha256,scope_json,created_review_event_id,created_at) SELECT ?1,1,version,"
         "content_text,content_sha256,scope_json,?2,strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM "
         "concept_candidate_version WHERE candidate_id=?3 AND version=?4;";
-    if (sqlite3_prepare_v2(db, version_sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+    if (sqlite3_prepare_v2(db, version_sql, -1, &stmt, NULL) != SQLITE_OK)
+        return false;
     sqlite3_bind_text(stmt, 1, node_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, event_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 3, candidate_id, -1, SQLITE_TRANSIENT);
@@ -1383,7 +1418,8 @@ static bool stage10_review_create_node(sqlite3 *db, const char *candidate_id,
 static bool stage10_relation_pair(sqlite3 *db, const char *candidate_id,
                                   const char *related_candidate_id, const char *project,
                                   const char *store_name, const char *event_id) {
-    if (!related_candidate_id || !related_candidate_id[0]) return true;
+    if (!related_candidate_id || !related_candidate_id[0])
+        return true;
     sqlite3_stmt *stmt = NULL;
     char *node = NULL;
     char *related = NULL;
@@ -1394,14 +1430,16 @@ static bool stage10_relation_pair(sqlite3 *db, const char *candidate_id,
         sqlite3_bind_text(stmt, 1, candidate_id, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 2, project, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 3, store_name, -1, SQLITE_TRANSIENT);
-        if (sqlite3_step(stmt) == SQLITE_ROW) node = stage10_dup_column(stmt, 0);
+        if (sqlite3_step(stmt) == SQLITE_ROW)
+            node = stage10_dup_column(stmt, 0);
     }
     sqlite3_finalize(stmt);
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK) {
         sqlite3_bind_text(stmt, 1, related_candidate_id, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 2, project, -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(stmt, 3, store_name, -1, SQLITE_TRANSIENT);
-        if (sqlite3_step(stmt) == SQLITE_ROW) related = stage10_dup_column(stmt, 0);
+        if (sqlite3_step(stmt) == SQLITE_ROW)
+            related = stage10_dup_column(stmt, 0);
     }
     sqlite3_finalize(stmt);
     if (!node || !related) {
@@ -1421,7 +1459,8 @@ static bool stage10_relation_pair(sqlite3 *db, const char *candidate_id,
                                    store_name) &&
              stage10_hash(relation.data, relation.length, hash);
         free(relation.data);
-        if (!ok) break;
+        if (!ok)
+            break;
         snprintf(id, sizeof(id), "concept-relation-%.20s", hash);
         const char *insert =
             "INSERT INTO concept_relation(relation_id,src_node_id,dst_node_id,relation_type,"
@@ -1471,16 +1510,15 @@ static char *stage10_review_report(const cbm_concept_review_input_t *input, cons
     return json;
 }
 
-int cbm_store_memory_concept_review(cbm_store_t *store,
-                                    const cbm_concept_review_input_t *input,
+int cbm_store_memory_concept_review(cbm_store_t *store, const cbm_concept_review_input_t *input,
                                     cbm_concept_result_t *out) {
-    if (!out) return CBM_STORE_ERR;
+    if (!out)
+        return CBM_STORE_ERR;
     memset(out, 0, sizeof(*out));
-    bool valid_action = input && input->action &&
-                        (strcmp(input->action, "approve") == 0 ||
-                         strcmp(input->action, "edit") == 0 ||
-                         strcmp(input->action, "reject") == 0 ||
-                         strcmp(input->action, "withdraw") == 0);
+    bool valid_action =
+        input && input->action &&
+        (strcmp(input->action, "approve") == 0 || strcmp(input->action, "edit") == 0 ||
+         strcmp(input->action, "reject") == 0 || strcmp(input->action, "withdraw") == 0);
     if (!store || !input || !input->project || !input->store || !input->candidate_id ||
         !input->idempotency_key || !input->reviewer_source || !valid_action ||
         strcmp(input->store, STAGE10_STORE) != 0 ||
@@ -1497,7 +1535,8 @@ int cbm_store_memory_concept_review(cbm_store_t *store,
         return CBM_STORE_REJECTED;
     }
     char request_sha256[65] = {0};
-    if (!stage10_review_request_hash(input, request_sha256)) return CBM_STORE_ERR;
+    if (!stage10_review_request_hash(input, request_sha256))
+        return CBM_STORE_ERR;
     int existing = stage10_existing_review(db, input->idempotency_key, request_sha256);
     if (existing == CBM_STORE_IDEMPOTENCY_CONFLICT) {
         out->failure_code = "IDEMPOTENCY_CONFLICT";
@@ -1530,15 +1569,15 @@ int cbm_store_memory_concept_review(cbm_store_t *store,
     if ((strcmp(input->action, "withdraw") == 0 && strcmp(state, "approved") != 0) ||
         (strcmp(input->action, "withdraw") != 0 && strcmp(state, "proposed") != 0)) {
         out->failure_code = strcmp(input->action, "withdraw") == 0 ? "CANDIDATE_NOT_APPROVED"
-                                                                    : "CANDIDATE_NOT_PROPOSED";
+                                                                   : "CANDIDATE_NOT_PROPOSED";
         return CBM_STORE_REJECTED;
     }
     int next_version = strcmp(input->action, "edit") == 0 ? version + 1 : version;
     if (sqlite3_exec(db, "BEGIN IMMEDIATE;", NULL, NULL, NULL) != SQLITE_OK)
         return CBM_STORE_ERR;
     char event_id[80] = {0};
-    bool ok = stage10_review_event_insert(db, input, version, next_version, request_sha256,
-                                          event_id);
+    bool ok =
+        stage10_review_event_insert(db, input, version, next_version, request_sha256, event_id);
     if (ok && strcmp(input->action, "edit") == 0)
         ok = stage10_review_insert_version(db, input->candidate_id, version, next_version,
                                            input->content_text, event_id);
@@ -1547,10 +1586,12 @@ int cbm_store_memory_concept_review(cbm_store_t *store,
                                         version, event_id) &&
              stage10_relation_pair(db, input->candidate_id, input->related_candidate_id,
                                    input->project, input->store, event_id);
-    if (ok) ok = stage10_audit_insert(db, NULL, input->candidate_id, input->action, request_sha256);
+    if (ok)
+        ok = stage10_audit_insert(db, NULL, input->candidate_id, input->action, request_sha256);
     char failpoint[32] = {0};
     cbm_safe_getenv("CBM_STAGE10_REVIEW_FAIL_AFTER", failpoint, sizeof(failpoint), NULL);
-    if (failpoint[0]) ok = false;
+    if (failpoint[0])
+        ok = false;
     if (!ok || sqlite3_exec(db, "COMMIT;", NULL, NULL, NULL) != SQLITE_OK) {
         sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
         out->failure_code = "CONCEPT_REVIEW_FAILED";
@@ -1566,7 +1607,8 @@ int cbm_store_memory_concept_review(cbm_store_t *store,
 int cbm_store_memory_concept_inspect(cbm_store_t *store, const char *project,
                                      const char *store_name, const char *candidate_id,
                                      cbm_concept_result_t *out) {
-    if (!out) return CBM_STORE_ERR;
+    if (!out)
+        return CBM_STORE_ERR;
     memset(out, 0, sizeof(*out));
     if (!store || !project || !store_name || !candidate_id ||
         strcmp(store_name, STAGE10_STORE) != 0) {
@@ -1586,10 +1628,12 @@ int cbm_store_memory_concept_inspect(cbm_store_t *store, const char *project,
         "n.candidate_id=c.candidate_id),(SELECT COUNT(*) FROM concept_relation cr WHERE "
         "cr.src_node_id IN (SELECT node_id FROM concept_node WHERE candidate_id=c.candidate_id) "
         "OR cr.dst_node_id IN (SELECT node_id FROM concept_node WHERE candidate_id=c.candidate_id))"
-        " FROM concept_candidate c JOIN concept_candidate_version v ON v.candidate_id=c.candidate_id"
+        " FROM concept_candidate c JOIN concept_candidate_version v ON "
+        "v.candidate_id=c.candidate_id"
         " JOIN concept_candidate_source s ON s.candidate_id=c.candidate_id WHERE c.candidate_id=?1"
         " AND c.scope_project=?2 AND c.scope_store=?3 GROUP BY c.candidate_id;";
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return CBM_STORE_ERR;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return CBM_STORE_ERR;
     sqlite3_bind_text(stmt, 1, candidate_id, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, project, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 3, store_name, -1, SQLITE_TRANSIENT);
@@ -1664,7 +1708,8 @@ static bool stage10_verify_chain(sqlite3 *db, const char *table, bool review, in
                    "payload_sha256,prev_hash,event_hash FROM %s ORDER BY sequence_no;",
              table);
     sqlite3_stmt *stmt = NULL;
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return false;
     char previous[65] = STAGE10_GENESIS;
     int count = 0;
     bool ok = true;
@@ -1678,28 +1723,30 @@ static bool stage10_verify_chain(sqlite3 *db, const char *table, bool review, in
             break;
         }
         if (review) {
-            ok = stage10_buffer_append(
-                &buffer, "%s|%s|%s|%s|%s|%s|%d|%d|%s",
-                sqlite3_column_text(stmt, 0), sqlite3_column_text(stmt, 1),
-                sqlite3_column_text(stmt, 2), sqlite3_column_text(stmt, 3),
-                sqlite3_column_text(stmt, 4), sqlite3_column_text(stmt, 5),
-                sqlite3_column_int(stmt, 6), sqlite3_column_int(stmt, 7), prev);
-        } else {
-            ok = stage10_buffer_append(&buffer, "%s|%s|%s|%s|%s|%s",
+            ok = stage10_buffer_append(&buffer, "%s|%s|%s|%s|%s|%s|%d|%d|%s",
                                        sqlite3_column_text(stmt, 0), sqlite3_column_text(stmt, 1),
                                        sqlite3_column_text(stmt, 2), sqlite3_column_text(stmt, 3),
-                                       sqlite3_column_text(stmt, 4), prev);
+                                       sqlite3_column_text(stmt, 4), sqlite3_column_text(stmt, 5),
+                                       sqlite3_column_int(stmt, 6), sqlite3_column_int(stmt, 7),
+                                       prev);
+        } else {
+            ok = stage10_buffer_append(&buffer, "%s|%s|%s|%s|%s|%s", sqlite3_column_text(stmt, 0),
+                                       sqlite3_column_text(stmt, 1), sqlite3_column_text(stmt, 2),
+                                       sqlite3_column_text(stmt, 3), sqlite3_column_text(stmt, 4),
+                                       prev);
         }
         char calculated[65] = {0};
         ok = ok && stage10_hash(buffer.data, buffer.length, calculated) &&
              strcmp(calculated, actual) == 0;
         free(buffer.data);
-        if (!ok) break;
+        if (!ok)
+            break;
         snprintf(previous, sizeof(previous), "%s", actual);
         count++;
     }
     sqlite3_finalize(stmt);
-    if (out_count) *out_count = count;
+    if (out_count)
+        *out_count = count;
     return ok;
 }
 
@@ -1715,16 +1762,19 @@ int cbm_store_memory_stage10_audit_verify(cbm_store_t *store, int *growth_count,
     if (sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM concept_review_event;", -1, &stmt, NULL) !=
         SQLITE_OK)
         return CBM_STORE_ERR;
-    if (sqlite3_step(stmt) == SQLITE_ROW) reviews = sqlite3_column_int(stmt, 0);
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+        reviews = sqlite3_column_int(stmt, 0);
     sqlite3_finalize(stmt);
-    bool review_ok = reviews == 0 || stage10_verify_chain(db, "concept_review_event", true,
-                                                           review_count);
-    if (reviews == 0 && review_count) *review_count = 0;
+    bool review_ok =
+        reviews == 0 || stage10_verify_chain(db, "concept_review_event", true, review_count);
+    if (reviews == 0 && review_count)
+        *review_count = 0;
     return growth_ok && review_ok ? CBM_STORE_OK : CBM_STORE_ERR;
 }
 
 void cbm_store_memory_concept_result_free(cbm_concept_result_t *result) {
-    if (!result) return;
+    if (!result)
+        return;
     free(result->report_json);
     memset(result, 0, sizeof(*result));
 }

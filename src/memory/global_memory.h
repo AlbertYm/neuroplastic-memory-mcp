@@ -47,25 +47,20 @@ int cbm_global_store_migrate(cbm_store_t *store, int *out_replayed);
 int cbm_global_ensure_project(cbm_global_memory_t *global,
                               const cbm_project_resolution_t *resolution,
                               const char *idempotency_key, char **out_report_json);
-int cbm_global_store_ensure_project(cbm_store_t *store,
-                                    const cbm_project_resolution_t *resolution,
+int cbm_global_store_ensure_project(cbm_store_t *store, const cbm_project_resolution_t *resolution,
                                     const char *idempotency_key, char **out_report_json);
 
-int cbm_global_task_begin(cbm_global_memory_t *global,
-                          const cbm_project_resolution_t *resolution,
+int cbm_global_task_begin(cbm_global_memory_t *global, const cbm_project_resolution_t *resolution,
                           const cbm_task_begin_input_t *input, char **out_report_json);
 int cbm_global_task_record_evidence(cbm_global_memory_t *global,
-                                    const cbm_task_evidence_input_t *input,
-                                    char **out_report_json);
+                                    const cbm_task_evidence_input_t *input, char **out_report_json);
 /* Project is discovered from the task/session identity in the global store. */
-int cbm_global_task_status(cbm_global_memory_t *global, const char *task_id,
-                           const char *session_id, const char *turn_id,
-                           char **out_project_uuid, char **out_report_json);
-int cbm_global_store_task_status(cbm_store_t *store, const char *task_id,
-                                 const char *session_id, const char *turn_id,
-                                 char **out_project_uuid, char **out_report_json);
-int cbm_global_task_complete(cbm_global_memory_t *global,
-                             const cbm_task_complete_input_t *input,
+int cbm_global_task_status(cbm_global_memory_t *global, const char *task_id, const char *session_id,
+                           const char *turn_id, char **out_project_uuid, char **out_report_json);
+int cbm_global_store_task_status(cbm_store_t *store, const char *task_id, const char *session_id,
+                                 const char *turn_id, char **out_project_uuid,
+                                 char **out_report_json);
+int cbm_global_task_complete(cbm_global_memory_t *global, const cbm_task_complete_input_t *input,
                              char **out_report_json);
 int cbm_global_task_abandon(cbm_global_memory_t *global, const char *session_id,
                             const char *turn_id, const char *idempotency_key,
@@ -74,20 +69,16 @@ int cbm_global_task_abandon(cbm_global_memory_t *global, const char *session_id,
 /* Global candidate pool with project only as a bounded ranking signal. */
 int cbm_global_memory_retrieve(cbm_global_memory_t *global, const char *session_id,
                                const char *current_project_uuid, int soft_boost_ppm,
-                               const cbm_memory_query_t *query,
-                               cbm_global_retrieval_result_t *out);
+                               const cbm_memory_query_t *query, cbm_global_retrieval_result_t *out);
 int cbm_global_store_retrieve(cbm_store_t *store, const char *session_id,
                               const char *current_project_uuid, int soft_boost_ppm,
-                              const cbm_memory_query_t *query,
-                              cbm_global_retrieval_result_t *out);
+                              const cbm_memory_query_t *query, cbm_global_retrieval_result_t *out);
 void cbm_global_retrieval_result_free(cbm_global_retrieval_result_t *out);
 
 int cbm_global_cross_project_edge(cbm_global_memory_t *global, const char *edge_id,
-                                  const char *source_project_uuid,
-                                  const char *target_project_uuid,
-                                  const char *relation_type, int weight_ppm,
-                                  int confidence_ppm, const char *status, int version,
-                                  const char *evidence_event_id,
+                                  const char *source_project_uuid, const char *target_project_uuid,
+                                  const char *relation_type, int weight_ppm, int confidence_ppm,
+                                  const char *status, int version, const char *evidence_event_id,
                                   const char *idempotency_key, char **out_report_json);
 
 typedef struct {
@@ -100,8 +91,7 @@ typedef struct {
     const char *mode; /* plan | apply | verify */
 } cbm_global_migration_input_t;
 
-int cbm_global_migration_execute(const cbm_global_migration_input_t *input,
-                                 char **out_report_json);
+int cbm_global_migration_execute(const cbm_global_migration_input_t *input, char **out_report_json);
 /* Read-only verification of an already managed target and its applied ledger. */
 int cbm_global_migration_verify_existing(const cbm_global_migration_input_t *input,
                                          char **out_report_json);

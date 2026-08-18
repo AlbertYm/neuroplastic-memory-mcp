@@ -16,11 +16,13 @@
 
 static char *post_tool_read_stdin(void) {
     char *buffer = malloc(POST_TOOL_STDIN_CAP + 1);
-    if (!buffer) return NULL;
+    if (!buffer)
+        return NULL;
     size_t total = 0;
     while (total < POST_TOOL_STDIN_CAP) {
         size_t count = fread(buffer + total, 1, POST_TOOL_STDIN_CAP - total, stdin);
-        if (count == 0) break;
+        if (count == 0)
+            break;
         total += count;
     }
     buffer[total] = '\0';
@@ -43,7 +45,8 @@ static void post_tool_emit(bool degraded, const char *code) {
     yyjson_mut_obj_add_bool(doc, root, "continue", true);
     if (degraded) {
         char message[160];
-        snprintf(message, sizeof(message), "memory evidence degraded: %s", code ? code : "unavailable");
+        snprintf(message, sizeof(message), "memory evidence degraded: %s",
+                 code ? code : "unavailable");
         yyjson_mut_obj_add_str(doc, root, "systemMessage", message);
     }
     char *json = yyjson_mut_write(doc, 0, NULL);
@@ -80,13 +83,14 @@ int cbm_cmd_memory_post_tool(void) {
     cbm_global_memory_t *global = cbm_global_memory_open_default();
     char *status = NULL;
     char *project_uuid = NULL;
-    int status_rc = global ? cbm_global_task_status(global, NULL, session_id, turn_id,
-                                                     &project_uuid, &status)
-                           : CBM_STORE_ERR;
+    int status_rc =
+        global ? cbm_global_task_status(global, NULL, session_id, turn_id, &project_uuid, &status)
+               : CBM_STORE_ERR;
     if (status_rc != CBM_STORE_OK || !status) {
         free(status);
         free(project_uuid);
-        if (global) cbm_global_memory_close(global);
+        if (global)
+            cbm_global_memory_close(global);
         yyjson_doc_free(doc);
         free(input);
         post_tool_emit(true, "TASK_NOT_FOUND");
@@ -97,7 +101,8 @@ int cbm_cmd_memory_post_tool(void) {
     const char *task_id_value = post_tool_string(status_root, "task_id");
     const char *state = post_tool_string(status_root, "state");
     char task_id[256] = {0};
-    if (task_id_value) snprintf(task_id, sizeof(task_id), "%s", task_id_value);
+    if (task_id_value)
+        snprintf(task_id, sizeof(task_id), "%s", task_id_value);
     bool terminal = post_tool_terminal_state(state);
     yyjson_doc_free(status_doc);
     free(status);
@@ -112,11 +117,13 @@ int cbm_cmd_memory_post_tool(void) {
     char *input_json = yyjson_val_write(tool_input, YYJSON_WRITE_ALLOW_INVALID_UNICODE, NULL);
     char *output_json = yyjson_val_write(tool_output, YYJSON_WRITE_ALLOW_INVALID_UNICODE, NULL);
     char input_hash[65], output_hash[65];
-    bool hashed = input_json && output_json &&
-                  cbm_stage7_sha256_hex(input_json, strlen(input_json), input_hash) == CBM_STORE_OK &&
-                  cbm_stage7_sha256_hex(output_json, strlen(output_json), output_hash) == CBM_STORE_OK;
+    bool hashed =
+        input_json && output_json &&
+        cbm_stage7_sha256_hex(input_json, strlen(input_json), input_hash) == CBM_STORE_OK &&
+        cbm_stage7_sha256_hex(output_json, strlen(output_json), output_hash) == CBM_STORE_OK;
     char tool_key_hash[65];
-    bool key_hashed = cbm_stage7_sha256_hex(tool_use_id, strlen(tool_use_id), tool_key_hash) == CBM_STORE_OK;
+    bool key_hashed =
+        cbm_stage7_sha256_hex(tool_use_id, strlen(tool_use_id), tool_key_hash) == CBM_STORE_OK;
     char evidence_material[512], evidence_hash[65];
     snprintf(evidence_material, sizeof(evidence_material), "%s:%s:%s", tool_name,
              hashed ? input_hash : "", hashed ? output_hash : "");
@@ -124,7 +131,8 @@ int cbm_cmd_memory_post_tool(void) {
                                                  evidence_hash) == CBM_STORE_OK;
     char result_id[96], evidence_id[96], idempotency_key[128];
     snprintf(result_id, sizeof(result_id), "result-%s", key_hashed ? tool_key_hash : "invalid");
-    snprintf(evidence_id, sizeof(evidence_id), "evidence-%s", key_hashed ? tool_key_hash : "invalid");
+    snprintf(evidence_id, sizeof(evidence_id), "evidence-%s",
+             key_hashed ? tool_key_hash : "invalid");
     snprintf(idempotency_key, sizeof(idempotency_key), "post-tool-%s",
              key_hashed ? tool_key_hash : "invalid");
     cbm_task_evidence_input_t evidence = {
@@ -149,6 +157,7 @@ int cbm_cmd_memory_post_tool(void) {
     yyjson_doc_free(doc);
     free(input);
     post_tool_emit(rc != CBM_STORE_OK && rc != CBM_STORE_REPLAYED,
-                   rc == CBM_STORE_IDEMPOTENCY_CONFLICT ? "IDEMPOTENCY_CONFLICT" : "EVIDENCE_FAILED");
+                   rc == CBM_STORE_IDEMPOTENCY_CONFLICT ? "IDEMPOTENCY_CONFLICT"
+                                                        : "EVIDENCE_FAILED");
     return 0;
 }

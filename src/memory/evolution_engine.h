@@ -8,7 +8,7 @@ typedef struct {
     const char *task_id;
     const char *project_uuid;
     const char *memory_item_id;
-    const char *operation; /* archive | restore */
+    const char *operation;      /* archive | restore */
     const char *evidence_grade; /* A | B | C | D */
     const char *evidence_id;
     const char *idempotency_key;
@@ -19,16 +19,16 @@ typedef struct {
     const char *mode; /* shadow | dry_run | bounded_canary | active */
     const char *task_id;
     const char *project_uuid; /* production: exact global_task_workspace project */
-    const char *run_id; /* production: authorization-scoped execution identity */
+    const char *run_id;       /* production: authorization-scoped execution identity */
     const char *idempotency_key;
-    const char *manifest_path; /* production write: absolute explicit path */
+    const char *manifest_path;   /* production write: absolute explicit path */
     const char *manifest_sha256; /* production write: lowercase raw-file SHA256 */
-    int max_evolution_events; /* production: 1..17; includes controller event */
+    int max_evolution_events;    /* production: 1..17; includes controller event */
     int max_cross_project_edges; /* production: 0..16 */
     int isolated_write_allowed;
     int production_gate_allowed;
-    int failure_after_write; /* isolated fault injection; 0 disables */
-    int crash_during_commit; /* isolated subprocess crash fixture; 0 disables */
+    int failure_after_write;              /* isolated fault injection; 0 disables */
+    int crash_during_commit;              /* isolated subprocess crash fixture; 0 disables */
     void (*snapshot_hook)(void *context); /* isolated deterministic concurrency fixture */
     void *snapshot_hook_context;
 } cbm_evolution_task_input_t;
@@ -48,8 +48,8 @@ typedef struct {
     int budget_seconds;
     int isolated_write_allowed;
     int production_gate_allowed;
-    int failure_after_write; /* isolated fault injection; 0 disables */
-    int failure_before_report; /* isolated pre-commit report fault; 0 disables */
+    int failure_after_write;     /* isolated fault injection; 0 disables */
+    int failure_before_report;   /* isolated pre-commit report fault; 0 disables */
     int test_budget_after_steps; /* isolated deterministic monotonic-budget fixture */
 } cbm_evolution_maintenance_input_t;
 
