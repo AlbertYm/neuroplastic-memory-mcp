@@ -15,6 +15,20 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+/* ── Attributes ───────────────────────────────────────────────── */
+
+/* Marks a definition that is legitimately unreferenced in some build
+ * configurations (e.g. a helper whose only call sites sit behind a platform
+ * guard). Suppresses -Wunused-function/-Wunused-variable without deleting
+ * code or hiding it behind #ifdef, so it keeps being syntax-checked on every
+ * platform. GCC and Clang are the only supported compilers (see Makefile.cbm),
+ * and both understand this attribute. */
+#if defined(__GNUC__) || defined(__clang__)
+#define CBM_MAYBE_UNUSED __attribute__((unused))
+#else
+#define CBM_MAYBE_UNUSED
+#endif
+
 /* ── Safe memory ──────────────────────────────────────────────── */
 
 /* Safe realloc: frees old pointer on failure instead of leaking it.

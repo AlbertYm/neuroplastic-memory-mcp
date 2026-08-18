@@ -33,7 +33,8 @@ static char *json_get_str(const char *json, const char *key) {
     const char *p = strstr(json, search);
     if (!p) return NULL;
     p = strchr(p + strlen(search), '"');
-    if (!p) return NULL; p++;
+    if (!p) return NULL;
+    p++;
     const char *end = strchr(p, '"');
     if (!end) return NULL;
     int len = (int)(end - p);

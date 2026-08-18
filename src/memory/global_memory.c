@@ -933,7 +933,8 @@ static void gm_held_file_release(gm_held_file_t *file) {
     if(file->handle&&file->handle!=INVALID_HANDLE_VALUE)CloseHandle(file->handle);
     file->handle=INVALID_HANDLE_VALUE;
 #else
-    if(file->fd>=0)close(file->fd);file->fd=-1;
+    if(file->fd>=0)close(file->fd);
+    file->fd=-1;
 #endif
 }
 
@@ -964,7 +965,8 @@ static int gm_held_path_matches(const char *path,const gm_held_file_t *file) {
 }
 
 static int gm_held_file_acquire(const char *path,gm_held_file_t *file) {
-    if(!path||!file)return CBM_STORE_ERR;memset(file,0,sizeof(*file));
+    if(!path||!file)return CBM_STORE_ERR;
+    memset(file,0,sizeof(*file));
 #ifdef _WIN32
     file->handle=INVALID_HANDLE_VALUE;
 #else
@@ -1033,10 +1035,12 @@ static int gm_held_file_stable(const char *path,gm_held_file_t *file) {
 
 static int gm_sqlite_sidecars_absent(const char *path) {
     static const char *suffixes[]={"-wal","-shm","-journal"};
-    if(!path)return 0;size_t length=strlen(path);
+    if(!path)return 0;
+    size_t length=strlen(path);
     for(size_t i=0;i<sizeof(suffixes)/sizeof(suffixes[0]);i++){
         size_t suffix_length=strlen(suffixes[i]);char *sidecar=malloc(length+suffix_length+1);
-        if(!sidecar)return 0;memcpy(sidecar,path,length);memcpy(sidecar+length,suffixes[i],suffix_length+1);
+        if(!sidecar)return 0;
+        memcpy(sidecar,path,length);memcpy(sidecar+length,suffixes[i],suffix_length+1);
         int exists=0,ok=gm_vfs_path_exists(sidecar,&exists)==CBM_STORE_OK;free(sidecar);
         if(!ok||exists)return 0;
     }
@@ -1046,7 +1050,8 @@ static int gm_sqlite_sidecars_absent(const char *path) {
 static char *gm_immutable_uri_semantics(const char *path,int windows_semantics) {
     static const char suffix[]="?immutable=1";
     static const char hex[]="0123456789ABCDEF";
-    if(!path)return NULL;size_t path_length=strlen(path);
+    if(!path)return NULL;
+    size_t path_length=strlen(path);
     if(path_length>(SIZE_MAX-sizeof(suffix)-16)/3)return NULL;
     size_t capacity=16+path_length*3+sizeof(suffix);
     char *uri=malloc(capacity);if(!uri)return NULL;size_t used=0;
@@ -1113,7 +1118,8 @@ static int gm_open_held_readonly(const char *path,gm_held_file_t *held,sqlite3 *
         SQLITE_DESERIALIZE_READONLY|SQLITE_DESERIALIZE_FREEONCLOSE);
     else sqlite3_free(bytes);
     if(rc!=SQLITE_OK||!*out){
-        if(*out)sqlite3_close(*out);*out=NULL;return CBM_STORE_ERR;
+        if(*out)sqlite3_close(*out);
+        *out=NULL;return CBM_STORE_ERR;
     }
     if(sqlite3_exec(*out,"PRAGMA query_only=ON;",NULL,NULL,NULL)!=SQLITE_OK){
         sqlite3_close(*out);*out=NULL;return CBM_STORE_ERR;
@@ -1130,11 +1136,13 @@ static int gm_paths_sidecars_absent(const char *const *paths,size_t count) {
 }
 
 static void gm_held_set_release(gm_held_file_t *held,size_t count) {
-    if(!held)return;for(size_t i=0;i<count;i++)gm_held_file_release(&held[i]);
+    if(!held)return;
+    for(size_t i=0;i<count;i++)gm_held_file_release(&held[i]);
 }
 
 static int gm_held_set_acquire(const char *const *paths,size_t count,gm_held_file_t *held) {
-    if(!paths||!count||!held)return CBM_STORE_ERR;memset(held,0,count*sizeof(*held));
+    if(!paths||!count||!held)return CBM_STORE_ERR;
+    memset(held,0,count*sizeof(*held));
 #ifdef _WIN32
     for(size_t i=0;i<count;i++)held[i].handle=INVALID_HANDLE_VALUE;
 #else
@@ -1163,7 +1171,8 @@ static int gm_held_set_close_databases_and_verify(const char *const *paths,size_
         gm_held_file_t *held,sqlite3 **databases,size_t database_count) {
     int stable=gm_held_set_stable(paths,path_count,held);
     for(size_t i=0;i<database_count;i++)if(databases[i]){
-        if(sqlite3_close(databases[i])!=SQLITE_OK)stable=0;databases[i]=NULL;
+        if(sqlite3_close(databases[i])!=SQLITE_OK)stable=0;
+        databases[i]=NULL;
     }
     if(!gm_held_set_stable(paths,path_count,held))stable=0;
     gm_held_set_release(held,path_count);return stable;
@@ -1200,8 +1209,11 @@ static int gm_collect_db_checks(sqlite3 *db,const char *prefix,gm_logical_check_
     if(!db||!out)return CBM_STORE_ERR;
     if(!append){memset(out,0,sizeof(*out));snprintf(out->quick_check,sizeof(out->quick_check),"ok");snprintf(out->row_counts,sizeof(out->row_counts),"{");cbm_stage7_sha256_hex("stage14-schema-v1",17,out->schema_sha256);cbm_stage7_sha256_hex("stage14-logical-v1",18,out->canonical_logical_sha256);}
     sqlite3_stmt *stmt=NULL;
-    if(sqlite3_prepare_v2(db,"PRAGMA quick_check;",-1,&stmt,NULL)!=SQLITE_OK||sqlite3_step(stmt)!=SQLITE_ROW||strcmp((const char*)sqlite3_column_text(stmt,0),"ok")!=0)snprintf(out->quick_check,sizeof(out->quick_check),"failed");sqlite3_finalize(stmt);stmt=NULL;
-    if(sqlite3_prepare_v2(db,"PRAGMA foreign_key_check;",-1,&stmt,NULL)!=SQLITE_OK)return CBM_STORE_ERR;while(sqlite3_step(stmt)==SQLITE_ROW)out->foreign_key_violations++;sqlite3_finalize(stmt);stmt=NULL;
+    if(sqlite3_prepare_v2(db,"PRAGMA quick_check;",-1,&stmt,NULL)!=SQLITE_OK||sqlite3_step(stmt)!=SQLITE_ROW||strcmp((const char*)sqlite3_column_text(stmt,0),"ok")!=0)snprintf(out->quick_check,sizeof(out->quick_check),"failed");
+    sqlite3_finalize(stmt);stmt=NULL;
+    if(sqlite3_prepare_v2(db,"PRAGMA foreign_key_check;",-1,&stmt,NULL)!=SQLITE_OK)return CBM_STORE_ERR;
+    while(sqlite3_step(stmt)==SQLITE_ROW)out->foreign_key_violations++;
+    sqlite3_finalize(stmt);stmt=NULL;
     const char *schema_sql="SELECT type,name,COALESCE(sql,'') FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name;";
     if(sqlite3_prepare_v2(db,schema_sql,-1,&stmt,NULL)!=SQLITE_OK)return CBM_STORE_ERR;
     while(sqlite3_step(stmt)==SQLITE_ROW){char row[16384];snprintf(row,sizeof(row),"%s\n%s\n%s\n%s",prefix,sqlite3_column_text(stmt,0),sqlite3_column_text(stmt,1),sqlite3_column_text(stmt,2));if(gm_hash_chain(out->schema_sha256,row)!=CBM_STORE_OK){sqlite3_finalize(stmt);return CBM_STORE_ERR;}}
@@ -1224,8 +1236,11 @@ static int gm_collect_db_projection(sqlite3 *candidate,sqlite3 *reference,const 
     if(!candidate||!reference||!out)return CBM_STORE_ERR;
     if(!append){memset(out,0,sizeof(*out));snprintf(out->quick_check,sizeof(out->quick_check),"ok");snprintf(out->row_counts,sizeof(out->row_counts),"{");cbm_stage7_sha256_hex("stage14-schema-v1",17,out->schema_sha256);cbm_stage7_sha256_hex("stage14-logical-v1",18,out->canonical_logical_sha256);}
     sqlite3_stmt *stmt=NULL;
-    if(sqlite3_prepare_v2(candidate,"PRAGMA quick_check;",-1,&stmt,NULL)!=SQLITE_OK||sqlite3_step(stmt)!=SQLITE_ROW||strcmp((const char*)sqlite3_column_text(stmt,0),"ok")!=0)snprintf(out->quick_check,sizeof(out->quick_check),"failed");sqlite3_finalize(stmt);stmt=NULL;
-    if(sqlite3_prepare_v2(candidate,"PRAGMA foreign_key_check;",-1,&stmt,NULL)!=SQLITE_OK)return CBM_STORE_ERR;while(sqlite3_step(stmt)==SQLITE_ROW)out->foreign_key_violations++;sqlite3_finalize(stmt);stmt=NULL;
+    if(sqlite3_prepare_v2(candidate,"PRAGMA quick_check;",-1,&stmt,NULL)!=SQLITE_OK||sqlite3_step(stmt)!=SQLITE_ROW||strcmp((const char*)sqlite3_column_text(stmt,0),"ok")!=0)snprintf(out->quick_check,sizeof(out->quick_check),"failed");
+    sqlite3_finalize(stmt);stmt=NULL;
+    if(sqlite3_prepare_v2(candidate,"PRAGMA foreign_key_check;",-1,&stmt,NULL)!=SQLITE_OK)return CBM_STORE_ERR;
+    while(sqlite3_step(stmt)==SQLITE_ROW)out->foreign_key_violations++;
+    sqlite3_finalize(stmt);stmt=NULL;
     sqlite3_stmt *objects=NULL,*lookup=NULL;
     if(sqlite3_prepare_v2(reference,"SELECT type,name FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name;",-1,&objects,NULL)!=SQLITE_OK||
        sqlite3_prepare_v2(candidate,"SELECT type,name,COALESCE(sql,'') FROM sqlite_schema WHERE type=?1 AND name=?2;",-1,&lookup,NULL)!=SQLITE_OK){sqlite3_finalize(objects);sqlite3_finalize(lookup);return CBM_STORE_ERR;}
@@ -1755,7 +1770,16 @@ static int gm_path_remove_file(const char *path) {
 #endif
 }
 
-static int gm_path_remove_empty_directory(const char *path) {
+/* Stage14 adoption helpers.
+ *
+ * gm_migration_adopt_bootstrap() below implements the adoption path only under
+ * _WIN32; the POSIX branch is a stub that returns CBM_STORE_REJECTED. These
+ * helpers are therefore referenced on Windows only. They are kept compiled on
+ * every platform — rather than hidden behind #ifdef _WIN32 — so their POSIX
+ * bodies stay syntax-checked and are ready for the day the POSIX adoption path
+ * is implemented. CBM_MAYBE_UNUSED keeps -Werror=unused-function quiet in the
+ * meantime. */
+static CBM_MAYBE_UNUSED int gm_path_remove_empty_directory(const char *path) {
     if(!path)return CBM_STORE_ERR;
 #ifdef _WIN32
     wchar_t *wide=gm_utf8_to_wide(path);if(!wide)return CBM_STORE_ERR;
@@ -1771,7 +1795,7 @@ typedef struct {
     int backup_moved;
 } gm_adoption_replacement_t;
 
-static int gm_adoption_replace_existing(const char *path,const gm_serialized_image_t *image,
+static CBM_MAYBE_UNUSED int gm_adoption_replace_existing(const char *path,const gm_serialized_image_t *image,
                                         size_t ordinal,gm_adoption_replacement_t *replacement) {
     if(!path||!image||!image->bytes||!replacement)return CBM_STORE_ERR;
     memset(replacement,0,sizeof(*replacement));
@@ -1791,7 +1815,7 @@ static int gm_adoption_replace_existing(const char *path,const gm_serialized_ima
     return CBM_STORE_OK;
 }
 
-static int gm_adoption_restore(gm_adoption_replacement_t *replacements,size_t count) {
+static CBM_MAYBE_UNUSED int gm_adoption_restore(gm_adoption_replacement_t *replacements,size_t count) {
     int rc=CBM_STORE_OK;
     for(size_t i=count;i>0;i--){gm_adoption_replacement_t *replacement=&replacements[i-1];if(!replacement->backup_moved)continue;
         if(gm_path_remove_file(replacement->path)!=CBM_STORE_OK||gm_path_move_no_replace(replacement->backup_path,replacement->path)!=CBM_STORE_OK)rc=CBM_STORE_ERR;else replacement->backup_moved=0;
@@ -1799,12 +1823,13 @@ static int gm_adoption_restore(gm_adoption_replacement_t *replacements,size_t co
     return rc;
 }
 
-static int gm_adoption_commit(gm_adoption_replacement_t *replacements,size_t count) {
+static CBM_MAYBE_UNUSED int gm_adoption_commit(gm_adoption_replacement_t *replacements,size_t count) {
     int rc=CBM_STORE_OK;for(size_t i=0;i<count;i++)if(replacements[i].backup_moved){if(gm_path_remove_file(replacements[i].backup_path)!=CBM_STORE_OK)rc=CBM_STORE_ERR;else replacements[i].backup_moved=0;}return rc;
 }
 
 static int gm_table_row_count(sqlite3 *db,const char *table,int *out_count) {
-    if(!db||!table||!out_count)return CBM_STORE_ERR;char sql[1024];if(gm_path_format(sql,sizeof(sql),"SELECT COUNT(*) FROM \"%s\";",table)!=CBM_STORE_OK)return CBM_STORE_ERR;
+    if(!db||!table||!out_count)return CBM_STORE_ERR;
+    char sql[1024];if(gm_path_format(sql,sizeof(sql),"SELECT COUNT(*) FROM \"%s\";",table)!=CBM_STORE_OK)return CBM_STORE_ERR;
     sqlite3_stmt *stmt=NULL;int rc=sqlite3_prepare_v2(db,sql,-1,&stmt,NULL);if(rc==SQLITE_OK&&sqlite3_step(stmt)==SQLITE_ROW){*out_count=sqlite3_column_int(stmt,0);rc=SQLITE_OK;}else rc=SQLITE_ERROR;sqlite3_finalize(stmt);return rc==SQLITE_OK?CBM_STORE_OK:CBM_STORE_ERR;
 }
 
@@ -1839,7 +1864,10 @@ static int gm_bootstrap_target_is_empty(const char *memory_path,const char *conf
     if(rc==CBM_STORE_OK)rc=gm_open_immutable_readonly(config_path,&config);
     if(rc==CBM_STORE_OK)rc=gm_open_immutable_readonly(global_graph_path,&graph);
     int valid=rc==CBM_STORE_OK&&gm_bootstrap_memory_is_empty(memory)&&gm_bootstrap_config_is_empty(config)&&gm_bootstrap_graph_is_empty(graph);
-    if(graph)sqlite3_close(graph);if(config)sqlite3_close(config);if(memory)sqlite3_close(memory);return valid?CBM_STORE_OK:(rc==CBM_STORE_OK?CBM_STORE_REJECTED:CBM_STORE_ERR);
+    if(graph)sqlite3_close(graph);
+    if(config)sqlite3_close(config);
+    if(memory)sqlite3_close(memory);
+    return valid?CBM_STORE_OK:(rc==CBM_STORE_OK?CBM_STORE_REJECTED:CBM_STORE_ERR);
 }
 
 static int gm_checks_equal(const gm_logical_check_t *a,const gm_logical_check_t *b) {
@@ -1893,7 +1921,8 @@ static int gm_migration_ledger(const char *target_memory,gm_held_file_t *held,
         else rc=CBM_STORE_ERR;
     }
     if(sqlite3_finalize(stmt)!=SQLITE_OK)rc=CBM_STORE_ERR;
-    if(sqlite3_close(db)!=SQLITE_OK)rc=CBM_STORE_ERR;return rc;
+    if(sqlite3_close(db)!=SQLITE_OK)rc=CBM_STORE_ERR;
+    return rc;
 }
 
 typedef struct {
@@ -2072,9 +2101,13 @@ int cbm_global_migration_verify_existing(const cbm_global_migration_input_t *inp
         target_rc==CBM_STORE_OK?&target:NULL,target_rc==CBM_STORE_OK?&global_graph:NULL,&ledger,
         source_exists,target_exists,sidecars_absent,source_payload_match,source_logical_match,
         target_logical_match,payload_hash);
-    if(source_memory)sqlite3_close(source_memory);if(source_graph)sqlite3_close(source_graph);if(source_config)sqlite3_close(source_config);
-    if(target_memory_db)sqlite3_close(target_memory_db);if(target_graph_db)sqlite3_close(target_graph_db);
-    if(target_config_db)sqlite3_close(target_config_db);if(target_global_graph_db)sqlite3_close(target_global_graph_db);
+    if(source_memory)sqlite3_close(source_memory);
+    if(source_graph)sqlite3_close(source_graph);
+    if(source_config)sqlite3_close(source_config);
+    if(target_memory_db)sqlite3_close(target_memory_db);
+    if(target_graph_db)sqlite3_close(target_graph_db);
+    if(target_config_db)sqlite3_close(target_config_db);
+    if(target_global_graph_db)sqlite3_close(target_global_graph_db);
     if(!*out_report_json)return CBM_STORE_ERR;
     return !strcmp(status,"verified")?CBM_STORE_OK:CBM_STORE_REJECTED;
 }

@@ -4638,7 +4638,8 @@ static int manager_table_exists(sqlite3 *db,const char *name) {
 }
 
 static int manager_count(sqlite3 *db,const char *table) {
-    if(!manager_table_exists(db,table))return 0;char sql[256];snprintf(sql,sizeof(sql),"SELECT COUNT(*) FROM %s;",table);
+    if(!manager_table_exists(db,table))return 0;
+    char sql[256];snprintf(sql,sizeof(sql),"SELECT COUNT(*) FROM %s;",table);
     sqlite3_stmt *stmt=NULL;int value=0;if(sqlite3_prepare_v2(db,sql,-1,&stmt,NULL)==SQLITE_OK&&sqlite3_step(stmt)==SQLITE_ROW)value=sqlite3_column_int(stmt,0);sqlite3_finalize(stmt);return value;
 }
 
